@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageHeader, greeting } from '../../components/ui/PageHeader';
 import { StatTile as Stat } from '../../components/ui/StatTile';
+import { BookingLinkCard } from '../../components/scheduling/BookingLinkCard';
 
 interface QueueItem {
   id: string;
@@ -109,7 +110,8 @@ export function ReceptionistDashboard() {
         />
       </div>
 
-      <Card className="overflow-hidden">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+      <Card className="overflow-hidden xl:col-span-2">
         <div className="flex items-center justify-between px-5 py-4 border-b border-line">
           <div>
             <h2 className="text-[17px] font-semibold text-text-main">Today's queue</h2>
@@ -154,6 +156,8 @@ export function ReceptionistDashboard() {
           </ul>
         )}
       </Card>
+      {user?.clinicId && <BookingLinkCard clinicId={user.clinicId} />}
+      </div>
     </div>
   );
 }

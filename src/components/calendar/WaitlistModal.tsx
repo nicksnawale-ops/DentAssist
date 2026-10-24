@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Calendar as CalendarIcon, User as UserIcon, ListTodo, Plus, AlertCircle } from 'lucide-react';
+import { format, formatDistanceToNowStrict, parseISO } from 'date-fns';
+import { X, ListTodo, Phone, AlertCircle, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { WaitlistEntry, Patient, User } from '../../types';
-import { getWaitlist } from '../../api/apiService';
-import { Badge } from '../ui/Badge';
+import { Appointment, Patient, User, WaitlistEntry } from '../../types';
+import { getWaitlist, getWaitlistMatches, WaitlistMatch } from '../../api/apiService';
+
+export interface FreedSlot {
+  dentistId: string;
+  startTime: string;
+  endTime: string;
+  entryId: string;
+}
 
 interface WaitlistModalProps {
   isOpen: boolean;
@@ -12,80 +19,113 @@ interface WaitlistModalProps {
   clinicId: string;
   patients: Patient[];
   dentists: User[];
-  onSchedule: (patientId: string, preferredDentistId?: string) => void;
+  /** When set, show who could take this just-cancelled slot. */
+  freedAppointment?: Appointment | null;
+  onSchedule: (patientId: string, preferredDentistId?: string, slot?: FreedSlot) => void;
 }
 
-export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, onSchedule }: WaitlistModalProps) {
+export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, freedAppointment, onSchedule }: WaitlistModalProps) {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [matches, setMatches] = useState<WaitlistMatch[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setIsLoading(true);
+    if (!isOpen) return;
+    setIsLoading(true);
+    if (freedAppointment) {
+      getWaitlistMatches(freedAppointment.id).then(res => {
+        setMatches(res.data || []);
+        setIsLoading(false);
+      });
+    } else {
+      setMatches(null);
       getWaitlist(clinicId).then(res => {
-        setWaitlist(res.data || []);
+        setWaitlist((res.data || []).filter(w => w.status === 'waiting'));
         setIsLoading(false);
       });
     }
-  }, [isOpen, clinicId]);
+  }, [isOpen, clinicId, freedAppointment]);
+
+  const dentistName = (id?: string) => {
+    const d = dentists.find(x => x.id === id);
+    return d ? `Dr. ${d.firstName} ${d.lastName}` : undefined;
+  };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog.Root open={isOpen} onOpenChange={open => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-base/80 backdrop-blur-sm z-50 transition-opacity" />
-        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-surface border-l border-line p-6 shadow-2xl flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
-          <div className="flex items-center justify-between mb-5 flex-none">
-            <Dialog.Title className="text-xl font-bold text-text-main flex items-center gap-2">
-              <ListTodo className="w-5 h-5 text-primary" />
-              Waitlist
+        <Dialog.Overlay className="fixed inset-0 bg-ink/40 z-50" />
+        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 w-full sm:max-w-md bg-surface border-l border-line shadow-float flex flex-col">
+          <div className="flex items-center justify-between px-5 h-14 border-b border-line flex-none">
+            <Dialog.Title className="text-[17px] font-semibold flex items-center gap-2">
+              {freedAppointment ? <Sparkles className="w-4 h-4 text-accent" /> : <ListTodo className="w-4 h-4 text-primary" />}
+              {freedAppointment ? 'Fill the freed slot' : 'Waitlist'}
             </Dialog.Title>
-            <Dialog.Close className="text-text-muted hover:text-text-main p-1.5 rounded-md hover:bg-surface-hover">
+            <Dialog.Close className="p-2 -mr-2 rounded-control text-text-muted hover:bg-base" aria-label="Close">
               <X className="w-5 h-5" />
             </Dialog.Close>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+          {freedAppointment && (
+            <div className="px-5 py-3 bg-accent/[0.06] border-b border-line text-sm">
+              <div className="font-medium">{format(parseISO(freedAppointment.startTime), "EEEE d MMM, h:mm a")}</div>
+              <div className="text-text-muted">{dentistName(freedAppointment.dentistId) || 'Dentist'} is now free. These patients asked to be called:</div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {isLoading ? (
-               <div className="text-center text-text-muted py-10">Loading...</div>
+              <p className="text-center text-sm text-text-muted py-10">Loading…</p>
+            ) : freedAppointment ? (
+              matches && matches.length > 0 ? matches.map(m => (
+                <div key={m.entryId} className="p-4 rounded-control border border-line space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-[15px] font-medium">{m.patientName}</div>
+                      <div className="text-[13px] text-text-muted">{m.preferredDateRange || 'Any time'}, waiting {formatDistanceToNowStrict(parseISO(m.waitingSince))}</div>
+                    </div>
+                    {m.phone && (
+                      <a href={`tel:${m.phone.replace(/\s/g, '')}`} className="p-2 rounded-control text-text-muted hover:text-primary hover:bg-base" aria-label={`Call ${m.patientName}`}>
+                        <Phone className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                  <Button size="sm" className="w-full" onClick={() => onSchedule(m.patientId, m.preferredDentistId, {
+                    dentistId: freedAppointment.dentistId, startTime: freedAppointment.startTime, endTime: freedAppointment.endTime, entryId: m.entryId,
+                  })}>
+                    Book into this slot
+                  </Button>
+                </div>
+              )) : (
+                <p className="text-center text-sm text-text-muted py-10">No one on the waitlist matches this slot.</p>
+              )
             ) : waitlist.length === 0 ? (
-               <div className="text-center text-text-muted py-10">
-                 <ListTodo className="w-8 h-8 mx-auto mb-3 opacity-20" />
-                 No patients on the waitlist.
-               </div>
+              <div className="text-center text-sm text-text-muted py-10">
+                <ListTodo className="w-8 h-8 mx-auto mb-3 opacity-25" />
+                No one is waiting. Add patients from the booking form when there's no suitable time.
+              </div>
             ) : (
-               waitlist.map(entry => {
-                 const patient = patients.find(p => p.id === entry.patientId);
-                 const dentist = dentists.find(d => d.id === entry.preferredDentistId);
-                 if (entry.status !== 'waiting') return null;
-                 
-                 return (
-                   <div key={entry.id} className="p-4 bg-base rounded-xl border border-line space-y-3">
-                     <div className="flex justify-between items-start gap-2">
-                       <div>
-                         <h4 className="font-bold text-sm text-text-main flex items-center gap-1.5">
-                           {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient'}
-                           {patient?.medicalHistory && (patient.medicalHistory.allergies.length > 0 || patient.medicalHistory.chronicConditions.length > 0) && (
-                             <AlertCircle className="w-3.5 h-3.5 text-error shrink-0" title="Medical Alert" />
-                           )}
-                         </h4>
-                         <p className="text-xs text-text-muted mt-0.5">{entry.preferredDateRange}</p>
-                       </div>
-                       <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/20">Waiting</Badge>
-                     </div>
-                     {dentist && (
-                       <div className="text-xs text-text-muted flex items-center gap-1.5">
-                         <UserIcon className="w-3.5 h-3.5" /> Prefers Dr. {dentist.lastName}
-                       </div>
-                     )}
-                     <div className="pt-2">
-                       <Button size="sm" className="w-full gap-2" onClick={() => onSchedule(entry.patientId, entry.preferredDentistId)}>
-                         <Plus className="w-3.5 h-3.5" />
-                         Try to schedule
-                       </Button>
-                     </div>
-                   </div>
-                 );
-               })
+              waitlist.map(entry => {
+                const patient = patients.find(p => p.id === entry.patientId);
+                const alert = patient?.medicalHistory && (patient.medicalHistory.allergies.length > 0 || patient.medicalHistory.chronicConditions.length > 0);
+                return (
+                  <div key={entry.id} className="p-4 rounded-control border border-line space-y-3">
+                    <div>
+                      <div className="text-[15px] font-medium flex items-center gap-1.5">
+                        {patient ? `${patient.firstName} ${patient.lastName}` : 'Patient'}
+                        {alert && <AlertCircle className="w-3.5 h-3.5 text-error" aria-label="Medical alert" />}
+                      </div>
+                      <div className="text-[13px] text-text-muted">
+                        {entry.preferredDateRange || 'Any time'}
+                        {dentistName(entry.preferredDentistId) && `, prefers ${dentistName(entry.preferredDentistId)}`}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" className="w-full" onClick={() => onSchedule(entry.patientId, entry.preferredDentistId)}>
+                      Find a time
+                    </Button>
+                  </div>
+                );
+              })
             )}
           </div>
         </Dialog.Content>

@@ -305,8 +305,11 @@ def test_patient_portal_flow(client, as_role):
     central = next(c for c in options if c["id"] == CENTRAL)
     assert any(d["id"] == "s1" for d in central["dentists"])
 
+    slots = client.get(f"{API}/availability/next", headers=h,
+                       params={"clinicId": CENTRAL, "dentistId": "s1", "duration": 30}).json()
+    assert len(slots) >= 2
     booked = client.post(f"{API}/patient-portal/appointments/book", headers=h, json={
-        "dentistId": "s1", "clinicId": CENTRAL, "startTime": future(8), "endTime": future(9),
+        "dentistId": "s1", "clinicId": CENTRAL, "startTime": slots[0]["startTime"], "endTime": slots[0]["endTime"],
         "procedureType": "Consultation"})
     assert booked.status_code == 201, booked.text
     appt_id = booked.json()["id"]
@@ -317,7 +320,7 @@ def test_patient_portal_flow(client, as_role):
     assert all(a["patientId"] == "pat_1" for a in mine)
 
     resched = client.post(f"{API}/patient-portal/appointments/{appt_id}/reschedule", headers=h,
-                          json={"startTime": future(10), "endTime": future(11)})
+                          json={"startTime": slots[-1]["startTime"], "endTime": slots[-1]["endTime"]})
     assert resched.status_code == 200
     cancel = client.post(f"{API}/patient-portal/appointments/{appt_id}/cancel", headers=h, json={"reason": "Travel"})
     assert cancel.json()["status"] == "cancelled"

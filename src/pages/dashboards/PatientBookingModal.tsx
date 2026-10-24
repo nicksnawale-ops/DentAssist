@@ -3,7 +3,7 @@ import { X, MapPin, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { format, addDays, startOfToday, addMinutes } from 'date-fns';
 import { Address, Appointment } from '../../types';
-import { BookingOption, bookMyAppointment, getBookingOptions, rescheduleMyAppointment } from '../../api/apiService';
+import { BookingOption, bookMyAppointment, FreeSlot, getAvailability, getBookingOptions, rescheduleMyAppointment } from '../../api/apiService';
 
 interface PatientBookingModalProps {
   onClose: () => void;
@@ -22,8 +22,9 @@ const REASONS = [
   'Emergency'
 ];
 
-const SLOT_MINUTES = 30;
-const TIME_SLOTS = ['09:00', '09:30', '10:00', '11:00', '14:00', '15:30', '16:00'];
+const REASON_MINUTES: Record<string, number> = {
+  'Routine Checkup': 30, 'Tooth Pain': 30, 'Cleaning': 45, 'Cosmetic Consultation': 30, 'Follow-up': 15,
+};
 
 export function formatAddress(address?: Address | string): string {
   if (!address) return '';
@@ -38,7 +39,8 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
   const [clinicId, setClinicId] = useState(rescheduleAppointment?.clinicId || '');
   const [dentistId, setDentistId] = useState(rescheduleAppointment?.dentistId || '');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState<FreeSlot | null>(null);
+  const [slots, setSlots] = useState<FreeSlot[] | null>(null);
   const [options, setOptions] = useState<BookingOption[]>([]);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,6 +57,18 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
   const next14Days = Array.from({ length: 14 }).map((_, i) => addDays(today, i + 1));
 
   const isEmergency = reason === 'Emergency';
+  const minutes = rescheduleAppointment
+    ? Math.round((new Date(rescheduleAppointment.endTime).getTime() - new Date(rescheduleAppointment.startTime).getTime()) / 60000)
+    : REASON_MINUTES[reason] || 30;
+
+  // Real free times for the chosen day (clinic and dentist hours, minus existing bookings).
+  useEffect(() => {
+    if (!selectedDate || !clinicId) return;
+    setSlots(null);
+    setSelectedSlot(null);
+    getAvailability({ clinicId, date: format(selectedDate, 'yyyy-MM-dd'), duration: minutes, dentistId: dentistId || undefined })
+      .then(res => setSlots(res.data || []));
+  }, [selectedDate, clinicId, dentistId, minutes]);
   const selectedClinic = options.find(c => c.id === clinicId);
   const dentists = selectedClinic?.dentists || [];
 
@@ -64,19 +78,13 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
   };
 
   const handleBook = async () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedSlot) return;
     setSubmitError(null);
-    const [hours, minutes] = selectedTime.split(':').map(Number);
-    const start = new Date(selectedDate);
-    start.setHours(hours, minutes, 0, 0);
-    const end = addMinutes(start, SLOT_MINUTES);
+    const start = new Date(selectedSlot.startTime);
+    const end = new Date(selectedSlot.endTime);
 
-    // "No preference" books the first dentist available at the clinic.
-    const chosenDentist = dentistId || dentists[0]?.id;
-    if (!chosenDentist) {
-      setSubmitError('No dentist is available for online booking at this clinic. Please call the clinic.');
-      return;
-    }
+    // "No preference": the slot already tells us which dentist is free.
+    const chosenDentist = selectedSlot.dentistId;
 
     setSubmitting(true);
     const res = isReschedule
@@ -233,22 +241,28 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
 
               {selectedDate && (
                 <div>
-                  <h3 className="text-sm font-semibold text-text-main mb-3">Available Times</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {TIME_SLOTS.map(t => (
-                      <button
-                        key={t}
-                        onClick={() => setSelectedTime(t)}
-                        className={`py-2 px-3 text-sm font-bold border rounded-lg transition-colors ${
-                          selectedTime === t
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-line text-text-main hover:border-primary/50'
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <h3 className="text-sm font-semibold text-text-main mb-3">Available times</h3>
+                  {slots === null ? (
+                    <div className="grid grid-cols-3 gap-3">{[...Array(6)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-base animate-pulse" />)}</div>
+                  ) : slots.length === 0 ? (
+                    <p className="text-sm text-text-muted">No free times on this day. Please pick another day.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3 max-h-56 overflow-y-auto">
+                      {slots.filter((s, i, all) => dentistId || all.findIndex(x => x.startTime === s.startTime) === i).map(s => (
+                        <button
+                          key={`${s.dentistId}${s.startTime}`}
+                          onClick={() => setSelectedSlot(s)}
+                          className={`py-2 px-3 text-sm font-semibold border rounded-lg transition-colors ${
+                            selectedSlot?.startTime === s.startTime
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-line text-text-main hover:border-primary/50'
+                          }`}
+                        >
+                          {format(new Date(s.startTime), 'h:mm a')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -258,7 +272,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
 
               <div className="pt-4 flex justify-between border-t border-line">
                 {isReschedule ? <div /> : <Button variant="outline" onClick={() => setStep(2)}>Back</Button>}
-                <Button onClick={handleBook} loading={submitting} disabled={!selectedDate || !selectedTime}>
+                <Button onClick={handleBook} loading={submitting} disabled={!selectedSlot}>
                   {isReschedule ? 'Confirm New Time' : 'Confirm Booking'}
                 </Button>
               </div>

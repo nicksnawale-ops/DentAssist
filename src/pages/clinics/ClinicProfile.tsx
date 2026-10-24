@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { DataTable, ColumnDef } from '../../components/ui/DataTable';
 import { ClinicFormModal } from '../../components/clinics/ClinicFormModal';
+import { BookingLinkCard } from '../../components/scheduling/BookingLinkCard';
 import { useToast } from '../../components/ui/useToast';
 import { formatCurrency } from '../../utils/currencyConfig';
 
@@ -304,6 +305,32 @@ export function ClinicProfile() {
             columns={staffCols}
             data={mockStaff} // In real app, filter by clinic.id
           />
+        </div>
+      )}
+
+      {clinic && clinic.status === 'active' && (
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {clinic.onlineBookingEnabled !== false ? (
+            <BookingLinkCard clinicId={clinic.id} clinicName={clinic.name} />
+          ) : (
+            <Card className="p-5">
+              <h2 className="text-[15px] font-semibold">Online booking is off</h2>
+              <p className="text-[13px] text-text-muted">Patients can only book by calling or visiting.</p>
+            </Card>
+          )}
+          <Card className="p-5 flex flex-col justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-semibold">Let patients book online</h2>
+              <p className="text-[13px] text-text-muted">Only free times within clinic and dentist hours are offered, with at least 2 hours' notice.</p>
+            </div>
+            <Button
+              variant="outline"
+              className="self-start"
+              onClick={() => handleSave({ onlineBookingEnabled: clinic.onlineBookingEnabled === false })}
+            >
+              {clinic.onlineBookingEnabled === false ? 'Turn online booking on' : 'Turn online booking off'}
+            </Button>
+          </Card>
         </div>
       )}
 

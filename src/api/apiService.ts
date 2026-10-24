@@ -249,7 +249,7 @@ export async function getMyAppointments(): Promise<ApiResponse<Appointment[]>> {
  * Books an appointment. The backend rejects double-booking a dentist with
  * error code APPOINTMENT_CONFLICT; pass allowOverlap=true to book anyway.
  */
-export async function createAppointment(data: Partial<Appointment> & { allowOverlap?: boolean }): Promise<ApiResponse<Appointment>> {
+export async function createAppointment(data: Partial<Appointment> & { allowOverlap?: boolean; waitlistEntryId?: string }): Promise<ApiResponse<Appointment>> {
   if (!USE_MOCK_API) {
     const { id, createdAt, updatedAt, ...payload } = data;
     return http.post('/appointments', payload);
@@ -422,3 +422,57 @@ export async function addToWaitlist(data: Partial<WaitlistEntry>): Promise<ApiRe
     return entry;
   });
 }
+
+// ---------- Smart scheduling ----------
+
+export interface FreeSlot {
+  dentistId: string;
+  dentistName: string;
+  startTime: string;
+  endTime: string;
+}
+
+/** Free times for one day (clinic hours ∩ dentist hours, minus bookings). */
+export async function getAvailability(params: { clinicId: string; date: string; duration: number; dentistId?: string }): Promise<ApiResponse<FreeSlot[]>> {
+  if (!USE_MOCK_API) return http.get('/availability', { ...params });
+  return apiClient(() => mockSlots(params.date, params.duration, params.dentistId));
+}
+
+/** The earliest free times over the next few weeks. */
+export async function getNextAvailable(params: { clinicId: string; duration: number; dentistId?: string; limit?: number }): Promise<ApiResponse<FreeSlot[]>> {
+  if (!USE_MOCK_API) return http.get('/availability/next', { ...params });
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return apiClient(() => mockSlots(d.toISOString().slice(0, 10), params.duration, params.dentistId).filter((_, i) => i % 4 === 0).slice(0, params.limit || 6));
+}
+
+function mockSlots(date: string, duration: number, dentistId?: string): FreeSlot[] {
+  const out: FreeSlot[] = [];
+  for (let m = 9 * 60; m + duration <= 17 * 60; m += 30) {
+    const start = new Date(`${date}T${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`);
+    if (start.getTime() < Date.now()) continue;
+    out.push({ dentistId: dentistId || 's1', dentistName: 'Dr. Sarah Smith', startTime: start.toISOString(), endTime: new Date(start.getTime() + duration * 60000).toISOString() });
+  }
+  return out;
+}
+
+export interface WaitlistMatch {
+  entryId: string;
+  patientId: string;
+  patientName: string;
+  phone: string;
+  preferredDateRange: string;
+  preferredDentistId?: string;
+  waitingSince: string;
+}
+
+export async function getWaitlistMatches(appointmentId: string): Promise<ApiResponse<WaitlistMatch[]>> {
+  if (!USE_MOCK_API) return http.get(`/appointments/${encodeURIComponent(appointmentId)}/waitlist-matches`);
+  return apiClient(() => mockWaitlist.filter(w => w.status === 'waiting').map(w => {
+    const p = mockPatients.find(x => x.id === w.patientId);
+    return { entryId: w.id, patientId: w.patientId, patientName: p ? `${p.firstName} ${p.lastName}` : 'Patient', phone: p?.phone || '', preferredDateRange: w.preferredDateRange, preferredDentistId: w.preferredDentistId, waitingSince: w.createdAt };
+  }));
+}
+
+/** Fired after an appointment is cancelled, so the calendar can offer the slot to the waitlist. */
+export const SLOT_FREED_EVENT = 'dentassist:slot-freed';

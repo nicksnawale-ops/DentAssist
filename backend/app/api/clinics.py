@@ -13,7 +13,7 @@ from app.services import audit
 router = APIRouter(prefix="/clinics", tags=["clinics"])
 
 SuperAdmin = Depends(require_roles("super_admin"))
-_REQUIRED = {"name", "status", "timezone"}  # NOT NULL columns: ignore explicit nulls
+_REQUIRED = {"name", "status", "timezone", "online_booking_enabled"}  # NOT NULL columns: ignore explicit nulls
 
 
 def _staff_counts(db) -> Counter:

@@ -7,10 +7,11 @@ from sqlalchemy.orm import Session
 from app.api.patients import get_patient_for
 from app.core.deps import DbSession, StaffUser, accessible_clinic_ids, ensure_clinic_access
 from app.core.errors import bad_request, not_found
-from app.models import Appointment, User
+from app.models import Appointment, User, WaitlistEntry
 from app.schemas import AppointmentCreate, AppointmentOut, AppointmentUpdate, CancelRequest, column_values
 from app.services import audit
 from app.services.scheduling import as_utc, ensure_no_overlap, validate_dentist_and_clinic
+from app.services.waitlist import notify_slot_freed
 
 router = APIRouter(prefix="/appointments", tags=["appointments"])
 
@@ -67,10 +68,14 @@ def create_appointment(body: AppointmentCreate, user: StaffUser, db: DbSession):
     if not body.allow_overlap:
         ensure_no_overlap(db, body.dentist_id, body.start_time, body.end_time)
 
-    appt = Appointment(**column_values(body, exclude={"allow_overlap"}))
+    appt = Appointment(**column_values(body, exclude={"allow_overlap", "waitlist_entry_id"}))
     appt.start_time, appt.end_time = as_utc(body.start_time), as_utc(body.end_time)
     appt.status = body.status or "scheduled"
     db.add(appt)
+    if body.waitlist_entry_id:
+        entry = db.get(WaitlistEntry, body.waitlist_entry_id)
+        if entry and entry.clinic_id == appt.clinic_id and entry.patient_id == appt.patient_id:
+            entry.status = "scheduled"
     db.flush()
     audit.record(db, user, "create", "appointment", appt.id, after=AppointmentOut.model_validate(appt))
     db.commit()
@@ -100,6 +105,8 @@ def update_appointment(appointment_id: str, body: AppointmentUpdate, user: Staff
         raise bad_request("endTime must be after startTime", "INVALID_TIME_RANGE")
 
     moved = {"clinic_id", "dentist_id", "start_time", "end_time"} & data.keys()
+    old_slot = Appointment(patient_id=appt.patient_id, dentist_id=appt.dentist_id, clinic_id=appt.clinic_id,
+                           start_time=appt.start_time, end_time=appt.end_time)
     if moved:
         validate_dentist_and_clinic(db, dentist_id, clinic_id)
         if not body.allow_overlap:
@@ -109,6 +116,10 @@ def update_appointment(appointment_id: str, body: AppointmentUpdate, user: Staff
         if value is not None or key == "notes":
             setattr(appt, key, value)
     appt.start_time, appt.end_time = start, end
+    if moved and (as_utc(old_slot.start_time) != start or old_slot.dentist_id != appt.dentist_id):
+        notify_slot_freed(db, old_slot)
+    elif data.get("status") in ("cancelled", "no_show"):
+        notify_slot_freed(db, appt)
     audit.record(db, user, "update", "appointment", appt.id, before=before, after=AppointmentOut.model_validate(appt))
     db.commit()
     return appt
@@ -121,6 +132,7 @@ def _cancel(db: Session, user: User, appointment_id: str, reason: str | None) ->
     appt.status = "cancelled"
     if reason:
         appt.notes = append_note(appt.notes, f"Cancellation Reason: {reason}")
+    notify_slot_freed(db, appt)
     audit.record(db, user, "cancel", "appointment", appt.id, after={"reason": reason})
     db.commit()
     return appt

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { X, Calendar as CalendarIcon, Clock, User as UserIcon, AlertCircle, FileText } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, User as UserIcon, AlertCircle, FileText, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Patient, User, Appointment, WaitlistEntry } from '../../types';
-import { createAppointment, getAppointments, createPatient, addToWaitlist } from '../../api/apiService';
+import { createAppointment, getAppointments, createPatient, addToWaitlist, getNextAvailable, FreeSlot } from '../../api/apiService';
 import { format, parseISO, addMinutes, isBefore, isAfter } from 'date-fns';
 
 interface AppointmentFormModalProps {
@@ -14,6 +14,9 @@ interface AppointmentFormModalProps {
   initialDate?: Date;
   initialDentistId?: string;
   initialPatientId?: string;
+  initialDuration?: number;
+  /** Booking a waitlisted patient: their entry is marked scheduled. */
+  waitlistEntryId?: string;
   patients: Patient[];
   dentists: User[];
   onSuccess: () => void;
@@ -25,7 +28,7 @@ const PROCEDURE_TYPES = [
   'Whitening', 'Implant Consultation', 'Follow-up', 'Emergency'
 ];
 
-export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, initialDentistId, initialPatientId, patients, dentists, onSuccess }: AppointmentFormModalProps) {
+export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, initialDentistId, initialPatientId, initialDuration, waitlistEntryId, patients, dentists, onSuccess }: AppointmentFormModalProps) {
   const [patientId, setPatientId] = useState<string>(initialPatientId || '');
   const [isNewPatient, setIsNewPatient] = useState(false);
   const [newPatientData, setNewPatientData] = useState({ 
@@ -39,7 +42,9 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
   const [procedureType, setProcedureType] = useState(PROCEDURE_TYPES[0]);
   const [date, setDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
   const [startTime, setStartTime] = useState(initialDate ? format(initialDate, 'HH:mm') : '09:00');
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(initialDuration || 30);
+  const [suggestions, setSuggestions] = useState<FreeSlot[] | null>(null);
+  const [findingSlots, setFindingSlots] = useState(false);
   const [notes, setNotes] = useState('');
   const [sendWhatsApp, setWhatsApp] = useState(true);
   
@@ -70,6 +75,9 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
       setConflictWarning(null);
       setHasCheckedConflict(false);
       setSubmitError(null);
+      setSuggestions(null);
+      if (initialPatientId) { setPatientId(initialPatientId); setIsNewPatient(false); }
+      if (initialDuration) setDuration(initialDuration);
     }
   }, [isOpen, clinicId, initialDate, initialDentistId]);
 
@@ -96,6 +104,25 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
       setHasCheckedConflict(true);
     }
   }, [date, startTime, duration, dentistId, appointments, patients]);
+
+  const findTimes = async () => {
+    if (!effectiveClinicId) {
+      setSubmitError('Choose a clinic or dentist first.');
+      return;
+    }
+    setFindingSlots(true);
+    const res = await getNextAvailable({ clinicId: effectiveClinicId, duration, dentistId: dentistId || undefined, limit: 6 });
+    setFindingSlots(false);
+    setSuggestions(res.data || []);
+  };
+
+  const pickSlot = (s: FreeSlot) => {
+    const d = new Date(s.startTime);
+    setDate(format(d, 'yyyy-MM-dd'));
+    setStartTime(format(d, 'HH:mm'));
+    setDentistId(s.dentistId);
+    setSuggestions(null);
+  };
 
   /** Creates the new patient (if any) and returns its id, or null with submitError set. */
   const resolvePatientId = async (): Promise<string | null> => {
@@ -145,6 +172,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
           status: 'scheduled',
           // The overlap warning is shown above the form; submitting anyway is an explicit override.
           allowOverlap: !!conflictWarning && i === 0,
+          waitlistEntryId: i === 0 ? waitlistEntryId : undefined,
         });
         if (res.data) booked++;
         else failures.push(`${format(currDate, 'dd MMM yyyy HH:mm')}: ${res.error?.message || 'failed'}`);
@@ -299,6 +327,32 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
                   <label className="text-xs font-semibold text-text-muted flex items-center gap-1"><Clock className="w-3.5 h-3.5"/> Duration (Mins)</label>
                   <Input type="number" step="5" min="10" value={duration} onChange={e => setDuration(Number(e.target.value))} required />
                 </div>
+              </div>
+
+              <div>
+                <Button type="button" variant="ghost" size="sm" onClick={findTimes} loading={findingSlots}>
+                  <Sparkles className="w-4 h-4" /> Find next free times
+                </Button>
+                {suggestions && (
+                  suggestions.length === 0 ? (
+                    <p className="mt-2 text-sm text-text-muted">No free {duration}-minute slots in the next three weeks for this selection.</p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2" role="list" aria-label="Suggested times">
+                      {suggestions.map(sl => (
+                        <button
+                          type="button"
+                          role="listitem"
+                          key={`${sl.dentistId}${sl.startTime}`}
+                          onClick={() => pickSlot(sl)}
+                          className="px-3 py-1.5 rounded-control border border-line bg-surface hover:border-accent text-left"
+                        >
+                          <span className="block text-[13px] font-medium">{format(new Date(sl.startTime), 'EEE d MMM, h:mm a')}</span>
+                          <span className="block text-[11px] text-text-muted">{sl.dentistName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                )}
               </div>
 
               {conflictWarning && (
