@@ -151,6 +151,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
     seed_medicines(db)
     seed_templates(db)
     seed_inventory(db)
+    seed_team(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -466,3 +467,36 @@ def seed_inventory(db: Session) -> None:
         for k, st in enumerate(flow[: flow.index(status) + 1]):
             db.add(LabOrderUpdate(lab_order_id=o.id, status=st, note="" if k else "Sent to lab",
                                   created_at=now - timedelta(days=max(ago - k * 2, 0))))
+
+
+def seed_team(db: Session) -> None:
+    """Pay rules for the two dentists and a few weeks of attendance."""
+    from decimal import Decimal as D
+
+    from app.models import AttendanceRecord, CompensationPlan
+
+    db.add(CompensationPlan(staff_id="s1", clinic_id=DEFAULT_CLINIC, arrangement="associate", basis="collections",
+                            percent=D("40"), lab_share_percent=D("50"), minimum_guarantee=D("40000"), tds_percent=D("10"),
+                            notes="Associate: 40% of collections, half of lab bills, ₹40,000 minimum"))
+    db.add(CompensationPlan(staff_id="s3", clinic_id=None, arrangement="consultant", basis="collections",
+                            percent=D("50"), lab_share_percent=D("100"), tds_percent=D("10"),
+                            notes="Visiting endodontist: 50% of collections after lab costs"))
+    tz = ZoneInfo("Asia/Kolkata")
+    today = datetime.now(tz).date()
+    rng = random.Random(7)
+    for staff_id, start_hour in (("s1", 9), ("s2", 9), ("s3", 10)):
+        for back in range(1, 26):
+            day = today - timedelta(days=back)
+            if day.weekday() == 6:
+                continue
+            roll = rng.random()
+            if roll < 0.05:
+                db.add(AttendanceRecord(staff_id=staff_id, clinic_id=DEFAULT_CLINIC, day=day, status="leave", source="admin",
+                                        note="Planned leave"))
+                continue
+            late = rng.choice([0, 0, 0, 0, 5, 18, 32])
+            cin = datetime.combine(day, time(start_hour, 0), tzinfo=tz) + timedelta(minutes=late)
+            cout = cin + timedelta(hours=8 if roll > 0.15 else 4, minutes=rng.randint(0, 40))
+            db.add(AttendanceRecord(staff_id=staff_id, clinic_id=DEFAULT_CLINIC, day=day,
+                                    status="present" if roll > 0.15 else "half_day", check_in_at=cin.astimezone(timezone.utc),
+                                    check_out_at=cout.astimezone(timezone.utc), late_minutes=late if late > 10 else 0))

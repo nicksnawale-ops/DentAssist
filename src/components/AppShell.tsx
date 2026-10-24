@@ -19,6 +19,7 @@ import {
   ClipboardList,
   MessageSquare,
   BellRing,
+  BadgeIndianRupee,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -27,6 +28,7 @@ import { Avatar, AvatarFallback } from './ui/Avatar';
 import { NotificationDropdown } from './NotificationDropdown';
 import { ClinicSwitcher } from './ClinicSwitcher';
 import { GlobalSearch } from './GlobalSearch';
+import { CheckInButton } from './team/CheckInButton';
 import { cn } from '../lib/utils';
 import { BrandMark } from './ui/BrandMark';
 
@@ -51,6 +53,7 @@ const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
 const RECALLS = item('/recalls', 'Recalls', BellRing);
+const TEAM = item('/team', 'Team & pay', BadgeIndianRupee);
 const REPORTS = item('/reports', 'Analytics', BarChart3);
 const STAFF = item('/staff', 'Staff', Users);
 const CLINICS = item('/clinics', 'Clinics', Building2);
@@ -61,22 +64,22 @@ const NAV: Record<Role, NavGroup[]> = {
   super_admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
     { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, MESSAGES, REPORTS] },
-    { title: 'Organisation', items: [CLINICS, STAFF, SETTINGS] },
+    { title: 'Organisation', items: [CLINICS, STAFF, TEAM, SETTINGS] },
   ],
   admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
     { title: 'Operations', items: [BILLING, RECALLS, MESSAGES, REPORTS] },
-    { title: 'Clinic', items: [STAFF, SETTINGS] },
+    { title: 'Clinic', items: [STAFF, TEAM, SETTINGS] },
   ],
   dentist: [
     { items: [DASHBOARD, item('/schedule', 'My schedule', CalendarDays), PATIENTS, item('/treatments', 'Treatment plans', FileText)] },
     { title: 'Clinic', items: [BILLING, INVENTORY, MESSAGES, item('/reports', 'My performance', BarChart3)] },
-    { title: 'Account', items: [SETTINGS] },
+    { title: 'Account', items: [item('/team', 'My attendance & pay', BadgeIndianRupee), SETTINGS] },
   ],
   receptionist: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
     { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY] },
-    { title: 'Account', items: [SETTINGS] },
+    { title: 'Account', items: [item('/team', 'My attendance', BadgeIndianRupee), SETTINGS] },
   ],
   patient: [
     { items: [item('/', 'Home', LayoutDashboard), item('/appointments', 'Appointments', CalendarDays), item('/records', 'My records', ClipboardList), item('/bills', 'Bills', Wallet)] },
@@ -285,6 +288,7 @@ export function AppShell() {
                 <Search className="w-5 h-5" />
               </button>
             )}
+            {isStaff && user?.role !== 'super_admin' && <CheckInButton />}
             <NotificationDropdown />
             <div className="hidden md:flex items-center gap-3 pl-3 ml-1 border-l border-line">
               <div className="text-right leading-tight">
