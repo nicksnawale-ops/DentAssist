@@ -29,13 +29,16 @@ export function PatientProfile() {
   const [loadingPatient, setLoadingPatient] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [planTooth, setPlanTooth] = useState<string | null>(null);
   const [isAlertEnabled, setIsAlertEnabled] = useState(true);
   const [isAlertExpanded, setIsAlertExpanded] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   
-  const { selectedClinicId } = useAuth();
+  const { selectedClinicId, user } = useAuth();
   const { toast } = useToast();
+  // Chart and clinical notes are for clinicians; reception sees plans and billing.
+  const isClinicalRole = user?.role === 'dentist' || user?.role === 'admin' || user?.role === 'super_admin';
 
   const loadAppointments = React.useCallback(async (patientId: string) => {
     const res = await getAppointments({ patientId });
@@ -225,12 +228,14 @@ export function PatientProfile() {
           <Tabs.Trigger value="treatment" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
             <ClipboardList className="w-4 h-4" /> Treatment Plans
           </Tabs.Trigger>
+          {isClinicalRole && (<>
           <Tabs.Trigger value="dental-chart" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
             <Activity className="w-4 h-4" /> Dental Chart
           </Tabs.Trigger>
           <Tabs.Trigger value="notes" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
             <FileText className="w-4 h-4" /> Clinical Notes
           </Tabs.Trigger>
+          </>)}
           <Tabs.Trigger value="billing" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
             <Wallet className="w-4 h-4" /> Billing
           </Tabs.Trigger>
@@ -373,11 +378,15 @@ export function PatientProfile() {
           </Tabs.Content>
 
           <Tabs.Content value="treatment" className="outline-none">
-             <TreatmentPlansTab patientId={patient.id} />
+             <TreatmentPlansTab patientId={patient.id} prefillTooth={planTooth} onPrefillUsed={() => setPlanTooth(null)} />
           </Tabs.Content>
           
           <Tabs.Content value="dental-chart" className="outline-none">
-             <DentalChart patientId={patient.id} initialAge={typeof age === 'number' ? age : 'Unknown'} />
+             <DentalChart
+               patientId={patient.id}
+               initialAge={typeof age === 'number' ? age : 'Unknown'}
+               onAddToPlan={tooth => { setPlanTooth(tooth); setActiveTab('treatment'); }}
+             />
           </Tabs.Content>
           
           <Tabs.Content value="notes" className="outline-none">

@@ -15,13 +15,12 @@ export function PatientRecordsView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Dental Records</h1>
-        <p className="text-sm text-text-muted">Review your chart, treatment plans, and uploaded documents.</p>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My records</h1>
       </div>
 
-      <div className="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20 text-sm text-blue-700 font-medium">
-        This is a read-only view of your clinical records. If you have any questions about these documents or treatments, please contact your dentist.
-      </div>
+      <p className="text-sm text-text-muted -mt-2">
+        This is what your dentist has recorded. For questions about any treatment, please speak to your clinic.
+      </p>
 
       <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="bg-surface rounded-panel border border-line shadow-panel overflow-hidden flex flex-col">
         <Tabs.List className="flex border-b border-line bg-base px-2 pt-2 overflow-x-auto scrollbar-hide">
@@ -45,17 +44,12 @@ export function PatientRecordsView() {
           </Tabs.Trigger>
         </Tabs.List>
         
-        <div className="p-6 bg-surface min-h-[500px]">
+        <div className="p-4 sm:p-6 bg-surface min-h-[400px]">
           <Tabs.Content value="chart" className="outline-none h-full">
-             <div className="pointer-events-none">
-               <DentalChart patientId={user.id} initialAge={35} />
-             </div>
+             <DentalChart patientId={user.patientId || user.id} initialAge="Unknown" readOnly />
           </Tabs.Content>
           <Tabs.Content value="plans" className="outline-none h-full">
-             <div className="pointer-events-none">
-                {/* Wrap in pointer-events-none to prevent editing, but they can still read */}
-                <TreatmentPlansTab patientId={user.id} />
-             </div>
+             <TreatmentPlansTab patientId={user.patientId || user.id} readOnly />
           </Tabs.Content>
           <Tabs.Content value="documents" className="outline-none h-full">
             <DocumentsTab patientId={user.id} />

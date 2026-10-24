@@ -18,13 +18,30 @@ Backend for VisionEdge DentAssist, implementing the first slice of `CONTRACT.md`
 | Billing | procedure catalog, invoices (draft → issue → paid/overdue, void), payments, payment plans, insurance claims |
 | Online payments | Razorpay orders, browser verification and signed webhook (UPI, cards, net banking) |
 | Reports | revenue by month/method/clinic, outstanding balances with ageing |
+| Dental chart | per-tooth conditions with full history, view as of any past date, periodontal exams |
+| Treatment plans | build from the catalog, propose, approve, tick off procedures, turn into an invoice |
+| Clinical notes | SOAP notes, editable by the author for 24 hours, then locked |
 | Settings | RBAC matrix, platform subscription, audit log |
 
 All JSON is camelCase to match `src/types.ts`. Errors always look like
 `{"message": "...", "code": "SOME_CODE", "fieldErrors": {...}}`.
 
-**Not yet on the backend** (the frontend still uses mock data for these): dental chart, treatment
-plans, clinical notes, documents, inventory, purchase orders, suppliers, lab orders, WhatsApp.
+**Not yet on the backend** (the frontend still uses mock data for these): documents, inventory,
+purchase orders, suppliers, lab orders, WhatsApp.
+
+## Clinical records rules
+
+- Tooth numbers are FDI (11–48 adult, 51–85 milk teeth). Every change to a tooth is appended to its
+  history, so the chart can be shown as it was on any earlier exam date.
+- Plans move Draft → Proposed → Approved → In Progress → Completed. Prices are locked once a plan is
+  approved; ticking a procedure done also writes "<procedure> completed" into that tooth's history,
+  and the plan completes itself when every item is done.
+- An approved plan can be invoiced once (a voided invoice can be replaced). GST follows the
+  catalog: only cosmetic items are taxed.
+- Clinical notes are medico-legal records: only the author can edit, and only for 24 hours. After
+  that, corrections are made by adding a new note.
+- Dentists and clinic admins write clinical records; super admins can read them; reception can see
+  plans (for billing) but not the chart or notes; patients see their own chart and non-draft plans.
 
 ## Billing rules
 

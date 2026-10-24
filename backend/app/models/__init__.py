@@ -283,3 +283,107 @@ class PaymentOrder(Base):
     status: Mapped[str] = mapped_column(String(20), default="created", nullable=False)  # created | paid | failed
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Clinical records
+# ---------------------------------------------------------------------------
+
+class ToothRecord(Base):
+    """Current state of one tooth (FDI number) for a patient."""
+
+    __tablename__ = "tooth_records"
+    __table_args__ = (Index("uq_tooth_records_patient_tooth", "patient_id", "tooth_number", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    tooth_number: Mapped[str] = mapped_column(String(3), nullable=False)
+    conditions: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    updated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class ToothEvent(Base):
+    """Append-only history of tooth changes; also lets the chart be viewed as of a past date."""
+
+    __tablename__ = "tooth_events"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    tooth_number: Mapped[str] = mapped_column(String(3), nullable=False)
+    action: Mapped[str] = mapped_column(String(300), nullable=False)
+    conditions: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class PerioReading(Base):
+    __tablename__ = "periodontal_readings"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    tooth_number: Mapped[str] = mapped_column(String(3), nullable=False)
+    # {"buccal": [d, m, d], "lingual": [d, m, d]} pocket depths in mm
+    measurement_points: Mapped[dict] = mapped_column(JSONType, nullable=False)
+    bleeding_on_probing: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    recorded_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class TreatmentPlan(TimestampMixin, Base):
+    __tablename__ = "treatment_plans"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Draft | Proposed | Approved | In Progress | Completed
+    status: Mapped[str] = mapped_column(String(20), default="Draft", nullable=False, index=True)
+    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    discount_type: Mapped[str] = mapped_column(String(12), default="flat", nullable=False)
+    discount_reason: Mapped[str | None] = mapped_column(String(300))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id", ondelete="SET NULL"))
+
+    items: Mapped[list["TreatmentPlanItem"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan", order_by="TreatmentPlanItem.sort_order", lazy="selectin"
+    )
+
+
+class TreatmentPlanItem(Base):
+    __tablename__ = "treatment_plan_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("treatment_plans.id", ondelete="CASCADE"), nullable=False, index=True)
+    procedure_id: Mapped[str | None] = mapped_column(ForeignKey("procedures.id", ondelete="SET NULL"))
+    procedure_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    tooth_number: Mapped[str | None] = mapped_column(String(40))
+    cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    taxable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(12), default="Pending", nullable=False)  # Pending | Scheduled | Completed
+    linked_appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    plan: Mapped[TreatmentPlan] = relationship(back_populates="items")
+
+
+class ClinicalNote(Base):
+    """SOAP note. Editable by its author for 24 hours, then locked (add a new note to correct it)."""
+
+    __tablename__ = "clinical_notes"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    subjective: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    objective: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    assessment: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    plan: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)

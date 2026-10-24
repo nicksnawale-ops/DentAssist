@@ -8,6 +8,7 @@ import { PatientBills } from './pages/billing/PatientBills';
 import { InventoryDashboard } from './pages/inventory/InventoryDashboard';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { PlaceholderPage } from './pages/PlaceholderPage';
+import { TreatmentPlansPage } from './pages/treatments/TreatmentPlansPage';
 import { BarChart3, CalendarDays, ClipboardList } from 'lucide-react';
 import { RoleRoute } from './components/RoleRoute';
 import { AccessDenied } from './pages/AccessDenied';
@@ -77,12 +78,7 @@ function AppRoutes() {
           icon={CalendarDays}
           plannedFeatures={['Daily and weekly calendar views', 'Quick-block personal time', 'Drag-and-drop rescheduling']}
         /></RoleRoute>} />
-        <Route path="treatments" element={<RoleRoute allowedRoles={['dentist']}><PlaceholderPage 
-          title="Treatment Plans" 
-          description="Review active treatment plans, track patient progress, and manage proposed procedures."
-          icon={ClipboardList}
-          plannedFeatures={['Track multi-phase treatments', 'Monitor plan acceptance rates', 'Review historical procedures']}
-        /></RoleRoute>} />
+        <Route path="treatments" element={<RoleRoute allowedRoles={['dentist', 'admin', 'super_admin']}><TreatmentPlansPage /></RoleRoute>} />
         
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />
         
