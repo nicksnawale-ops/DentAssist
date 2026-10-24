@@ -118,6 +118,20 @@ DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "or reply BOOK and we'll call you.",
         "params": ["patient_first_name", "item", "clinic_name", "booking_link"],
     },
+    "lead_ack": {
+        "label": "New enquiry: thank you",
+        "metaName": "enquiry_received", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, thank you for contacting {{2}}. Our team will call you shortly. "
+                "You can also book a visit here: {{3}}",
+        "params": ["first_name", "clinic_name", "booking_link"],
+    },
+    "lead_followup": {
+        "label": "Enquiry follow-up",
+        "metaName": "enquiry_followup", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, this is {{2}} following up on your enquiry about {{3}}. "
+                "Book a consultation here: {{4}} or reply BOOK and we'll call you.",
+        "params": ["first_name", "clinic_name", "treatment", "booking_link"],
+    },
 }
 
 for _key, _tpl in DEFAULT_TEMPLATES.items():
@@ -129,7 +143,7 @@ CANCEL_WORDS = {"cancel", "cancelled", "cancel it", "2"} | i18n.CANCEL_WORDS_LOC
 RESCHEDULE_WORDS = {"reschedule", "change", "3"} | i18n.RESCHEDULE_WORDS_LOCAL
 YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"} | i18n.YES_WORDS_LOCAL
 REPLYABLE_KINDS = ["appointment_reminder", "reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer",
-                   "recall_checkup", "recall_treatment", "lab_ready"]
+                   "recall_checkup", "recall_treatment", "lab_ready", "lead_ack", "lead_followup"]
 BOOK_WORDS = {"book", "book please", "yes", "ok", "बुक", "हाँ", "हां", "हो"}
 
 
@@ -439,6 +453,13 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
     db.flush()
 
     lang = i18n.language_of(patient.communication_prefs) if patient else "en"
+    if source and source.kind in ("lead_ack", "lead_followup") or (patient is None and source is None):
+        from app.services import leads  # avoid import cycle
+
+        handled = leads.handle_whatsapp(db, phone, text, word in BOOK_WORDS, source)
+        if handled:
+            return handled
+
     if source and source.kind == "slot_offer" and word in YES_WORDS | CONFIRM_WORDS:
         return _accept_offer(db, phone, patient, source, lang)
 

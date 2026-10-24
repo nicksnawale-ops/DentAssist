@@ -75,6 +75,8 @@ export const MESSAGE_KIND_LABELS: Record<string, string> = {
   prescription_issued: 'Prescription',
   consent_request: 'Consent form',
   lab_ready: 'Lab work ready',
+  lead_ack: 'Enquiry thank-you',
+  lead_followup: 'Enquiry follow-up',
   reminder_24h: 'Reminder (day before)',
   reminder_2h: 'Reminder (2 hours)',
   booking_confirmation: 'Booking confirmation',
@@ -128,6 +130,12 @@ const MOCK_TEMPLATES: Omit<MessageTemplate, 'translations'>[] = [
   { key: 'lab_ready', label: 'Lab work ready for fitting', metaName: 'lab_work_ready', language: 'en', enabled: true,
     body: "Hi {{1}}, good news: your {{2}} is ready at {{3}}. Book your fitting appointment: {{4}} or reply BOOK and we'll call you.",
     params: ['patient_first_name', 'item', 'clinic_name', 'booking_link'] },
+  { key: 'lead_ack', label: 'New enquiry: thank you', metaName: 'enquiry_received', language: 'en', enabled: true,
+    body: "Hi {{1}}, thank you for contacting {{2}}. Our team will call you shortly. You can also book a visit here: {{3}}",
+    params: ['first_name', 'clinic_name', 'booking_link'] },
+  { key: 'lead_followup', label: 'Enquiry follow-up', metaName: 'enquiry_followup', language: 'en', enabled: true,
+    body: "Hi {{1}}, this is {{2}} following up on your enquiry about {{3}}. Book a consultation here: {{4}} or reply BOOK and we'll call you.",
+    params: ['first_name', 'clinic_name', 'treatment', 'booking_link'] },
 ];
 
 const mockTemplates: MessageTemplate[] = MOCK_TEMPLATES.map(t => ({

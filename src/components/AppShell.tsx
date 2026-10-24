@@ -19,6 +19,7 @@ import {
   ClipboardList,
   MessageSquare,
   BellRing,
+  Inbox,
   BadgeIndianRupee,
   PanelLeftClose,
   PanelLeftOpen,
@@ -52,6 +53,7 @@ const PATIENTS = item('/patients', 'Patients', UserRound);
 const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
+const LEADS = item('/leads', 'Enquiries', Inbox);
 const RECALLS = item('/recalls', 'Recalls', BellRing);
 const TEAM = item('/team', 'Team & pay', BadgeIndianRupee);
 const REPORTS = item('/reports', 'Analytics', BarChart3);
@@ -62,12 +64,12 @@ const SETTINGS = item('/settings', 'Settings', Settings);
 /** Navigation grouped by what people use it for. */
 const NAV: Record<Role, NavGroup[]> = {
   super_admin: [
-    { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
+    { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
     { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, MESSAGES, REPORTS] },
     { title: 'Organisation', items: [CLINICS, STAFF, TEAM, SETTINGS] },
   ],
   admin: [
-    { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
+    { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
     { title: 'Operations', items: [BILLING, RECALLS, MESSAGES, REPORTS] },
     { title: 'Clinic', items: [STAFF, TEAM, SETTINGS] },
   ],
@@ -77,7 +79,7 @@ const NAV: Record<Role, NavGroup[]> = {
     { title: 'Account', items: [item('/team', 'My attendance & pay', BadgeIndianRupee), SETTINGS] },
   ],
   receptionist: [
-    { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
+    { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
     { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY] },
     { title: 'Account', items: [item('/team', 'My attendance', BadgeIndianRupee), SETTINGS] },
   ],

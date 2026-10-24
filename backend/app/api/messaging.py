@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.deps import DbSession, StaffUser, accessible_clinic_ids, require_roles
 from app.core.errors import AppError, bad_request, forbidden, not_found
-from app.models import AppSetting, Appointment, Invoice, MessageLog, Patient, User, WaitlistEntry
+from app.models import AppSetting, Appointment, Invoice, Lead, MessageLog, Patient, User, WaitlistEntry
 from app.schemas import CamelModel
 from app.services import audit
 from app.services import messaging as msg
@@ -234,7 +234,9 @@ def message_log(
     if allowed is not None:
         clinic_patients = select(Patient.id).where(Patient.clinic_id.in_(allowed))
         clinic_appts = select(Appointment.id).where(Appointment.clinic_id.in_(allowed))
-        query = query.where(or_(MessageLog.patient_id.in_(clinic_patients), MessageLog.appointment_id.in_(clinic_appts)))
+        clinic_leads = select(Lead.phone).where(Lead.clinic_id.in_(allowed))  # enquiries aren't patients yet
+        query = query.where(or_(MessageLog.patient_id.in_(clinic_patients), MessageLog.appointment_id.in_(clinic_appts),
+                                MessageLog.patient_id.is_(None) & MessageLog.phone.in_(clinic_leads)))
     if patient_id:
         query = query.where(MessageLog.patient_id == patient_id)
     if status_filter:
