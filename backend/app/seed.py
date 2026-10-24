@@ -144,6 +144,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
     db.flush()
     invoice_count = seed_invoices(db, data, home_clinic, users[0])
     seed_clinical(db, data, home_clinic)
+    seed_history(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -330,3 +331,40 @@ def seed_clinical(db: Session, data: dict, home_clinic) -> None:
     for patient, author, ago, s_, o, a, p in notes:
         db.add(ClinicalNote(patient_id=patient, author_id=author, subjective=s_, objective=o, assessment=a, plan=p,
                             created_at=days(ago), updated_at=days(ago)))
+
+
+# Past visits over the last year, so recalls and analytics have something to show.
+HISTORY = [
+    # patient, dentist, clinic, days ago, status, procedure, minutes
+    ("pat_2", "s1", DEFAULT_CLINIC, 200, "completed", "Checkup", 30),
+    ("pat_3", "s3", DEFAULT_CLINIC, 150, "completed", "Teeth Cleaning", 45),
+    ("pat_4", "s1", DEFAULT_CLINIC, 95, "completed", "Consultation", 30),
+    ("pat_5", "s1", DEFAULT_CLINIC, 400, "completed", "Composite Filling", 45),
+    ("pat_5", "s1", DEFAULT_CLINIC, 215, "completed", "Checkup", 30),
+    ("pat_6", "s1", DEFAULT_CLINIC, 190, "completed", "Teeth Cleaning", 45),
+    ("pat_7", "s1", DEFAULT_CLINIC, 260, "completed", "Checkup", 30),
+    ("pat_8", "s1", DEFAULT_CLINIC, 175, "completed", "Composite Filling", 45),
+    ("pat_8", "s1", DEFAULT_CLINIC, 60, "no_show", "Checkup", 30),
+    ("pat_9", "s3", WESTSIDE_CLINIC, 230, "completed", "Checkup", 30),
+    ("pat_10", "s3", WESTSIDE_CLINIC, 120, "completed", "Scaling & Polishing", 45),
+    ("pat_10", "s3", WESTSIDE_CLINIC, 45, "cancelled", "Follow-up", 30),
+    ("pat_11", "s3", WESTSIDE_CLINIC, 300, "completed", "Root Canal Treatment (Posterior)", 90),
+    ("pat_12", "s3", WESTSIDE_CLINIC, 30, "completed", "Checkup", 30),
+    ("pat_13", "s3", WESTSIDE_CLINIC, 80, "no_show", "Consultation", 30),
+    ("pat_14", "s3", WESTSIDE_CLINIC, 210, "completed", "Teeth Cleaning", 45),
+]
+
+
+def seed_history(db: Session) -> None:
+    tz = ZoneInfo("Asia/Kolkata")
+    today = datetime.now(tz).date()
+    for i, (pid, dentist, clinic, ago, status, proc, minutes) in enumerate(HISTORY, start=1):
+        start = datetime.combine(today - timedelta(days=ago), time(10 + i % 6, 0), tzinfo=tz).astimezone(timezone.utc)
+        end = start + timedelta(minutes=minutes)
+        db.add(Appointment(id=f"hist_{i}", patient_id=pid, dentist_id=dentist, clinic_id=clinic, start_time=start,
+                           end_time=end, status=status, procedure_type=proc, created_at=start - timedelta(days=7),
+                           updated_at=end))
+    central = db.get(Clinic, DEFAULT_CLINIC)
+    if central:
+        # Demo link; replace with the clinic's real Google review link in its settings.
+        central.google_review_url = "https://g.page/r/visionedge-central-demo/review"

@@ -133,6 +133,25 @@ a notification for the front desk.
    subscribe to **messages**. Webhook bodies are checked against `X-Hub-Signature-256`.
 5. Use *Send test message* in settings (sends Meta's `hello_world` template).
 
+## Recalls and Google reviews
+
+*Recalls* lists patients who should come back:
+
+- **Checkups**: the last completed visit is older than the checkup interval (6 months by default).
+  They appear two weeks before they fall due.
+- **Unfinished treatment**: an approved or in-progress treatment plan still has steps left, nothing is
+  booked and nothing has happened for 14 days.
+
+Staff send recalls on WhatsApp one at a time or all at once; patients without WhatsApp are marked
+"call instead". A recall closes itself as **booked** as soon as the patient has an upcoming
+appointment, however it was booked. A patient replying BOOK alerts the front desk.
+
+**Google reviews**: set each clinic's review link (Recalls → Settings). A couple of hours after a
+completed visit the patient is asked for a review on WhatsApp, at most once every 180 days.
+
+Both run in the same background job as reminders (`REMINDERS_ENABLED=true`), or by cron with
+`python -m app.jobs run-recalls`. Automatic recall sending is off until an admin switches it on.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

@@ -77,6 +77,27 @@ DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
         "body": "Hi {{1}}, thank you! We received {{2}} for invoice {{3}}.",
         "params": ["patient_first_name", "amount", "invoice_number"],
     },
+    "recall_checkup": {
+        "label": "Recall: checkup due",
+        "metaName": "recall_checkup", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, it's time for your regular dental checkup at {{2}}. "
+                "Book a time that suits you: {{3}} or reply BOOK and we'll call you.",
+        "params": ["patient_first_name", "clinic_name", "booking_link"],
+    },
+    "recall_treatment": {
+        "label": "Recall: unfinished treatment",
+        "metaName": "recall_treatment", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, your {{2}} at {{3}} isn't finished yet. Completing it soon helps avoid bigger problems. "
+                "Book your next visit: {{4}} or reply BOOK and we'll call you.",
+        "params": ["patient_first_name", "treatment_name", "clinic_name", "booking_link"],
+    },
+    "review_request": {
+        "label": "Google review request",
+        "metaName": "review_request", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, thank you for visiting {{2}}. If you were happy with your care, "
+                "a quick Google review helps other families find us: {{3}}",
+        "params": ["patient_first_name", "clinic_name", "review_link"],
+    },
 }
 
 for _key, _tpl in DEFAULT_TEMPLATES.items():
@@ -87,7 +108,9 @@ CONFIRM_WORDS = {"confirm", "confirmed", "yes confirm", "ok", "okay", "1", "👍
 CANCEL_WORDS = {"cancel", "cancelled", "cancel it", "2"} | i18n.CANCEL_WORDS_LOCAL
 RESCHEDULE_WORDS = {"reschedule", "change", "3"} | i18n.RESCHEDULE_WORDS_LOCAL
 YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"} | i18n.YES_WORDS_LOCAL
-REPLYABLE_KINDS = ["appointment_reminder", "reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer"]
+REPLYABLE_KINDS = ["appointment_reminder", "reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer",
+                   "recall_checkup", "recall_treatment"]
+BOOK_WORDS = {"book", "book please", "yes", "ok", "बुक", "हाँ", "हां", "हो"}
 
 
 # ---------------------------------------------------------------------------
@@ -398,6 +421,14 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
     lang = i18n.language_of(patient.communication_prefs) if patient else "en"
     if source and source.kind == "slot_offer" and word in YES_WORDS | CONFIRM_WORDS:
         return _accept_offer(db, phone, patient, source, lang)
+
+    if source and source.kind in ("recall_checkup", "recall_treatment") and word in BOOK_WORDS:
+        clinic_id = (source.payload or {}).get("clinicId") or (patient.clinic_id if patient else None)
+        name = f"{patient.first_name} {patient.last_name}".strip() if patient else f"+{phone}"
+        if clinic_id:
+            _notify_desk(db, clinic_id, "Recall: wants to book", f"{name} replied to a recall. Please call to book.")
+        send_text(db, phone, i18n.reply("recall_book", lang), patient)
+        return "recall_book_requested"
 
     appt = db.get(Appointment, source.appointment_id) if source and source.appointment_id else None
     if appt and appt.status in ("scheduled", "confirmed") and as_utc(appt.start_time) > datetime.now(timezone.utc):

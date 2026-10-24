@@ -246,7 +246,7 @@ def test_reschedule_cancel_checkin(client, as_role):
 def test_list_appointments_filters(client, as_role):
     h = as_role("super_admin")
     all_appts = client.get(f"{API}/appointments", headers=h).json()
-    assert len(all_appts) == 6
+    assert len([a for a in all_appts if a["id"].startswith("appt_")]) == 6  # plus past visits (hist_*)
     westside = client.get(f"{API}/appointments", headers=h, params={"clinicId": WESTSIDE}).json()
     assert {a["clinicId"] for a in westside} == {WESTSIDE}
     smith = client.get(f"{API}/appointments", headers=h, params={"dentistId": "s1"}).json()

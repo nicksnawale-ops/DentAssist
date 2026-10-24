@@ -69,6 +69,9 @@ export interface SendResult {
 
 export const MESSAGE_KIND_LABELS: Record<string, string> = {
   appointment_reminder: 'Reminder',
+  recall_checkup: 'Checkup recall',
+  recall_treatment: 'Treatment recall',
+  review_request: 'Review request',
   reminder_24h: 'Reminder (day before)',
   reminder_2h: 'Reminder (2 hours)',
   booking_confirmation: 'Booking confirmation',
@@ -104,6 +107,15 @@ const MOCK_TEMPLATES: Omit<MessageTemplate, 'translations'>[] = [
   { key: 'payment_receipt', label: 'Payment received', metaName: 'payment_received', language: 'en', enabled: true,
     body: 'Hi {{1}}, thank you! We received {{2}} for invoice {{3}}.',
     params: ['patient_first_name', 'amount', 'invoice_number'] },
+  { key: 'recall_checkup', label: 'Recall: checkup due', metaName: 'recall_checkup', language: 'en', enabled: true,
+    body: "Hi {{1}}, it's time for your regular dental checkup at {{2}}. Book a time that suits you: {{3}} or reply BOOK and we'll call you.",
+    params: ['patient_first_name', 'clinic_name', 'booking_link'] },
+  { key: 'recall_treatment', label: 'Recall: unfinished treatment', metaName: 'recall_treatment', language: 'en', enabled: true,
+    body: "Hi {{1}}, your {{2}} at {{3}} isn't finished yet. Completing it soon helps avoid bigger problems. Book your next visit: {{4}} or reply BOOK and we'll call you.",
+    params: ['patient_first_name', 'treatment_name', 'clinic_name', 'booking_link'] },
+  { key: 'review_request', label: 'Google review request', metaName: 'review_request', language: 'en', enabled: true,
+    body: 'Hi {{1}}, thank you for visiting {{2}}. If you were happy with your care, a quick Google review helps other families find us: {{3}}',
+    params: ['patient_first_name', 'clinic_name', 'review_link'] },
 ];
 
 const mockTemplates: MessageTemplate[] = MOCK_TEMPLATES.map(t => ({
@@ -204,7 +216,8 @@ export function previewTemplate(t: Pick<MessageTemplate, 'body' | 'params'>, lan
   const samples: Record<string, string> = {
     patient_first_name: 'Priya', clinic_name: 'VisionEdge Central', date, time: '10:30 AM',
     dentist_name: 'Dr. Sarah Smith', invoice_number: 'INV-2026-0042', amount: '₹4,500', due_date: due,
-    link: 'dentassist.app/bills',
+    link: 'dentassist.app/bills', booking_link: 'dentassist.app/book/central', treatment_name: 'Phase 1: restorative work',
+    review_link: 'g.page/r/visionedge/review',
   };
   return t.params.reduce((text, p, i) => text.split(`{{${i + 1}}}`).join(samples[p] ?? p), t.body);
 }

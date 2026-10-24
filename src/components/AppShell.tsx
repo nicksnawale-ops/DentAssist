@@ -18,6 +18,7 @@ import {
   BarChart3,
   ClipboardList,
   MessageSquare,
+  BellRing,
   PanelLeftClose,
   PanelLeftOpen,
   X,
@@ -49,6 +50,7 @@ const PATIENTS = item('/patients', 'Patients', UserRound);
 const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
+const RECALLS = item('/recalls', 'Recalls', BellRing);
 const REPORTS = item('/reports', 'Reports', BarChart3);
 const STAFF = item('/staff', 'Staff', Users);
 const CLINICS = item('/clinics', 'Clinics', Building2);
@@ -58,12 +60,12 @@ const SETTINGS = item('/settings', 'Settings', Settings);
 const NAV: Record<Role, NavGroup[]> = {
   super_admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
-    { title: 'Operations', items: [BILLING, INVENTORY, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, MESSAGES, REPORTS] },
     { title: 'Organisation', items: [CLINICS, STAFF, SETTINGS] },
   ],
   admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
-    { title: 'Operations', items: [BILLING, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, MESSAGES, REPORTS] },
     { title: 'Clinic', items: [STAFF, SETTINGS] },
   ],
   dentist: [
@@ -73,7 +75,7 @@ const NAV: Record<Role, NavGroup[]> = {
   ],
   receptionist: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS] },
-    { title: 'Front desk', items: [BILLING, MESSAGES, INVENTORY] },
+    { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY] },
     { title: 'Account', items: [SETTINGS] },
   ],
   patient: [
