@@ -39,6 +39,7 @@ import { PatientProfileSettings } from './pages/patients/PatientProfileSettings'
 import { CommunicationLog } from './pages/communications/CommunicationLog';
 import { RecallsPage } from './pages/recalls/RecallsPage';
 import { SignConsent } from './pages/public/SignConsent';
+import { TeamPage } from './pages/team/TeamPage';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -82,6 +83,7 @@ function AppRoutes() {
         
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />
         
+        <Route path="team" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><TeamPage /></RoleRoute>} />
         <Route path="recalls" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><RecallsPage /></RoleRoute>} />
         <Route path="communications" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><CommunicationLog /></RoleRoute>} />
         

@@ -10,7 +10,7 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, true
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, JSONType
@@ -688,3 +688,64 @@ class PatientDocument(TimestampMixin, Base):
     uploaded_by_patient: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     deleted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class CompensationPlan(TimestampMixin, Base):
+    """How a dentist is paid. One active plan per dentist and clinic (clinic empty = all clinics)."""
+
+    __tablename__ = "compensation_plans"
+    __table_args__ = (UniqueConstraint("staff_id", "clinic_id", name="uq_compensation_staff_clinic"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))
+    arrangement: Mapped[str] = mapped_column(String(20), default="associate", nullable=False)  # associate | consultant | salaried
+    basis: Mapped[str] = mapped_column(String(12), default="collections", nullable=False)  # collections | billing
+    percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, nullable=False)
+    lab_share_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, nullable=False)  # of lab bills borne by the dentist
+    fixed_monthly: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    minimum_guarantee: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    tds_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=10, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class Payout(TimestampMixin, Base):
+    """A dentist's monthly statement. Figures are recalculated while draft and frozen once approved."""
+
+    __tablename__ = "payouts"
+    __table_args__ = (UniqueConstraint("staff_id", "clinic_key", "period", name="uq_payout_staff_clinic_period"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"))
+    clinic_key: Mapped[str] = mapped_column(String(64), default="all", nullable=False)  # clinic id or "all" (for uniqueness)
+    period: Mapped[str] = mapped_column(String(7), nullable=False, index=True)  # 2026-10
+    status: Mapped[str] = mapped_column(String(10), default="draft", nullable=False, index=True)  # draft | approved | paid
+    figures: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    adjustments: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)  # [{id, label, amount}]
+    net_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    payment_method: Mapped[str | None] = mapped_column(String(30))
+    payment_reference: Mapped[str | None] = mapped_column(String(120))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class AttendanceRecord(TimestampMixin, Base):
+    __tablename__ = "attendance_records"
+    __table_args__ = (UniqueConstraint("staff_id", "day", name="uq_attendance_staff_day"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"), index=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(10), default="present", nullable=False)  # present | half_day | leave | absent | holiday
+    check_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    check_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    late_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    source: Mapped[str] = mapped_column(String(10), default="self", nullable=False)  # self | admin
+    note: Mapped[str | None] = mapped_column(String(300))
+    edited_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

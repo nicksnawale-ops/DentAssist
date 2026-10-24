@@ -253,6 +253,29 @@ To switch it on, set `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and optionally
 and check your data-processing agreement covers it (India's DPDP Act). `AI_PROVIDER=mock` returns labelled
 demo text so the screens can be tried without a key; don't use it in production.
 
+## Dentist pay and attendance
+
+**Pay rules** per dentist (per clinic, or for all clinics): associate, visiting consultant or salaried;
+a percentage of what patients paid (collections) or of what was billed; the dentist's share of lab bills;
+a fixed monthly amount; a minimum guarantee; and TDS (10% by default, section 194J).
+
+**Monthly statements** (Team & pay → Payouts):
+
+    base       = collections (or billing) credited to the dentist − their share of lab bills that month
+    commission = base × percentage
+    gross      = fixed + commission + bonuses/deductions, topped up to the minimum guarantee
+    net        = gross − TDS
+
+Payments count by the date they were received, and lab bills by the date the work arrived. Statements stay
+as drafts (recalculated on demand) until an admin approves them; approval freezes the figures and shows the
+statement to the dentist. Then mark it paid with the transfer reference. Only the platform admin can reopen
+an approved statement, and paid ones never reopen; correct them with an adjustment the next month.
+Every change is in the audit log. This is a calculation aid, not tax advice.
+
+**Attendance**: staff tap *Check in* and *Check out* in the top bar. Lateness is measured against their
+working hours (or clinic hours) with a 10-minute grace. Admins see a month grid for the clinic, mark
+leave, absence or holidays, and correct times; edits are recorded as admin changes.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).
