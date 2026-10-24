@@ -21,6 +21,8 @@ Backend for VisionEdge DentAssist, implementing the first slice of `CONTRACT.md`
 | Dental chart | per-tooth conditions with full history, view as of any past date, periodontal exams |
 | Treatment plans | build from the catalog, propose, approve, tick off procedures, turn into an invoice |
 | Clinical notes | SOAP notes, editable by the author for 24 hours, then locked |
+| Scheduling | free-slot search (day or "next available"), waitlist matches, alerts when a slot frees up |
+| Public booking | `/book/<clinic id>` page: clinic info, free times, self-booking without an account |
 | Settings | RBAC matrix, platform subscription, audit log |
 
 All JSON is camelCase to match `src/types.ts`. Errors always look like
@@ -28,6 +30,25 @@ All JSON is camelCase to match `src/types.ts`. Errors always look like
 
 **Not yet on the backend** (the frontend still uses mock data for these): documents, inventory,
 purchase orders, suppliers, lab orders, WhatsApp.
+
+## Scheduling rules
+
+- A dentist is bookable when the clinic is open (clinic operating hours) **and** the dentist is working
+  (their weekly hours; if none are set, the clinic's hours), and they have no active appointment at
+  any clinic. Slots start every 15 minutes, in the clinic's time zone. Dentists on leave and clinic
+  admins without a licence number aren't offered.
+- Staff can still double-book on purpose (the UI warns first). Patients, online or in the portal,
+  can only take a listed free slot, with at least 2 hours' notice.
+- When an upcoming appointment is cancelled or moved, receptionists and admins at that clinic get a
+  notification if anyone on the waitlist matches (same clinic, any dentist or the same one), and the
+  calendar opens the matches so the slot can be filled in two taps.
+- **Public booking page** (`/book/<clinic id>`, switch per clinic with `onlineBookingEnabled`):
+  patients choose a visit type, a time and give name + mobile. An existing patient is matched by
+  mobile number without revealing anything about them; otherwise a new record is created and tagged
+  "Online booking". Protection: 5 bookings per hour per IP, a hidden honeypot field, at most 2
+  upcoming online bookings per patient, and the time is re-checked against live availability.
+  The in-memory rate limit is per process; mirror it on your reverse proxy if you run several.
+- Lunch breaks and holidays aren't modelled yet: block them with an appointment for now.
 
 ## Clinical records rules
 

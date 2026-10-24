@@ -110,6 +110,7 @@ class ClinicBase(CamelModel):
     operating_hours: list[OperatingHours] | None = None
     logo_url: str | None = None
     status: ClinicStatus | None = None
+    online_booking_enabled: bool | None = None
 
 
 class ClinicCreate(ClinicBase):
@@ -130,6 +131,7 @@ class ClinicOut(CamelModel):
     operating_hours: list[OperatingHours] | None = None
     logo_url: str | None = None
     status: ClinicStatus
+    online_booking_enabled: bool = True
     created_at: datetime
     # Live aggregates
     active_staff_count: int = 0
@@ -310,6 +312,8 @@ class AppointmentCreate(AppointmentBase):
     procedure_type: str = Field(min_length=1, max_length=100)
     # Set true to book even if the dentist already has an overlapping appointment.
     allow_overlap: bool = False
+    # Booking someone from the waitlist marks their entry as scheduled.
+    waitlist_entry_id: str | None = None
 
 
 class AppointmentUpdate(AppointmentBase):

@@ -56,6 +56,8 @@ export interface Clinic {
   operatingHours?: OperatingHours[];
   logoUrl?: string;
   status: ClinicStatus;
+  /** Public booking page at /book/<id>. */
+  onlineBookingEnabled?: boolean;
   createdAt: string;
   // Mock aggregated stats
   activeStaffCount?: number;

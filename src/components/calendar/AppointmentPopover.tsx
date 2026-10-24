@@ -4,7 +4,7 @@ import { Appointment, Patient, User } from '../../types';
 import { Badge } from '../ui/Badge';
 import { User as UserIcon, Clock, Stethoscope, Mail, Phone, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { checkinAppointment, cancelAppointment, updateAppointment } from '../../api/apiService';
+import { checkinAppointment, cancelAppointment, updateAppointment, SLOT_FREED_EVENT } from '../../api/apiService';
 import { RescheduleModal } from './RescheduleModal';
 
 interface AppointmentPopoverProps {
@@ -40,9 +40,10 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
   const handleCancel = async () => {
     const reason = window.prompt("Optional cancellation reason:");
     if (reason !== null) {
-      await cancelAppointment(appointment.id, reason);
+      const res = await cancelAppointment(appointment.id, reason);
       onRefresh();
       setOpen(false);
+      if (res.data) window.dispatchEvent(new CustomEvent(SLOT_FREED_EVENT, { detail: res.data }));
     }
   };
 

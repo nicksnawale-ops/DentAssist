@@ -9,6 +9,7 @@ import { InventoryDashboard } from './pages/inventory/InventoryDashboard';
 import { ReportsDashboard } from './pages/reports/ReportsDashboard';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { TreatmentPlansPage } from './pages/treatments/TreatmentPlansPage';
+import { BookOnline } from './pages/public/BookOnline';
 import { BarChart3, CalendarDays, ClipboardList } from 'lucide-react';
 import { RoleRoute } from './components/RoleRoute';
 import { AccessDenied } from './pages/AccessDenied';
@@ -53,6 +54,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/book/:clinicId" element={<BookOnline />} />
       <Route path="/access-denied" element={<AccessDenied />} />
       
       <Route path="/" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist', 'patient']}><AppShell /></RoleRoute>}>
@@ -72,12 +74,7 @@ function AppRoutes() {
         
         <Route path="reports" element={<RoleRoute allowedRoles={['super_admin', 'admin']}><ReportsDashboard /></RoleRoute>} />
         
-        <Route path="schedule" element={<RoleRoute allowedRoles={['dentist']}><PlaceholderPage 
-          title="My Schedule" 
-          description="Manage your daily appointments, block out time, and view your upcoming week at a glance."
-          icon={CalendarDays}
-          plannedFeatures={['Daily and weekly calendar views', 'Quick-block personal time', 'Drag-and-drop rescheduling']}
-        /></RoleRoute>} />
+        <Route path="schedule" element={<RoleRoute allowedRoles={['dentist']}><AppointmentsList mySchedule /></RoleRoute>} />
         <Route path="treatments" element={<RoleRoute allowedRoles={['dentist', 'admin', 'super_admin']}><TreatmentPlansPage /></RoleRoute>} />
         
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />

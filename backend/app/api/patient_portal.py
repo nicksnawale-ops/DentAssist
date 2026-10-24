@@ -13,6 +13,8 @@ from app.models import Appointment, Clinic, Patient, User
 from app.schemas import AppointmentOut, CancelRequest, PortalBookRequest, PortalRescheduleRequest
 from app.services import audit
 from app.services.scheduling import as_utc, ensure_no_overlap, validate_dentist_and_clinic
+from app.services.waitlist import notify_slot_freed
+from app.services.availability import is_free
 from app.services.serializers import patient_out
 
 router = APIRouter(prefix="/patient-portal", tags=["patient portal"])
@@ -76,8 +78,10 @@ def book(body: PortalBookRequest, db: DbSession, user: User = PatientUser):
     if body.end_time <= body.start_time:
         raise bad_request("endTime must be after startTime", "INVALID_TIME_RANGE")
     _check_notice(body.start_time)
-    validate_dentist_and_clinic(db, body.dentist_id, body.clinic_id)
+    _, clinic = validate_dentist_and_clinic(db, body.dentist_id, body.clinic_id)
     ensure_no_overlap(db, body.dentist_id, body.start_time, body.end_time)
+    if not is_free(db, clinic, body.dentist_id, body.start_time, body.end_time):
+        raise bad_request("That time isn't available. Please pick one of the times shown.", "SLOT_UNAVAILABLE")
     appt = Appointment(
         patient_id=user.patient_id, dentist_id=body.dentist_id, clinic_id=body.clinic_id,
         start_time=as_utc(body.start_time), end_time=as_utc(body.end_time),
@@ -100,7 +104,12 @@ def reschedule(appointment_id: str, body: PortalRescheduleRequest, db: DbSession
     _check_notice(appt.start_time)
     _check_notice(body.start_time)
     ensure_no_overlap(db, appt.dentist_id, body.start_time, body.end_time, exclude_id=appt.id)
+    clinic = db.get(Clinic, appt.clinic_id)
+    if not is_free(db, clinic, appt.dentist_id, body.start_time, body.end_time):
+        raise bad_request("That time isn't available. Please pick one of the times shown.", "SLOT_UNAVAILABLE")
     before = AppointmentOut.model_validate(appt)
+    notify_slot_freed(db, Appointment(patient_id=appt.patient_id, dentist_id=appt.dentist_id,
+                                      clinic_id=appt.clinic_id, start_time=appt.start_time, end_time=appt.end_time))
     appt.start_time, appt.end_time = as_utc(body.start_time), as_utc(body.end_time)
     appt.status = "scheduled"  # needs re-confirmation by the clinic
     audit.record(db, user, "self_reschedule", "appointment", appt.id, before=before,
@@ -117,6 +126,7 @@ def cancel(appointment_id: str, body: CancelRequest, db: DbSession, user: User =
     _check_notice(appt.start_time)
     appt.status = "cancelled"
     appt.notes = append_note(appt.notes, f"Cancelled by patient{': ' + body.reason if body.reason else ''}")
+    notify_slot_freed(db, appt)
     audit.record(db, user, "self_cancel", "appointment", appt.id, after={"reason": body.reason})
     db.commit()
     return appt

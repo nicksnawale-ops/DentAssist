@@ -13,6 +13,7 @@ from app.api import (
     notifications,
     patient_portal,
     patients,
+    scheduling,
     settings as settings_api,
     staff,
     waitlist,
@@ -54,7 +55,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical):
+               settings_api, billing, clinical, scheduling):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

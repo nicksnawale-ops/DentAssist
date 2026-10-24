@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, JSONType
@@ -41,6 +41,8 @@ class Clinic(TimestampMixin, Base):
     operating_hours: Mapped[list | None] = mapped_column(JSONType)
     logo_url: Mapped[str | None] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)  # active | inactive
+    # Public booking page at /book/<clinic id>
+    online_booking_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
 
 
 class User(TimestampMixin, Base):
