@@ -1,0 +1,6 @@
+{
+  "name": "VisionEdge DentAssist",
+  "description": "An enterprise dental clinic and patient management platform",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
