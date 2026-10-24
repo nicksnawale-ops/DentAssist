@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, FileText, Check, Receipt, Send, ThumbsUp, Pencil } from 'lucide-react';
+import { Plus, FileText, Check, Receipt, Send, ThumbsUp, Pencil, MessageSquareText, ChevronDown } from 'lucide-react';
 import { TreatmentPlan, TreatmentPlanItem } from '../../types';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -12,6 +12,8 @@ import { InvoicePreviewModal } from '../billing/InvoicePreviewModal';
 import { useAuth } from '../../context/AuthContext';
 import { getMyPlans, getPatientPlans, invoicePlan, setPlanItemStatus, updatePlan } from '../../api/clinicalService';
 import { useCurrency } from '../../utils/currencyConfig';
+import { getAiStatus } from '../../api/aiService';
+import { PlanExplainer, PlanExplanationView } from '../ai/PlanExplainer';
 
 const STATUS_VARIANT: Record<TreatmentPlan['status'], 'outline' | 'warning' | 'secondary' | 'success'> = {
   Draft: 'outline', Proposed: 'warning', Approved: 'secondary', 'In Progress': 'secondary', Completed: 'success',
@@ -41,6 +43,10 @@ export function TreatmentPlansTab({ patientId, readOnly = false, prefillTooth, o
   const [editing, setEditing] = useState<TreatmentPlan | 'new' | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [openInvoice, setOpenInvoice] = useState<string | null>(null);
+  const [explaining, setExplaining] = useState<TreatmentPlan | null>(null);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [openExplanation, setOpenExplanation] = useState<string | null>(null);
+  useEffect(() => { if (isClinician) getAiStatus().then(r => setAiEnabled(!!r.data?.enabled)); }, [isClinician]);
 
   const load = useCallback(async () => {
     const res = readOnly ? await getMyPlans() : await getPatientPlans(patientId);
@@ -161,6 +167,16 @@ export function TreatmentPlansTab({ patientId, readOnly = false, prefillTooth, o
                   })}
                 </ul>
 
+                {readOnly && plan.patientExplanation && (
+                  <div className="mb-4">
+                    <button className="flex items-center gap-1 text-sm font-medium text-primary mb-2" onClick={() => setOpenExplanation(openExplanation === plan.id ? null : plan.id)} aria-expanded={openExplanation === plan.id}>
+                      <MessageSquareText className="w-4 h-4" /> What this plan means for you
+                      <ChevronDown className={`w-4 h-4 transition-transform ${openExplanation === plan.id ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openExplanation === plan.id && <PlanExplanationView e={plan.patientExplanation} />}
+                  </div>
+                )}
+
                 <div className="mt-auto pt-4 border-t border-line flex flex-wrap items-end justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
                     {isClinician && (plan.status === 'Draft' || plan.status === 'Proposed') && (
@@ -174,6 +190,11 @@ export function TreatmentPlansTab({ patientId, readOnly = false, prefillTooth, o
                     {isClinician && (plan.status === 'Draft' || plan.status === 'Proposed') && (
                       <Button size="sm" loading={busy === plan.id + 'Approved'} onClick={() => move(plan, 'Approved', 'Plan approved')}>
                         <ThumbsUp className="w-3.5 h-3.5" /> Patient agreed
+                      </Button>
+                    )}
+                    {isClinician && plan.items.length > 0 && (
+                      <Button size="sm" variant="ghost" onClick={() => setExplaining(plan)}>
+                        <MessageSquareText className="w-3.5 h-3.5" /> {plan.patientExplanation ? (plan.patientExplanation.shared ? 'Explanation shared' : 'Explanation draft') : 'Explain to patient'}
                       </Button>
                     )}
                     {canInvoice && active && !plan.invoiceId && (
@@ -200,6 +221,10 @@ export function TreatmentPlansTab({ patientId, readOnly = false, prefillTooth, o
       )}
 
       {openInvoice && <InvoicePreviewModal invoiceId={openInvoice} onClose={() => setOpenInvoice(null)} />}
+      {explaining && (
+        <PlanExplainer planId={explaining.id} planName={explaining.name} existing={explaining.patientExplanation} aiEnabled={aiEnabled}
+          onClose={() => setExplaining(null)} onSaved={e => { replace({ ...explaining, patientExplanation: e }); setExplaining(null); }} />
+      )}
     </div>
   );
 }

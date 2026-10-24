@@ -243,6 +243,7 @@ def _plan_out(db: Session, plan: TreatmentPlan) -> PlanOut:
         completed_count=sum(1 for i in plan.items if i.status == "Completed"),
         created_by_staff_id=plan.created_by_id, created_by_name=_name(author) if author else None,
         created_at=plan.created_at, approved_at=plan.approved_at, invoice_id=plan.invoice_id,
+        patient_explanation=plan.patient_explanation,
     )
 
 
@@ -320,7 +321,11 @@ def patient_plans(patient_id: str, db: DbSession, user: User = PlanReaders):
     patient = get_patient_for(db, user, patient_id)
     plans = db.scalars(select(TreatmentPlan).where(TreatmentPlan.patient_id == patient.id)
                        .order_by(TreatmentPlan.created_at.desc())).all()
-    return [_plan_out(db, p) for p in plans]
+    out = [_plan_out(db, p) for p in plans]
+    for o in out:  # patients only see an explanation once the dentist has shared it
+        if not (o.patient_explanation or {}).get("shared"):
+            o.patient_explanation = None
+    return out
 
 
 @router.post("/patients/{patient_id}/treatment-plans", response_model=PlanOut, status_code=201)

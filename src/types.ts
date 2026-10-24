@@ -218,6 +218,8 @@ export interface TreatmentPlan {
   completedCount?: number;
   createdByName?: string;
   invoiceId?: string;
+  /** Plain-language explanation for the patient (AI-assisted, reviewed by the dentist). */
+  patientExplanation?: import('./api/aiService').PlanExplanation | null;
 }
 
 export interface ClinicalNote {

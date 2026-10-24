@@ -64,6 +64,18 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 25
 
+    # AI assistant (dictation to SOAP notes, patient explanations). "disabled" | "anthropic" | "mock"
+    # "mock" returns canned drafts so the screens can be tried without an API key. Never use it in production.
+    ai_provider: str = "disabled"
+    anthropic_api_key: str = ""
+    anthropic_api_base: str = "https://api.anthropic.com/v1"
+    ai_model: str = "claude-sonnet-5-5"
+    ai_requests_per_hour: int = 60  # per user
+
+    @property
+    def ai_ready(self) -> bool:
+        return self.ai_provider == "mock" or (self.ai_provider == "anthropic" and bool(self.anthropic_api_key))
+
     # Create tables on startup (handy for local dev; use Alembic migrations in production)
     auto_create_tables: bool = False
 
