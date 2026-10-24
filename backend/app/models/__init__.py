@@ -47,6 +47,8 @@ class Clinic(TimestampMixin, Base):
     google_review_url: Mapped[str | None] = mapped_column(String(500))
     # Key in the reception QR code for self check-in. Regenerate to retire printed posters.
     checkin_token: Mapped[str | None] = mapped_column(String(64))
+    # Key for posting leads from Facebook/Instagram lead forms (via Zapier, Make or similar).
+    lead_token: Mapped[str | None] = mapped_column(String(64))
 
 
 class User(TimestampMixin, Base):
@@ -766,3 +768,57 @@ class Family(TimestampMixin, Base):
     # The account holder: their portal login can see and book for everyone in the family.
     head_patient_id: Mapped[str] = mapped_column(String(64), nullable=False)
     clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"))
+
+
+# ---------------------------------------------------------------------------
+# Leads (enquiries before someone becomes a patient)
+# ---------------------------------------------------------------------------
+
+class Lead(TimestampMixin, Base):
+    """Someone who enquired: website form, WhatsApp, Instagram, a call or a walk-in."""
+
+    __tablename__ = "leads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # E.164 digits, e.g. 919876511111
+    email: Mapped[str | None] = mapped_column(String(255))
+    # website | whatsapp | instagram | facebook | google | practo | justdial | referral | walk_in | phone | other
+    source: Mapped[str] = mapped_column(String(20), default="other", nullable=False, index=True)
+    interest: Mapped[str | None] = mapped_column(String(100))  # what they asked about: implants, braces...
+    message: Mapped[str | None] = mapped_column(Text)
+    # new | contacted | consult_booked | visited | won | lost
+    status: Mapped[str] = mapped_column(String(16), default="new", nullable=False, index=True)
+    lost_reason: Mapped[str | None] = mapped_column(String(40))
+    estimated_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    assigned_to_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    next_follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    follow_up_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    contact_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    language: Mapped[str] = mapped_column(String(5), default="en", nullable=False)
+    whatsapp_consent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Set once they become a patient (registered, or matched by mobile number).
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id", ondelete="SET NULL"), index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    converted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    referred_by_patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id", ondelete="SET NULL"))
+    campaign: Mapped[dict | None] = mapped_column(JSONType)  # utm_source, utm_campaign, ad name...
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class LeadActivity(Base):
+    __tablename__ = "lead_activities"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    lead_id: Mapped[str] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    # created | enquired_again | note | call | whatsapp | status | assigned | follow_up | converted
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    outcome: Mapped[str | None] = mapped_column(String(20))  # for calls: answered | no_answer | busy | wrong_number
+    data: Mapped[dict | None] = mapped_column(JSONType)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)

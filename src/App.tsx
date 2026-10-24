@@ -41,6 +41,8 @@ import { RecallsPage } from './pages/recalls/RecallsPage';
 import { SignConsent } from './pages/public/SignConsent';
 import { TeamPage } from './pages/team/TeamPage';
 import { SelfCheckIn } from './pages/public/SelfCheckIn';
+import { Enquire } from './pages/public/Enquire';
+import { LeadsPage } from './pages/leads/LeadsPage';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -61,6 +63,7 @@ function AppRoutes() {
       <Route path="/book/:clinicId" element={<BookOnline />} />
       <Route path="/consent/:token" element={<SignConsent />} />
       <Route path="/checkin/:clinicId" element={<SelfCheckIn />} />
+      <Route path="/enquire/:clinicId" element={<Enquire />} />
       <Route path="/access-denied" element={<AccessDenied />} />
       
       <Route path="/" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist', 'patient']}><AppShell /></RoleRoute>}>
@@ -86,6 +89,7 @@ function AppRoutes() {
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />
         
         <Route path="team" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><TeamPage /></RoleRoute>} />
+        <Route path="leads" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><LeadsPage /></RoleRoute>} />
         <Route path="recalls" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><RecallsPage /></RoleRoute>} />
         <Route path="communications" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><CommunicationLog /></RoleRoute>} />
         

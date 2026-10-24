@@ -292,6 +292,37 @@ arrived with how long they have waited, and the dentist and front desk get a not
 smartphone, the desk taps *Arrived* in the queue. Admins can make a new code if a poster photo was shared
 (old posters stop working). The public endpoints are rate limited and need the clinic's secret key.
 
+## Enquiries (leads)
+
+Everyone who asks about treatment before becoming a patient, in one list (*Enquiries* in the menu).
+
+**Where they come from**
+- *Add enquiry* for calls and walk-ins.
+- The public form at `/enquire/<clinic id>`: share the link or QR, or embed it on the website
+  (`?embed=1`). `utm_source` in the link sets the source (Instagram, Facebook, Google…). It has a hidden
+  honeypot field for bots and is rate limited (5 per 10 minutes per address).
+- Lead ads (Facebook, Instagram, Google, Practo…) through Zapier or Make: POST JSON with `name` and
+  `phone` (plus `email`, `source`, `interest`, `message`, `utm_*`) to
+  `/api/v1/webhooks/leads/<clinic id>?key=<key>`. The key is shown under *Get enquiries in*; admins can
+  replace it.
+- WhatsApp messages from numbers that aren't patients. With several clinics, choose which one gets them
+  in *Enquiry settings*.
+
+A second enquiry from the same number is added to the open one, not duplicated. People who ticked the
+WhatsApp box get an instant thank-you (`enquiry_received` template; approve it in Meta first).
+
+**Pipeline**: new → contacted → consult booked → visited → won, or lost (with a reason).
+Logging a call moves a new enquiry to *contacted* and sets the next follow-up. *Register & book* creates
+the patient record (or links the one with the same number) and opens the booking form. Booking and
+completing the visit move the enquiry on automatically. *Treatment accepted* marks it won.
+
+**Follow-ups**: a new enquiry is overdue if nobody calls within 15 minutes (configurable). When a
+follow-up falls due, the owner (or the front desk) gets a notification. This runs with the reminder job,
+or `python -m app.jobs run-leads` from cron. *To call now* lists everything overdue.
+
+**Reports**: booking rate, typical time to first call, and per source: enquiries, booked, won, and what
+those people have paid since they enquired. Lost reasons show what to fix (price, no response…).
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

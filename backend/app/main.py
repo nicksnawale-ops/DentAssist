@@ -20,6 +20,7 @@ from app.api import (
     documents,
     inventory,
     messaging,
+    leads,
     recalls,
     notifications,
     patient_portal,
@@ -53,6 +54,11 @@ def _reminders_once() -> None:
         recall_counts = run_recall_jobs(db)
         if any(recall_counts.values()):
             log.info("Recalls and reviews: %s", recall_counts)
+        from app.services.leads import run_follow_up_alerts
+
+        alerts = run_follow_up_alerts(db)
+        if alerts:
+            log.info("Enquiry follow-up alerts: %s", alerts)
 
 
 async def _reminder_loop() -> None:
@@ -98,7 +104,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents, inventory, analytics, documents, ai, payouts, families, checkin):
+               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents, inventory, analytics, documents, ai, payouts, families, checkin, leads):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

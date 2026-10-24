@@ -153,6 +153,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
     seed_inventory(db)
     seed_team(db)
     seed_family(db)
+    seed_leads(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -517,3 +518,52 @@ def seed_family(db: Session) -> None:
     central = db.get(Clinic, DEFAULT_CLINIC)
     if central:
         central.checkin_token = "demo-central-checkin-key"
+
+
+def seed_leads(db: Session) -> None:
+    """A realistic month of enquiries at Central: every stage of the pipeline and the main sources."""
+    from app.models import AppSetting, Lead, LeadActivity
+
+    now = datetime.now(timezone.utc)
+    rows = [
+        # id, name, phone, source, interest, status, days ago, contacted, value, extra
+        ("lead_1", "Rohan Kulkarni", "919822011001", "instagram", "Braces / aligners", "new", 0.01, False, 65000, {}),
+        ("lead_2", "Sneha Patil", "919822011002", "website", "Implants", "new", 0.2, False, 45000, {"msg": "Missing lower molar, what is the cost?"}),
+        ("lead_3", "Amit Deshmukh", "919822011003", "google", "Root canal", "contacted", 2, True, 8000, {}),
+        ("lead_4", "Pooja Joshi", "919822011004", "whatsapp", "Teeth whitening", "contacted", 4, True, 12000, {"overdue": True}),
+        ("lead_5", "Vikram Shinde", "919822011005", "facebook", "Smile makeover", "consult_booked", 6, True, 150000, {}),
+        ("lead_6", "Meera Iyer", "919822011006", "referral", "Kids dentistry", "won", 12, True, 6000, {}),
+        ("lead_7", "Kunal Mehta", "919822011007", "practo", "Implants", "lost", 15, True, 50000, {"lost": "price"}),
+        ("lead_8", "Farah Shaikh", "919822011008", "justdial", "Checkup", "lost", 20, True, None, {"lost": "no_response"}),
+        ("lead_9", "Arjun Rao", "919822011009", "walk_in", "Tooth pain", "won", 25, True, 4500, {}),
+        ("lead_10", "Divya Nair", "919822011010", "instagram", "Braces / aligners", "contacted", 1, True, 70000, {}),
+    ]
+    for lid, name, phone, source, interest, status, days, contacted, value, extra in rows:
+        created = now - timedelta(days=days)
+        first = created + timedelta(minutes=12 + int(days * 7) % 50) if contacted else None
+        follow = None
+        if status == "new":
+            follow = created + timedelta(minutes=15)
+        elif status == "contacted":
+            follow = now - timedelta(hours=5) if extra.get("overdue") else now + timedelta(days=1)
+        lead = Lead(id=lid, clinic_id=DEFAULT_CLINIC, name=name, phone=phone, source=source, interest=interest,
+                    message=extra.get("msg"), status=status, lost_reason=extra.get("lost"),
+                    estimated_value=value, assigned_to_id="s2" if contacted else None, next_follow_up_at=follow,
+                    first_contacted_at=first, last_contacted_at=first, contact_count=1 if contacted else 0,
+                    whatsapp_consent=source in ("whatsapp", "website", "instagram"),
+                    closed_at=created + timedelta(days=3) if status in ("won", "lost") else None,
+                    campaign={"utm_source": source, "utm_campaign": "diwali-smile"} if source in ("instagram", "facebook") else None)
+        lead.created_at = lead.updated_at = created
+        db.add(lead)
+        db.flush()
+        db.add(LeadActivity(lead_id=lid, kind="created", body=extra.get("msg") or "", data={"source": source}, created_at=created))
+        if first:
+            db.add(LeadActivity(lead_id=lid, kind="call", body="Explained the treatment and fees", outcome="answered",
+                                created_by_id="s2", created_at=first))
+        if status in ("consult_booked", "won", "lost"):
+            db.add(LeadActivity(lead_id=lid, kind="status", body=f"contacted → {status.replace('_', ' ')}",
+                                created_by_id="s2", created_at=created + timedelta(days=1)))
+    db.add(AppSetting(key="lead_settings", value={"whatsappClinicId": DEFAULT_CLINIC}))
+    central = db.get(Clinic, DEFAULT_CLINIC)
+    if central:
+        central.lead_token = "demo-central-lead-key"
