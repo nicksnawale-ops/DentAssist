@@ -50,7 +50,7 @@ export function SearchBar({
         type="text"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
-        className="pl-9 pr-9 w-full bg-base/50 placeholder:text-text-muted/80 rounded-full border-text-muted/20 hover:border-text-muted/40 transition-colors focus-visible:bg-surface"
+        className="pl-9 pr-9 w-full bg-base/50 placeholder:text-text-muted/80 rounded-full border-line hover:border-text-muted/40 transition-colors focus-visible:bg-surface"
         placeholder={placeholder}
         {...props}
       />

@@ -22,14 +22,14 @@ export function LabDirectory() {
             placeholder="Search dental labs..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+            className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredLabs.map(lab => (
-          <div key={lab.id} className="bg-surface rounded-xl border border-text-muted/10 p-6 shadow-sm hover:border-primary/30 transition-colors">
+          <div key={lab.id} className="bg-surface rounded-xl border border-line p-6 shadow-panel hover:border-primary/30 transition-colors">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-xl font-bold text-text-main mb-1 flex items-center gap-2">
@@ -39,8 +39,8 @@ export function LabDirectory() {
                 <p className="text-sm font-medium text-text-muted">{lab.contactPerson}</p>
               </div>
               <div className="bg-blue-500/10 text-blue-600 px-3 py-1.5 rounded-lg flex flex-col items-center">
-                <span className="text-xs font-bold uppercase">Avg TAT</span>
-                <div className="flex items-center gap-1 font-black">
+                <span className="text-xs font-semibold">Avg TAT</span>
+                <div className="flex items-center gap-1 font-bold">
                    <Clock className="w-3 h-3" /> {lab.averageTurnaroundDays}d
                 </div>
               </div>
@@ -61,8 +61,8 @@ export function LabDirectory() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-text-muted/10">
-              <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Specialties / Items</p>
+            <div className="pt-4 border-t border-line">
+              <p className="text-xs font-semibold text-text-muted mb-2">Specialties / Items</p>
               <div className="flex flex-wrap gap-2">
                 {lab.itemsSupplied.map(cat => (
                   <span key={cat} className="px-2 py-1 rounded bg-blue-500/10 text-blue-700 text-xs font-medium border border-blue-500/20">

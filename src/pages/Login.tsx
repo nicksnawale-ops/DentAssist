@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Role } from '../types';
+import { BrandMark } from '../components/ui/BrandMark';
 
 // Demo accounts created by `python -m app.seed` (shown in development builds only).
 const DEMO_ACCOUNTS: { role: Role; label: string; email: string }[] = [
@@ -52,47 +53,65 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen bg-base">
-      {/* Left side - Branding/Illustration (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary flex-col justify-between p-12 text-white relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-16">
-             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary font-bold text-2xl">
-              V
-            </div>
-            <span className="text-2xl font-bold tracking-tight">VisionEdge DentAssist</span>
+    <div className="flex min-h-[100dvh] bg-surface">
+      {/* Left: what the product is for, shown rather than described */}
+      <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 bg-ink text-white flex-col justify-between p-12 xl:p-16">
+        <div className="flex items-center gap-3">
+          <BrandMark />
+          <div className="leading-tight">
+            <div className="text-[17px] font-semibold">DentAssist</div>
+            <div className="text-sm text-white/55">by VisionEdge</div>
           </div>
-          <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6">
-            Modernize your dental practice.
-          </h1>
-          <p className="text-primary-100 text-lg max-w-md opacity-90">
-            A comprehensive, premium enterprise platform for clinic management, patient tracking, and frictionless billing.
-          </p>
-        </div>
-        
-        <div className="relative z-10">
-          <p className="text-sm opacity-60">© 2026 VisionEdge DentAssist Platforms Inc.</p>
         </div>
 
-        {/* Abstract shapes for decoration */}
-        <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-white opacity-5 mix-blend-overlay"></div>
-        <div className="absolute top-1/4 -right-20 w-72 h-72 rounded-full bg-accent opacity-20 blur-3xl"></div>
+        <div className="max-w-md">
+          <h1 className="text-[40px] leading-[1.1] font-semibold mb-4">
+            Your clinic's day, in one calm view.
+          </h1>
+          <p className="text-[17px] leading-relaxed text-white/70 mb-10">
+            Appointments, patient records, billing and stock for every chair and every branch.
+          </p>
+
+          {/* A sample of the front-desk queue */}
+          <div className="rounded-panel bg-white/[0.06] border border-white/10 p-2" aria-hidden="true">
+            <div className="flex items-center justify-between px-3 pt-2 pb-3 text-sm">
+              <span className="font-medium">Today, Central Clinic</span>
+              <span className="text-white/55">4 waiting</span>
+            </div>
+            {[
+              { time: '09:00', name: 'Alice Johnson', what: 'Root canal, tooth 36', state: 'In chair', tone: 'bg-accent text-ink' },
+              { time: '09:45', name: 'Rahul Desai', what: 'Scaling and polish', state: 'Checked in', tone: 'bg-white/15 text-white' },
+              { time: '10:30', name: 'Meera Patil', what: 'Crown fitting', state: 'Confirmed', tone: 'bg-white/10 text-white/80' },
+            ].map(row => (
+              <div key={row.time} className="flex items-center gap-4 rounded-control px-3 py-2.5 odd:bg-white/[0.04]">
+                <time className="text-sm text-white/60 w-11">{row.time}</time>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{row.name}</div>
+                  <div className="text-xs text-white/55 truncate">{row.what}</div>
+                </div>
+                <span className={`text-xs font-medium rounded-full px-2.5 py-1 ${row.tone}`}>{row.state}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-sm text-white/40">© 2026 VisionEdge</p>
       </div>
 
-      {/* Right side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24 relative">
+      {/* Right: sign in */}
+      <div className="w-full lg:flex-1 flex items-center justify-center px-5 py-10 sm:p-12">
         <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-12">
-             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-2xl">
-              V
+          <div className="lg:hidden flex items-center gap-3 mb-10">
+            <BrandMark />
+            <div className="leading-tight">
+              <div className="text-[17px] font-semibold text-text-main">DentAssist</div>
+              <div className="text-sm text-text-muted">by VisionEdge</div>
             </div>
-            <span className="text-2xl font-bold tracking-tight text-primary">VisionEdge DentAssist</span>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-text-main mb-2">Welcome back</h2>
-            <p className="text-text-muted text-sm">Please enter your details to sign in.</p>
+            <h2 className="text-[26px] font-semibold text-text-main mb-1.5">Sign in</h2>
+            <p className="text-text-muted text-[15px]">Use the email your clinic registered for you.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -146,8 +165,8 @@ export function Login() {
             )}
 
             {isMockMode ? (
-              <div className="pt-4 pb-2 border-t border-text-muted/10 mt-6">
-                <p className="text-xs font-semibold text-warning mb-3 uppercase tracking-wider">Demo Role Selector (mock data)</p>
+              <div className="pt-4 pb-2 border-t border-line mt-6">
+                <p className="text-[13px] font-medium text-text-muted mb-2.5">Demo role (mock data)</p>
                 <div className="grid grid-cols-2 gap-2">
                   {(['super_admin', 'dentist', 'receptionist', 'patient'] as Role[]).map(role => (
                     <button
@@ -157,7 +176,7 @@ export function Login() {
                       className={`px-3 py-2 text-xs font-medium rounded-md transition-colors border ${
                         selectedRole === role
                           ? 'bg-primary/10 border-primary text-primary'
-                          : 'border-text-muted/20 text-text-muted hover:border-text-muted/40'
+                          : 'border-line text-text-muted hover:border-text-muted/40'
                       }`}
                     >
                       {role.replace('_', ' ')}
@@ -166,8 +185,8 @@ export function Login() {
                 </div>
               </div>
             ) : import.meta.env.DEV && (
-              <div className="pt-4 pb-2 border-t border-text-muted/10 mt-6">
-                <p className="text-xs font-semibold text-warning mb-3 uppercase tracking-wider">Demo accounts (dev only)</p>
+              <div className="pt-4 pb-2 border-t border-line mt-6">
+                <p className="text-[13px] font-medium text-text-muted mb-2.5">Demo accounts, password Demo@1234</p>
                 <div className="grid grid-cols-2 gap-2">
                   {DEMO_ACCOUNTS.map(acc => (
                     <button
@@ -177,7 +196,7 @@ export function Login() {
                       className={`px-3 py-2 text-xs font-medium rounded-md transition-colors border ${
                         email === acc.email
                           ? 'bg-primary/10 border-primary text-primary'
-                          : 'border-text-muted/20 text-text-muted hover:border-text-muted/40'
+                          : 'border-line text-text-muted hover:border-text-muted/40'
                       }`}
                     >
                       {acc.label}
@@ -187,7 +206,7 @@ export function Login() {
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg" loading={loading}>
+            <Button type="submit" className="w-full mt-2" size="lg" loading={loading}>
               {isMockMode ? `Sign in as ${selectedRole.replace('_', ' ')}` : 'Sign in'}
             </Button>
           </form>

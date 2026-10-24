@@ -25,12 +25,12 @@ export function InventoryList() {
 
   const getStatusBadge = (item: InventoryItem) => {
     if (item.currentStock <= 0) {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-error/10 text-error border border-error/20">Out of Stock</span>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-error/10 text-error border border-error/20">Out of Stock</span>;
     }
     if (item.currentStock <= item.reorderThreshold) {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Low Stock</span>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Low Stock</span>;
     }
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20">In Stock</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20">In Stock</span>;
   };
 
   const isExpiringSoon = (dateString?: string) => {
@@ -62,7 +62,7 @@ export function InventoryList() {
       key: 'currentStock',
       cell: (row: InventoryItem) => (
         <div className="flex items-center gap-2">
-          <span className={`font-black text-lg ${row.currentStock <= row.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
+          <span className={`font-bold text-lg ${row.currentStock <= row.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
             {row.currentStock}
           </span>
           <span className="text-xs text-text-muted">{row.unit}</span>
@@ -101,7 +101,7 @@ export function InventoryList() {
               placeholder="Search inventory items..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+              className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ export function InventoryList() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              className="bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -118,7 +118,7 @@ export function InventoryList() {
             <select
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
-              className="bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              className="bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
             >
               <option value="All">All Stock Levels</option>
               <option value="Low Stock">Low Stock</option>
@@ -132,7 +132,7 @@ export function InventoryList() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl border border-text-muted/10 overflow-hidden">
+      <div className="bg-white rounded-xl border border-line overflow-hidden">
         <DataTable 
           data={filteredItems} 
           columns={columns} 

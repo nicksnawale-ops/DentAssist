@@ -90,7 +90,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
 
   return (
     <div className="space-y-6 animate-in fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div className="flex items-center gap-4">
           <button onClick={onCancel} className="p-2 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -98,7 +98,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
           <div>
             <h3 className="text-lg font-bold text-text-main">{existingPlan ? 'Edit Treatment Plan' : 'New Treatment Plan'}</h3>
             <div className="flex items-center gap-2 mt-1">
-               <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Status:</span>
+               <span className="text-xs font-medium text-text-muted">Status:</span>
                <select 
                  value={status} 
                  onChange={e => setStatus(e.target.value as any)}
@@ -131,8 +131,8 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-base border border-text-muted/20 rounded-xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-text-muted/10 bg-surface">
+          <div className="bg-base border border-line rounded-xl overflow-hidden shadow-panel">
+            <div className="p-4 border-b border-line bg-surface">
               <input 
                 type="text" 
                 placeholder="Plan Name (e.g., Phase 1 Restorations)" 
@@ -144,7 +144,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
             
             <div className="p-0 overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-surface border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+                <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
                   <tr>
                     <th className="px-4 py-3 w-8"></th>
                     <th className="px-4 py-3">Procedure</th>
@@ -153,7 +153,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                     <th className="px-4 py-3 w-32 text-right">Cost ({symbol})</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-text-muted/10">
+                <tbody className="divide-y divide-line">
                   {items.map((item, index) => {
                     const proc = getProcedureDetails(item.procedureId);
                     return (
@@ -174,7 +174,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                                </button>
                              )}
                            </div>
-                           <div className="text-[10px] text-text-muted font-normal mt-0.5">{proc?.category}</div>
+                           <div className="text-[11px] text-text-muted font-normal mt-0.5">{proc?.category}</div>
                         </td>
                         <td className="px-4 py-3">
                            <input 
@@ -182,14 +182,14 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                              placeholder="e.g. 16" 
                              value={item.toothNumber || ''}
                              onChange={e => handleUpdateItem(item.id, 'toothNumber', e.target.value)}
-                             className="w-16 bg-surface border border-text-muted/20 rounded px-2 py-1 text-xs text-center focus:outline-none focus:border-primary"
+                             className="w-16 bg-surface border border-line rounded px-2 py-1 text-xs text-center focus:outline-none focus:border-primary"
                            />
                         </td>
                         <td className="px-4 py-3">
                            <select
                              value={item.status}
                              onChange={e => handleUpdateItem(item.id, 'status', e.target.value)}
-                             className={`w-full bg-surface border border-text-muted/20 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary ${
+                             className={`w-full bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none focus:border-primary ${
                                item.status === 'Completed' ? 'text-teal-600 font-medium' :
                                item.status === 'Scheduled' ? 'text-amber-600 font-medium' :
                                'text-text-main'
@@ -199,14 +199,14 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                              <option value="Scheduled">Scheduled</option>
                              <option value="Completed">Completed</option>
                            </select>
-                           {item.linkedAppointmentId && <div className="text-[9px] text-text-muted mt-1 truncate max-w-[100px]">Appt linked</div>}
+                           {item.linkedAppointmentId && <div className="text-[11px] text-text-muted mt-1 truncate max-w-[100px]">Appt linked</div>}
                         </td>
                         <td className="px-4 py-3 text-right">
                            <input 
                              type="number" 
                              value={item.cost}
                              onChange={e => handleUpdateItem(item.id, 'cost', Number(e.target.value))}
-                             className="w-24 bg-surface border border-text-muted/20 rounded px-2 py-1 text-right text-sm font-medium focus:outline-none focus:border-primary"
+                             className="w-24 bg-surface border border-line rounded px-2 py-1 text-right text-sm font-medium focus:outline-none focus:border-primary"
                            />
                         </td>
                       </tr>
@@ -222,13 +222,13 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
             </div>
 
             {!isAddingItem ? (
-              <div className="p-4 border-t border-text-muted/10 bg-surface">
+              <div className="p-4 border-t border-line bg-surface">
                 <Button variant="outline" onClick={() => setIsAddingItem(true)} className="w-full gap-2 border-dashed">
                   <Plus className="w-4 h-4" /> Add Procedure
                 </Button>
               </div>
             ) : (
-              <div className="p-4 border-t border-text-muted/10 bg-surface animate-in slide-in-from-top-2">
+              <div className="p-4 border-t border-line bg-surface animate-in slide-in-from-top-2">
                 <div className="flex justify-between items-center mb-3">
                   <h4 className="font-bold text-sm text-text-main">Procedure Catalog</h4>
                   <button onClick={() => setIsAddingItem(false)} className="text-xs font-medium text-text-muted hover:text-text-main">Close</button>
@@ -238,7 +238,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                     <button 
                       key={cat} 
                       onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-text-main text-base' : 'bg-base border border-text-muted/20 text-text-muted hover:text-text-main'}`}
+                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-text-main text-base' : 'bg-base border border-line text-text-muted hover:text-text-main'}`}
                     >
                       {cat}
                     </button>
@@ -249,11 +249,11 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                     <button 
                       key={proc.id} 
                       onClick={() => handleAddItem(proc)}
-                      className="flex justify-between items-center p-3 rounded-lg border border-text-muted/20 bg-base hover:border-primary/50 text-left transition-colors group"
+                      className="flex justify-between items-center p-3 rounded-lg border border-line bg-base hover:border-primary/50 text-left transition-colors group"
                     >
                       <div>
                         <div className="font-bold text-sm text-text-main group-hover:text-primary transition-colors">{proc.name}</div>
-                        <div className="text-[10px] text-text-muted mt-0.5">{proc.category} • {proc.defaultDurationMinutes} min</div>
+                        <div className="text-[11px] text-text-muted mt-0.5">{proc.category} • {proc.defaultDurationMinutes} min</div>
                       </div>
                       <div className="font-medium text-sm text-text-main">{formatCurrency(proc.defaultCost)}</div>
                     </button>
@@ -265,15 +265,15 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
         </div>
 
         <div className="space-y-6">
-          <div className="bg-base border border-text-muted/20 rounded-xl p-5 shadow-sm space-y-4 sticky top-6">
-            <h3 className="font-bold text-text-main mb-4 flex items-center gap-2 border-b border-text-muted/10 pb-3"><Tag className="w-4 h-4 text-primary" /> Financial Summary</h3>
+          <div className="bg-base border border-line rounded-xl p-5 shadow-panel space-y-4 sticky top-6">
+            <h3 className="font-bold text-text-main mb-4 flex items-center gap-2 border-b border-line pb-3"><Tag className="w-4 h-4 text-primary" /> Financial Summary</h3>
             
             <div className="flex justify-between items-center text-sm">
               <span className="text-text-muted font-medium">Subtotal</span>
               <span className="text-text-main font-bold">{formatCurrency(subtotalGross)}</span>
             </div>
             
-            <div className="space-y-2 py-3 border-y border-text-muted/10 border-dashed">
+            <div className="space-y-2 py-3 border-y border-line border-dashed">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-text-muted font-medium flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> Discount</span>
                 <div className="flex items-center gap-2">
@@ -281,12 +281,12 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                      type="number" 
                      value={discount} 
                      onChange={e => setDiscount(Number(e.target.value))}
-                     className="w-16 bg-surface border border-text-muted/20 rounded px-2 py-1 text-right text-xs focus:outline-none focus:border-primary"
+                     className="w-16 bg-surface border border-line rounded px-2 py-1 text-right text-xs focus:outline-none focus:border-primary"
                    />
                    <select 
                      value={discountType} 
                      onChange={e => setDiscountType(e.target.value as any)}
-                     className="bg-surface border border-text-muted/20 rounded px-1 py-1 text-xs focus:outline-none"
+                     className="bg-surface border border-line rounded px-1 py-1 text-xs focus:outline-none"
                    >
                      <option value="percentage">%</option>
                      <option value="flat">{symbol}</option>
@@ -300,7 +300,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                     placeholder="Reason for discount..." 
                     value={discountReason}
                     onChange={e => setDiscountReason(e.target.value)}
-                    className="flex-1 bg-surface border border-text-muted/20 rounded px-2 py-1 text-xs focus:outline-none focus:border-primary mr-4"
+                    className="flex-1 bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none focus:border-primary mr-4"
                   />
                   <span className="text-error font-medium">- {formatCurrency(discountAmt)}</span>
                 </div>
@@ -318,7 +318,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
                  <select 
                    value={taxPercentage} 
                    onChange={e => setTaxPercentage(Number(e.target.value))}
-                   className="bg-surface border border-text-muted/20 rounded px-2 py-1 text-xs focus:outline-none"
+                   className="bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none"
                  >
                    <option value={0}>0%</option>
                    <option value={5}>5%</option>
@@ -329,7 +329,7 @@ export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-3 border-t border-text-muted/20">
+            <div className="flex justify-between items-center pt-3 border-t border-line">
               <span className="text-base font-bold text-text-main">Estimated Total</span>
               <span className="text-2xl font-bold text-primary flex items-center">{formatCurrency(grandTotal, {maximumFractionDigits: 0})}</span>
             </div>

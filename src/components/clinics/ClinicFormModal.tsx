@@ -94,10 +94,10 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 bg-surface p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-2xl border border-text-muted/10 md:w-full overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 bg-surface p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-panel border border-line md:w-full overflow-hidden flex flex-col max-h-[90vh]">
           
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-text-muted/10 bg-base/50">
+          <div className="flex items-center justify-between p-6 border-b border-line bg-base/50">
             <DialogPrimitive.Title className="text-xl font-bold text-text-main flex items-center gap-2">
               <Building className="w-5 h-5 text-primary" />
               {isEditing ? 'Edit Clinic Details' : 'Add New Clinic'}
@@ -115,7 +115,7 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
               
               {/* Basic Info */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2">Basic Information</h4>
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2">Basic Information</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField label="Clinic Name" error={errors.name} required>
                     <Input 
@@ -126,7 +126,7 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
                   </FormField>
                   <FormField label="Status">
                      <select 
-                      className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       value={formData.status}
                       onChange={(e) => handleTextChange('status', e.target.value)}
                     >
@@ -151,7 +151,7 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
                   </FormField>
                   <FormField label="Timezone">
                     <select 
-                      className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       value={formData.timezone}
                       onChange={(e) => handleTextChange('timezone', e.target.value)}
                     >
@@ -165,7 +165,7 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
 
               {/* Address */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2 flex items-center gap-2">
                   <MapPin className="w-4 h-4" /> Location Details
                 </h4>
                 <FormField label="Street Address">
@@ -209,12 +209,12 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
 
               {/* Operating Hours */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2 flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Operating Hours
                 </h4>
                 <div className="space-y-3">
                   {formData.operatingHours?.map((hour, idx) => (
-                    <div key={hour.day} className="flex items-center gap-4 bg-base p-3 rounded-lg border border-text-muted/10">
+                    <div key={hour.day} className="flex items-center gap-4 bg-base p-3 rounded-lg border border-line">
                       <div className="w-28 flex items-center gap-2">
                          <input 
                            type="checkbox" 
@@ -253,7 +253,7 @@ export function ClinicFormModal({ open, onOpenChange, clinic, onSave }: ClinicFo
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-text-muted/10 bg-base flex justify-end gap-3">
+          <div className="p-4 border-t border-line bg-base flex justify-end gap-3">
              <DialogPrimitive.Close asChild>
                <Button variant="outline">Cancel</Button>
              </DialogPrimitive.Close>

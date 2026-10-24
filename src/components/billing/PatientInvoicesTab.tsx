@@ -15,7 +15,7 @@ export function PatientInvoicesTab({ patientId }: { patientId: string }) {
 
   const getStatusBadge = (status: InvoiceStatus) => {
     const styles = {
-      'Draft': 'bg-text-muted/10 text-text-muted border-text-muted/20',
+      'Draft': 'bg-text-muted/10 text-text-muted border-line',
       'Sent': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
       'Partially Paid': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
       'Paid': 'bg-success/10 text-success border-success/20',
@@ -32,7 +32,7 @@ export function PatientInvoicesTab({ patientId }: { patientId: string }) {
     
     const Icon = icons[status];
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[status]}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${styles[status]}`}>
         <Icon className="w-3 h-3" />
         {status}
       </span>
@@ -45,7 +45,7 @@ export function PatientInvoicesTab({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div>
           <h3 className="text-lg font-bold text-text-main">Billing & Invoices</h3>
           {totalOutstanding > 0 ? (
@@ -59,10 +59,10 @@ export function PatientInvoicesTab({ patientId }: { patientId: string }) {
         </Button>
       </div>
 
-      <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4">Invoice #</th>
                 <th className="px-6 py-4">Date</th>
@@ -71,7 +71,7 @@ export function PatientInvoicesTab({ patientId }: { patientId: string }) {
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {patientInvoices.length > 0 ? (
                 patientInvoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-surface-hover/50 transition-colors cursor-pointer" onClick={() => setPreviewInvoice(invoice)}>

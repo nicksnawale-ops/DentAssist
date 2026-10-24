@@ -168,7 +168,7 @@ export function StaffList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-main tracking-tight">Staff Directory</h1>
+          <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Staff Directory</h1>
           <p className="text-sm text-text-muted mt-1">Manage employees, roles, and clinic assignments.</p>
         </div>
         <Button onClick={() => setModalOpen(true)} className="gap-2">

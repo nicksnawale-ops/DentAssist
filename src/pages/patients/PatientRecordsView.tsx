@@ -15,7 +15,7 @@ export function PatientRecordsView() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-main tracking-tight mb-2">My Dental Records</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Dental Records</h1>
         <p className="text-sm text-text-muted">Review your chart, treatment plans, and uploaded documents.</p>
       </div>
 
@@ -23,23 +23,23 @@ export function PatientRecordsView() {
         This is a read-only view of your clinical records. If you have any questions about these documents or treatments, please contact your dentist.
       </div>
 
-      <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="bg-surface rounded-2xl border border-text-muted/10 shadow-sm overflow-hidden flex flex-col">
-        <Tabs.List className="flex border-b border-text-muted/10 bg-base px-2 pt-2 flex-wrap">
+      <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="bg-surface rounded-panel border border-line shadow-panel overflow-hidden flex flex-col">
+        <Tabs.List className="flex border-b border-line bg-base px-2 pt-2 overflow-x-auto scrollbar-hide">
           <Tabs.Trigger 
             value="chart" 
-            className="px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
+            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
           >
             <Stethoscope className="w-4 h-4" /> Dental Chart
           </Tabs.Trigger>
           <Tabs.Trigger 
             value="plans" 
-            className="px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
+            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
           >
             <FileText className="w-4 h-4" /> Treatment Plans
           </Tabs.Trigger>
           <Tabs.Trigger 
             value="documents" 
-            className="px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
+            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
           >
             <Paperclip className="w-4 h-4" /> Documents
           </Tabs.Trigger>

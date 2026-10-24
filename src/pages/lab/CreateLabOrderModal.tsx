@@ -33,8 +33,8 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-2xl border border-text-muted/20 shadow-2xl flex flex-col">
-        <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base rounded-t-2xl">
+      <div className="bg-surface w-full max-w-2xl rounded-panel border border-line shadow-2xl flex flex-col">
+        <div className="p-4 border-b border-line flex justify-between items-center bg-base rounded-t-2xl">
           <h2 className="text-lg font-bold text-text-main">Create Lab Order</h2>
           <button onClick={onClose} className="p-2 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -49,7 +49,7 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
                 required
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               >
                 <option value="">Select Patient...</option>
                 {mockPatients.map(p => (
@@ -63,7 +63,7 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
                 required
                 value={labId}
                 onChange={(e) => setLabId(e.target.value)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               >
                 <option value="">Select Lab...</option>
                 {labs.map(l => (
@@ -78,7 +78,7 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
                 required
                 value={itemType}
                 onChange={(e) => setItemType(e.target.value as LabItemType)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               >
                 <option value="">Select Type...</option>
                 {itemTypes.map(it => (
@@ -94,12 +94,12 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
                 required
                 value={expectedDate}
                 onChange={(e) => setExpectedDate(e.target.value)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-text-muted/10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-line">
             <div>
               <label className="block text-sm font-semibold text-text-main mb-1">Tooth Number(s)</label>
               <input
@@ -107,7 +107,7 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
                 placeholder="e.g. 14, 15 (Comma separated)"
                 value={toothNumbers}
                 onChange={(e) => setToothNumbers(e.target.value)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               />
             </div>
             <div>
@@ -115,7 +115,7 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
               <select
                 value={shade}
                 onChange={(e) => setShade(e.target.value)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
               >
                 <option value="">None / N/A</option>
                 {shades.map(s => (
@@ -132,11 +132,11 @@ export function CreateLabOrderModal({ onClose, defaultPatientId, defaultToothNum
               placeholder="Any specific requests for the lab..."
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
-              className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+              className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-3 border-t border-text-muted/10">
+          <div className="pt-4 flex justify-end gap-3 border-t border-line">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit">Create Order</Button>
           </div>

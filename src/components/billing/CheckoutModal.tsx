@@ -37,7 +37,7 @@ export function CheckoutModal({ invoice, onClose, onSuccess }: CheckoutModalProp
 
   return (
     <div className="fixed inset-0 z-[70] bg-base/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl border border-text-muted/20 shadow-2xl overflow-hidden flex flex-col relative">
+      <div className="bg-surface w-full max-w-md rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col relative">
         
         {step !== 'success' && (
           <button 
@@ -59,20 +59,20 @@ export function CheckoutModal({ invoice, onClose, onSuccess }: CheckoutModalProp
               <p className="text-sm text-text-muted mt-1">Invoice {invoice.invoiceNumber}</p>
             </div>
 
-            <div className="bg-base border border-text-muted/10 rounded-xl p-6 mb-8 text-center">
-              <p className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-2">Amount to Pay</p>
-              <p className="text-4xl font-black text-primary">{formatCurrency(balance)}</p>
+            <div className="bg-base border border-line rounded-xl p-6 mb-8 text-center">
+              <p className="text-sm font-semibold text-text-muted mb-2">Amount to Pay</p>
+              <p className="text-4xl font-bold text-primary">{formatCurrency(balance)}</p>
             </div>
 
             <div className="space-y-4 mb-8">
               <label className="block text-sm font-bold text-text-main mb-2">Select Payment Method</label>
               
               <div 
-                className={`p-4 border rounded-xl cursor-pointer transition-all flex items-center justify-between ${selectedMethod === 'upi' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-text-muted/20 hover:border-primary/50'}`}
+                className={`p-4 border rounded-xl cursor-pointer transition-all flex items-center justify-between ${selectedMethod === 'upi' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-line hover:border-primary/50'}`}
                 onClick={() => setSelectedMethod('upi')}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-base rounded-lg border border-text-muted/10 flex items-center justify-center">
+                  <div className="w-10 h-10 bg-base rounded-lg border border-line flex items-center justify-center">
                     <span className="font-bold text-primary text-xs">UPI</span>
                   </div>
                   <div>
@@ -86,11 +86,11 @@ export function CheckoutModal({ invoice, onClose, onSuccess }: CheckoutModalProp
               </div>
 
               <div 
-                className={`p-4 border rounded-xl cursor-pointer transition-all flex items-center justify-between ${selectedMethod === 'card' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-text-muted/20 hover:border-primary/50'}`}
+                className={`p-4 border rounded-xl cursor-pointer transition-all flex items-center justify-between ${selectedMethod === 'card' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-line hover:border-primary/50'}`}
                 onClick={() => setSelectedMethod('card')}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-base rounded-lg border border-text-muted/10 flex items-center justify-center">
+                  <div className="w-10 h-10 bg-base rounded-lg border border-line flex items-center justify-center">
                     <CreditCard className="w-5 h-5 text-text-muted" />
                   </div>
                   <div>
@@ -133,7 +133,7 @@ export function CheckoutModal({ invoice, onClose, onSuccess }: CheckoutModalProp
             <div className="w-20 h-20 bg-success/10 text-success rounded-full flex items-center justify-center mb-6 animate-bounce">
               <CheckCircle2 className="w-10 h-10" />
             </div>
-            <h3 className="text-2xl font-black text-text-main mb-2">Payment Successful!</h3>
+            <h3 className="text-2xl font-bold text-text-main mb-2">Payment Successful!</h3>
             <p className="text-text-muted mb-8">Your payment of <span className="font-bold text-text-main">{formatCurrency(balance)}</span> was received successfully.</p>
             
             <Button 

@@ -19,8 +19,8 @@ export function InstallmentScheduleModal({ invoiceId, onClose }: InstallmentSche
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-2xl border border-text-muted/20 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-         <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base">
+      <div className="bg-surface w-full max-w-2xl rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+         <div className="p-4 border-b border-line flex justify-between items-center bg-base">
             <div>
               <h3 className="font-bold text-text-main flex items-center gap-2"><CalendarDays className="w-5 h-5 text-primary" /> Installment Schedule</h3>
               <p className="text-xs text-text-muted mt-1">For Invoice {invoice.invoiceNumber}</p>
@@ -32,19 +32,19 @@ export function InstallmentScheduleModal({ invoiceId, onClose }: InstallmentSche
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex justify-between items-center">
               <div>
                 <p className="text-sm font-bold text-text-main">Total Amount</p>
-                <p className="text-xl font-black text-primary">{formatCurrency(invoice.total)}</p>
+                <p className="text-xl font-bold text-primary">{formatCurrency(invoice.total)}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-text-main">Installments</p>
-                <p className="text-xl font-black text-text-main">{installments.length}</p>
+                <p className="text-xl font-bold text-text-main">{installments.length}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               {installments.sort((a, b) => a.installmentNumber - b.installmentNumber).map((inst) => (
-                <div key={inst.id} className="bg-base border border-text-muted/20 rounded-xl p-4 flex items-center justify-between">
+                <div key={inst.id} className="bg-base border border-line rounded-xl p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-surface border border-text-muted/10 flex items-center justify-center font-bold text-text-main">
+                    <div className="w-10 h-10 rounded-full bg-surface border border-line flex items-center justify-center font-bold text-text-main">
                       {inst.installmentNumber}
                     </div>
                     <div>

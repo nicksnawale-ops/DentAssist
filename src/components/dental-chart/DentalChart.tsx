@@ -52,7 +52,7 @@ export function DentalChart({ patientId, initialAge }: { patientId: string, init
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
       <div className="flex-1 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
            <div className="flex items-center gap-6">
              <label className="flex items-center gap-2 text-sm font-bold text-text-main cursor-pointer">
                <input 
@@ -65,16 +65,16 @@ export function DentalChart({ patientId, initialAge }: { patientId: string, init
              </label>
              <div className="flex items-center gap-2">
                <span className="text-sm font-bold text-text-main">Numbering:</span>
-               <div className="flex bg-base rounded-lg p-1 border border-text-muted/20">
+               <div className="flex bg-base rounded-lg p-1 border border-line">
                  <button 
                    onClick={() => setNumberingSystem('Universal')}
-                   className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${numberingSystem === 'Universal' ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                   className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${numberingSystem === 'Universal' ? 'bg-primary text-white shadow-panel' : 'text-text-muted hover:text-text-main'}`}
                  >
                    Universal
                  </button>
                  <button 
                    onClick={() => setNumberingSystem('FDI')}
-                   className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${numberingSystem === 'FDI' ? 'bg-primary text-white shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                   className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${numberingSystem === 'FDI' ? 'bg-primary text-white shadow-panel' : 'text-text-muted hover:text-text-main'}`}
                  >
                    FDI
                  </button>
@@ -84,7 +84,7 @@ export function DentalChart({ patientId, initialAge }: { patientId: string, init
            
            <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-text-muted">History:</span>
-              <select className="bg-base border border-text-muted/20 rounded-lg px-3 py-1.5 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+              <select className="bg-base border border-line rounded-lg px-3 py-1.5 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
                 <option>Current (Today)</option>
                 <option>2024-03-01</option>
                 <option>2023-01-15</option>
@@ -93,11 +93,11 @@ export function DentalChart({ patientId, initialAge }: { patientId: string, init
         </div>
 
         <Tabs.Root defaultValue="chart">
-          <Tabs.List className="flex gap-4 border-b border-text-muted/10 mb-6">
-            <Tabs.Trigger value="chart" className="px-4 py-2 font-bold text-sm text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all">
+          <Tabs.List className="flex gap-4 border-b border-line mb-6 overflow-x-auto scrollbar-hide">
+            <Tabs.Trigger value="chart" className="whitespace-nowrap shrink-0 px-4 py-2 font-bold text-sm text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all">
               Graphical Chart
             </Tabs.Trigger>
-            <Tabs.Trigger value="perio" className="px-4 py-2 font-bold text-sm text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all">
+            <Tabs.Trigger value="perio" className="whitespace-nowrap shrink-0 px-4 py-2 font-bold text-sm text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary transition-all">
               Periodontal
             </Tabs.Trigger>
           </Tabs.List>
@@ -121,7 +121,7 @@ export function DentalChart({ patientId, initialAge }: { patientId: string, init
       </div>
 
       {selectedTooth && (
-        <div className="w-full lg:w-80 shrink-0 border border-text-muted/10 rounded-2xl overflow-hidden shadow-sm h-[600px] sticky top-6">
+        <div className="w-full lg:w-80 shrink-0 border border-line rounded-panel overflow-hidden shadow-panel h-[600px] sticky top-6">
           <ToothDetailPanel 
             fdi={selectedTooth} 
             numberingSystem={numberingSystem}

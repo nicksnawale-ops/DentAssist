@@ -108,9 +108,9 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 bg-surface p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-2xl border border-text-muted/10 md:w-full overflow-hidden flex flex-col max-h-[90vh]">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 bg-surface p-0 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-panel border border-line md:w-full overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="flex items-center justify-between p-6 border-b border-text-muted/10 bg-base/50">
+          <div className="flex items-center justify-between p-6 border-b border-line bg-base/50">
             <DialogPrimitive.Title className="text-xl font-bold text-text-main flex items-center gap-2">
               <UserRound className="w-5 h-5 text-primary" />
               {isEditing ? 'Edit Staff Details' : 'Add New Staff'}
@@ -127,7 +127,7 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
               
               {/* Basic Info */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2">Basic Information</h4>
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2">Basic Information</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField label="First Name" error={errors.firstName} required>
                     <Input 
@@ -160,7 +160,7 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
                   </FormField>
                   <FormField label="Role" required>
                      <select 
-                      className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       value={formData.role}
                       onChange={(e) => handleTextChange('role', e.target.value)}
                     >
@@ -171,7 +171,7 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
                   </FormField>
                   <FormField label="Status">
                      <select 
-                      className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       value={formData.status}
                       onChange={(e) => handleTextChange('status', e.target.value)}
                     >
@@ -193,7 +193,7 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
               {/* Dentist specific fields */}
               {formData.role === 'dentist' && (
                 <section className="space-y-4">
-                  <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2">Professional Details</h4>
+                  <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2">Professional Details</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField label="License/Registration Number">
                       <Input 
@@ -215,12 +215,12 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
 
               {/* Clinic Assignment */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2 flex items-center gap-2">
                   <MapPin className="w-4 h-4" /> Clinic Assignment
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {clinics.map(clinic => (
-                    <label key={clinic.id} className="flex items-center gap-3 p-3 bg-base rounded-lg border border-text-muted/10 cursor-pointer hover:bg-surface-hover transition-colors">
+                    <label key={clinic.id} className="flex items-center gap-3 p-3 bg-base rounded-lg border border-line cursor-pointer hover:bg-surface-hover transition-colors">
                       <input 
                         type="checkbox"
                         checked={(formData.clinicIds || []).includes(clinic.id)}
@@ -235,12 +235,12 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
 
               {/* Working Hours */}
               <section className="space-y-4">
-                <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider text-primary border-b border-text-muted/10 pb-2 flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-text-main text-primary border-b border-line pb-2 flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Working Schedule
                 </h4>
                 <div className="space-y-3">
                   {formData.workingHours?.map((hour, idx) => (
-                    <div key={hour.day} className="flex items-center gap-4 bg-base p-3 rounded-lg border border-text-muted/10">
+                    <div key={hour.day} className="flex items-center gap-4 bg-base p-3 rounded-lg border border-line">
                       <div className="w-28 flex items-center gap-2">
                          <input 
                            type="checkbox" 
@@ -279,7 +279,7 @@ export function StaffFormModal({ open, onOpenChange, staff, onSave }: StaffFormM
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-text-muted/10 bg-base flex justify-end gap-3">
+          <div className="p-4 border-t border-line bg-base flex justify-end gap-3">
              <DialogPrimitive.Close asChild>
                <Button variant="outline">Cancel</Button>
              </DialogPrimitive.Close>

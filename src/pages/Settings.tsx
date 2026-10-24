@@ -55,12 +55,12 @@ export function Settings() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-text-main tracking-tight">System Settings</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">System Settings</h1>
         <p className="text-sm text-text-muted mt-1">Manage your account preferences and application settings.</p>
       </div>
 
       <Tabs.Root defaultValue="profile" className="flex flex-col md:flex-row gap-6">
-        <Tabs.List className="flex flex-row md:flex-col gap-2 min-w-[200px] border-b md:border-b-0 md:border-r border-text-muted/10 overflow-x-auto md:overflow-visible pb-4 md:pb-0 md:pr-4">
+        <Tabs.List className="flex flex-row md:flex-col gap-2 min-w-[200px] border-b md:border-b-0 md:border-r border-line overflow-x-auto md:overflow-visible pb-4 md:pb-0 md:pr-4">
           <Tabs.Trigger 
             value="profile"
             className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-base transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary whitespace-nowrap"
@@ -125,10 +125,10 @@ export function Settings() {
               <CardContent>
                 <form onSubmit={handleSave} className="space-y-6">
                   {/* Avatar Upload Mock */}
-                  <div className="flex items-center gap-5 pb-4 border-b border-text-muted/10">
+                  <div className="flex items-center gap-5 pb-4 border-b border-line">
                     <div className="relative w-20 h-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
                       {user.firstName[0]}{user.lastName[0]}
-                      <button type="button" className="absolute bottom-0 right-0 bg-surface rounded-full p-1.5 border border-text-muted/20 shadow-sm hover:bg-base text-text-muted hover:text-primary transition-colors">
+                      <button type="button" className="absolute bottom-0 right-0 bg-surface rounded-full p-1.5 border border-line shadow-panel hover:bg-base text-text-muted hover:text-primary transition-colors">
                         <Camera className="w-4 h-4" />
                       </button>
                     </div>
@@ -176,7 +176,7 @@ export function Settings() {
                       id="currency"
                       value={selectedCurrency}
                       onChange={(e) => setSelectedCurrency(e.target.value as CurrencyCode)}
-                      className="w-full h-10 px-3 py-2 bg-surface border border-text-muted/20 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-text-main"
+                      className="w-full h-10 px-3 py-2 bg-surface border border-line rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-text-main"
                     >
                       <option value="INR">Indian Rupee (₹ INR)</option>
                       <option value="USD">US Dollar ($ USD)</option>
@@ -187,7 +187,7 @@ export function Settings() {
                     </p>
                   </div>
 
-                  <div className="pt-4 border-t border-text-muted/10 flex justify-end">
+                  <div className="pt-4 border-t border-line flex justify-end">
                     <Button type="submit" loading={isSaving}>Update Regional Settings</Button>
                   </div>
                 </form>
@@ -204,7 +204,7 @@ export function Settings() {
               <CardContent>
                 <form onSubmit={handleSave} className="space-y-6">
                   <div className="space-y-4">
-                    <h4 className="text-sm font-semibold text-text-main uppercase tracking-wider">Email Alerts</h4>
+                    <h4 className="text-sm font-semibold text-text-main">Email Alerts</h4>
                     
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input type="checkbox" className="mt-1 rounded border-text-muted/30 text-primary focus:ring-primary h-4 w-4" defaultChecked />
@@ -223,7 +223,7 @@ export function Settings() {
                     </label>
                   </div>
 
-                  <div className="pt-4 border-t border-text-muted/10 flex justify-end">
+                  <div className="pt-4 border-t border-line flex justify-end">
                     <Button type="submit" loading={isSaving}>Update Preferences</Button>
                   </div>
                 </form>
@@ -249,7 +249,7 @@ export function Settings() {
                     <Input id="confirmPwd" type="password" required />
                   </FormField>
 
-                   <div className="pt-4 border-t border-text-muted/10 flex justify-end">
+                   <div className="pt-4 border-t border-line flex justify-end">
                     <Button type="submit" loading={isSaving}>Update Password</Button>
                   </div>
                  </form>

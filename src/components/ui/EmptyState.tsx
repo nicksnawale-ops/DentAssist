@@ -25,11 +25,11 @@ export function EmptyState({
       className={cn("flex flex-col items-center justify-center p-8 text-center", className)}
       {...props}
     >
-      <div className="w-16 h-16 bg-primary/5 text-primary rounded-2xl flex items-center justify-center mb-6">
-        <Icon className="w-8 h-8" strokeWidth={1.5} />
+      <div className="w-12 h-12 bg-accent/10 text-accent rounded-full flex items-center justify-center mb-4">
+        <Icon className="w-6 h-6" strokeWidth={1.75} />
       </div>
-      <h3 className="text-xl font-bold text-text-main mb-2 tracking-tight">{title}</h3>
-      <p className="text-sm text-text-muted mb-6 max-w-sm">
+      <h3 className="text-base font-semibold text-text-main mb-1">{title}</h3>
+      <p className="text-sm text-text-muted mb-5 max-w-sm">
         {description}
       </p>
       {actionLabel && onAction && (

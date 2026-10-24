@@ -39,8 +39,8 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-2xl border border-text-muted/20 shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base rounded-t-2xl">
+      <div className="bg-surface w-full max-w-2xl rounded-panel border border-line shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-line flex justify-between items-center bg-base rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
               <Package className="w-5 h-5" />
@@ -55,7 +55,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
           </button>
         </div>
 
-        <div className="flex border-b border-text-muted/10 bg-base px-4">
+        <div className="flex border-b border-line bg-base px-4">
           <button
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main'}`}
             onClick={() => setActiveTab('details')}
@@ -87,17 +87,17 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
               )}
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-base p-4 rounded-xl border border-text-muted/10">
+                <div className="bg-base p-4 rounded-xl border border-line">
                   <p className="text-xs text-text-muted font-medium mb-1">Current Stock</p>
-                  <p className={`text-2xl font-black ${item.currentStock <= item.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
+                  <p className={`text-2xl font-bold ${item.currentStock <= item.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
                     {item.currentStock} <span className="text-sm font-normal text-text-muted">{item.unit}</span>
                   </p>
                 </div>
-                <div className="bg-base p-4 rounded-xl border border-text-muted/10">
+                <div className="bg-base p-4 rounded-xl border border-line">
                   <p className="text-xs text-text-muted font-medium mb-1">Reorder Level</p>
                   <p className="text-2xl font-bold text-text-main">{item.reorderThreshold}</p>
                 </div>
-                <div className="bg-base p-4 rounded-xl border border-text-muted/10 col-span-2">
+                <div className="bg-base p-4 rounded-xl border border-line col-span-2">
                   <p className="text-xs text-text-muted font-medium mb-1 flex items-center gap-1">
                     <Info className="w-3 h-3" /> Primary Supplier
                   </p>
@@ -111,7 +111,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
                 {item.movements && item.movements.length > 0 ? (
                   <div className="space-y-3">
                     {item.movements.map(mov => (
-                      <div key={mov.id} className="flex items-start justify-between p-3 bg-base border border-text-muted/10 rounded-lg">
+                      <div key={mov.id} className="flex items-start justify-between p-3 bg-base border border-line rounded-lg">
                         <div className="flex items-start gap-3">
                           {mov.type === 'usage' ? (
                             <ArrowDownCircle className="w-5 h-5 text-error mt-0.5 shrink-0" />
@@ -142,7 +142,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
             <form onSubmit={handleAdjust} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div 
-                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'usage' ? 'border-error bg-error/5 ring-1 ring-error' : 'border-text-muted/20 hover:border-error/30'}`}
+                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'usage' ? 'border-error bg-error/5 ring-1 ring-error' : 'border-line hover:border-error/30'}`}
                   onClick={() => setAdjustType('usage')}
                 >
                   <div className="flex items-center gap-2 text-error font-bold mb-1">
@@ -151,7 +151,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
                   <p className="text-xs text-text-muted">Item was used, damaged, or expired.</p>
                 </div>
                 <div 
-                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'addition' ? 'border-success bg-success/5 ring-1 ring-success' : 'border-text-muted/20 hover:border-success/30'}`}
+                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'addition' ? 'border-success bg-success/5 ring-1 ring-success' : 'border-line hover:border-success/30'}`}
                   onClick={() => setAdjustType('addition')}
                 >
                   <div className="flex items-center gap-2 text-success font-bold mb-1">
@@ -170,7 +170,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
                   required
                   value={adjustAmount}
                   onChange={e => setAdjustAmount(Number(e.target.value))}
-                  className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                  className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                 />
               </div>
 
@@ -182,7 +182,7 @@ export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
                   placeholder={adjustType === 'usage' ? 'e.g., Used in procedure, Expired' : 'e.g., Inventory recount, Manual addition'}
                   value={adjustReason}
                   onChange={e => setAdjustReason(e.target.value)}
-                  className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                  className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                 />
               </div>
 

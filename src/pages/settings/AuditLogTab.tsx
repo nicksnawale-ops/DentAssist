@@ -42,15 +42,15 @@ export function AuditLogTab() {
               placeholder="Search logs by action, actor, or entity..." 
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
-              className="w-full bg-base border border-text-muted/20 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-primary"
+              className="w-full bg-base border border-line rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-primary"
             />
           </div>
         </div>
 
-        <div className="border border-text-muted/10 rounded-xl overflow-hidden bg-base">
+        <div className="border border-line rounded-xl overflow-hidden bg-base">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-surface border-b border-text-muted/10 text-text-muted">
+              <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
                 <tr>
                   <th className="px-4 py-3 font-medium whitespace-nowrap">Timestamp</th>
                   <th className="px-4 py-3 font-medium">Actor</th>
@@ -59,7 +59,7 @@ export function AuditLogTab() {
                   <th className="px-4 py-3 font-medium">Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-text-muted/10">
+              <tbody className="divide-y divide-line">
                 {filteredLogs.map(log => (
                   <tr key={log.id} className="hover:bg-surface/50 transition-colors">
                     <td className="px-4 py-3 whitespace-nowrap">

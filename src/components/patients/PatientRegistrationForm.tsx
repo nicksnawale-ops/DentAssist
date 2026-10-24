@@ -168,24 +168,24 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
       case 1:
         return (
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-text-main uppercase tracking-wider mb-2">Personal Information</h3>
+            <h3 className="text-sm font-semibold text-text-main mb-2">Personal Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">First Name <span className="text-error">*</span></label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">First Name <span className="text-error">*</span></label>
                 <Input value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Last Name <span className="text-error">*</span></label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Last Name <span className="text-error">*</span></label>
                 <Input value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Date of Birth <span className="text-error">*</span></label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Date of Birth <span className="text-error">*</span></label>
                 <Input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} required />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Gender <span className="text-error">*</span></label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Gender <span className="text-error">*</span></label>
                 <select 
-                  className="w-full bg-base border border-text-muted/20 rounded-lg px-3 h-10 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                  className="w-full bg-base border border-line rounded-lg px-3 h-10 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                   value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}
                   required
                 >
@@ -196,7 +196,7 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                 </select>
               </div>
               <div>
-                 <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Phone Number <span className="text-error">*</span></label>
+                 <label className="block text-xs font-semibold text-text-muted mb-1.5">Phone Number <span className="text-error">*</span></label>
                  <Input value={formData.phone} onChange={e => handlePhoneChange(e.target.value)} required />
                  {duplicateWarning && (
                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded flex items-start gap-2 text-amber-800 text-xs">
@@ -209,19 +209,19 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                  )}
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Email Address</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Email Address</label>
                 <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Address</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Address</label>
                 <textarea 
-                  className="w-full bg-base border border-text-muted/20 rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-20"
+                  className="w-full bg-base border border-line rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-20"
                   value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})}
                   placeholder="Full residential address"
                 />
               </div>
-              <div className="col-span-2 p-3 bg-surface border border-text-muted/10 rounded-lg space-y-3">
-                <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Communication Preferences</label>
+              <div className="col-span-2 p-3 bg-surface border border-line rounded-lg space-y-3">
+                <label className="text-xs font-semibold text-text-muted">Communication Preferences</label>
                 <div className="flex items-center gap-4">
                    <label className="flex items-center gap-2 cursor-pointer">
                      <input type="checkbox" checked={formData.whatsappOptIn} onChange={e => setFormData({...formData, whatsappOptIn: e.target.checked})} className="rounded border-text-muted/30 text-primary focus:ring-primary h-4 w-4" />
@@ -229,7 +229,7 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                    </label>
                    <div className="h-4 w-[1px] bg-text-muted/20"></div>
                    <select 
-                     className="bg-base border border-text-muted/20 rounded px-2 py-1 text-sm text-text-main"
+                     className="bg-base border border-line rounded px-2 py-1 text-sm text-text-main"
                      value={formData.language} onChange={e => setFormData({...formData, language: e.target.value})}
                    >
                       <option value="English">English</option>
@@ -245,42 +245,42 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
         return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-semibold text-text-main uppercase tracking-wider mb-3">Emergency Contact</h3>
+              <h3 className="text-sm font-semibold text-text-main mb-3">Emergency Contact</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Emergency Contact Name</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Emergency Contact Name</label>
                   <Input value={formData.emergencyName} onChange={e => setFormData({...formData, emergencyName: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Relationship</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Relationship</label>
                   <Input value={formData.emergencyRel} onChange={e => setFormData({...formData, emergencyRel: e.target.value})} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Emergency Contact Phone</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Emergency Contact Phone</label>
                   <Input value={formData.emergencyPhone} onChange={e => setFormData({...formData, emergencyPhone: e.target.value})} />
                 </div>
               </div>
             </div>
-            <hr className="border-text-muted/10" />
+            <hr className="border-line" />
             <div>
               <div className="flex items-center gap-2 mb-3">
                  <AlertCircle className="w-4 h-4 text-error" />
-                 <h3 className="text-sm font-semibold text-text-main uppercase tracking-wider">Medical History</h3>
+                 <h3 className="text-sm font-semibold text-text-main">Medical History</h3>
               </div>
               <div className="space-y-4">
                  <div>
-                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Known Allergies</label>
+                   <label className="block text-xs font-semibold text-text-muted mb-1.5">Known Allergies</label>
                    <Input placeholder="e.g., Penicillin, Latex" value={formData.allergies} onChange={e => setFormData({...formData, allergies: e.target.value})} />
                    <p className="text-[11px] text-text-muted mt-1">Separate multiple entries with commas</p>
                  </div>
                  <div>
-                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Current Medications</label>
+                   <label className="block text-xs font-semibold text-text-muted mb-1.5">Current Medications</label>
                    <Input placeholder="e.g., Aspirin" value={formData.medications} onChange={e => setFormData({...formData, medications: e.target.value})} />
                    <p className="text-[11px] text-text-muted mt-1">Separate multiple entries with commas</p>
                  </div>
                  
                  <div>
-                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Chronic Conditions</label>
+                   <label className="block text-xs font-semibold text-text-muted mb-2">Chronic Conditions</label>
                    <div className="flex flex-wrap gap-2">
                      {commonConditions.map(cond => (
                        <button
@@ -289,8 +289,8 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                          onClick={() => handleToggleCondition(cond)}
                          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                            formData.chronicConditions.includes(cond) 
-                           ? 'bg-error text-white border-error shadow-sm' 
-                           : 'bg-surface border-text-muted/20 text-text-main hover:border-text-muted/40'
+                           ? 'bg-error text-white border-error shadow-panel' 
+                           : 'bg-surface border-line text-text-main hover:border-text-muted/40'
                          }`}
                        >
                          {cond}
@@ -300,9 +300,9 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                  </div>
                  
                  <div>
-                   <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Past Surgeries / Notes</label>
+                   <label className="block text-xs font-semibold text-text-muted mb-1.5">Past Surgeries / Notes</label>
                    <textarea 
-                     className="w-full bg-base border border-text-muted/20 rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-16"
+                     className="w-full bg-base border border-line rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-16"
                      value={formData.pastSurgeries} onChange={e => setFormData({...formData, pastSurgeries: e.target.value})}
                    />
                  </div>
@@ -314,26 +314,26 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
          return (
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-semibold text-text-main uppercase tracking-wider mb-3">Dental History</h3>
+              <h3 className="text-sm font-semibold text-text-main mb-3">Dental History</h3>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Reason for Visit</label>
+                    <label className="block text-xs font-semibold text-text-muted mb-1.5">Reason for Visit</label>
                     <Input value={formData.reasonForVisit} onChange={e => setFormData({...formData, reasonForVisit: e.target.value})} />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Last Dental Visit Date</label>
+                    <label className="block text-xs font-semibold text-text-muted mb-1.5">Last Dental Visit Date</label>
                     <Input type="date" value={formData.lastDentalVisit} onChange={e => setFormData({...formData, lastDentalVisit: e.target.value})} />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Ongoing Dental Issues</label>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Ongoing Dental Issues</label>
                   <textarea 
-                    className="w-full bg-base border border-text-muted/20 rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-16"
+                    className="w-full bg-base border border-line rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-16"
                     value={formData.ongoingIssues} onChange={e => setFormData({...formData, ongoingIssues: e.target.value})}
                   />
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer p-3 bg-surface border border-text-muted/10 rounded-lg">
+                <label className="flex items-center gap-2 cursor-pointer p-3 bg-surface border border-line rounded-lg">
                   <input type="checkbox" checked={formData.smoking} onChange={e => setFormData({...formData, smoking: e.target.checked})} className="rounded border-text-muted/30 text-primary focus:ring-primary h-4 w-4" />
                   <div>
                     <span className="text-sm font-medium text-text-main block">Smoking / Tobacco Use</span>
@@ -342,23 +342,23 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                 </label>
               </div>
             </div>
-            <hr className="border-text-muted/10" />
+            <hr className="border-line" />
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 mb-1">
-                <h3 className="text-sm font-semibold text-text-main uppercase tracking-wider">Insurance & Referral</h3>
+                <h3 className="text-sm font-semibold text-text-main">Insurance & Referral</h3>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Insurance Provider</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Insurance Provider</label>
                 <Input value={formData.insuranceProvider} onChange={e => setFormData({...formData, insuranceProvider: e.target.value})} />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Policy Number</label>
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Policy Number</label>
                 <Input value={formData.policyNumber} onChange={e => setFormData({...formData, policyNumber: e.target.value})} />
               </div>
               <div className="col-span-2">
-                 <label className="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Referral Source</label>
+                 <label className="block text-xs font-semibold text-text-muted mb-1.5">Referral Source</label>
                  <select 
-                   className="w-full bg-base border border-text-muted/20 rounded-lg px-3 h-10 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                   className="w-full bg-base border border-line rounded-lg px-3 h-10 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                    value={formData.referralSource} onChange={e => setFormData({...formData, referralSource: e.target.value})}
                  >
                    <option value="">How did you hear about us?</option>
@@ -379,9 +379,9 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 animate-in fade-in duration-200" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-base rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col h-[740px] max-h-[90vh]">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-base rounded-panel shadow-xl z-50 overflow-hidden flex flex-col h-[740px] max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-text-muted/10 flex justify-between items-center bg-surface shrink-0">
+          <div className="px-6 py-4 border-b border-line flex justify-between items-center bg-surface shrink-0">
             <div>
               <Dialog.Title className="text-lg font-bold text-text-main tracking-tight">
                 {mode === 'edit' ? 'Edit Patient Profile' : 'Register New Patient'}
@@ -416,7 +416,7 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
              {renderStepContent()}
           </div>
 
-          <div className="px-6 py-4 border-t border-text-muted/10 bg-surface flex justify-between shrink-0">
+          <div className="px-6 py-4 border-t border-line bg-surface flex justify-between shrink-0">
             {step > 1 ? (
               <Button variant="outline" onClick={() => setStep(step - 1)}>Back</Button>
             ) : (

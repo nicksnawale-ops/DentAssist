@@ -112,8 +112,8 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-4xl rounded-2xl border border-text-muted/20 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base">
+      <div className="bg-surface w-full max-w-4xl rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-line flex justify-between items-center bg-base">
           <h3 className="font-bold text-text-main flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" /> Create Invoice
           </h3>
@@ -126,11 +126,11 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Select Patient</label>
+                <label className="block text-xs font-bold text-text-muted mb-2">Select Patient</label>
                 <select 
                   value={patientId} 
                   onChange={e => { setPatientId(e.target.value); setTreatmentPlanId(''); }}
-                  className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                   disabled={!!initialPatientId}
                 >
                   <option value="">-- Select Patient --</option>
@@ -142,7 +142,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
               
               {patientId && patientPlans.length > 0 && (
                 <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Generate from Treatment Plan</label>
+                  <label className="block text-xs font-bold text-text-muted mb-2">Generate from Treatment Plan</label>
                   <select 
                     value={treatmentPlanId} 
                     onChange={e => setTreatmentPlanId(e.target.value)}
@@ -160,14 +160,14 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Due Date</label>
+                <label className="block text-xs font-bold text-text-muted mb-2">Due Date</label>
                 <div className="relative">
                   <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                   <input 
                     type="date" 
                     value={dueDate}
                     onChange={e => setDueDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                    className="w-full pl-9 pr-3 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
@@ -176,15 +176,15 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
 
           <div>
             <div className="flex justify-between items-center mb-4">
-              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider">Line Items</label>
+              <label className="block text-xs font-bold text-text-muted">Line Items</label>
               <Button size="sm" variant="outline" onClick={addLineItem} className="gap-2">
                 <Plus className="w-4 h-4" /> Add Item
               </Button>
             </div>
             
-            <div className="border border-text-muted/20 rounded-xl overflow-hidden bg-base">
+            <div className="border border-line rounded-xl overflow-hidden bg-base">
               <table className="w-full text-left text-sm">
-                <thead className="bg-surface border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+                <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
                   <tr>
                     <th className="px-4 py-3">Description</th>
                     <th className="px-4 py-3 w-24 text-right">Qty</th>
@@ -193,7 +193,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
                     <th className="px-4 py-3 w-12 text-center"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-text-muted/10">
+                <tbody className="divide-y divide-line">
                   {lineItems.map((item, index) => (
                     <tr key={item.id}>
                       <td className="px-4 py-2">
@@ -241,18 +241,18 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-1 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Notes to Patient</label>
+                <label className="block text-xs font-bold text-text-muted mb-2">Notes to Patient</label>
                 <textarea 
                   rows={4}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="Thank you for your visit..."
-                  className="w-full bg-base border border-text-muted/20 rounded-lg p-3 text-sm focus:outline-none focus:border-primary resize-none"
+                  className="w-full bg-base border border-line rounded-lg p-3 text-sm focus:outline-none focus:border-primary resize-none"
                 />
               </div>
             </div>
             
-            <div className="w-full md:w-80 bg-surface rounded-xl border border-text-muted/20 p-4 space-y-3">
+            <div className="w-full md:w-80 bg-surface rounded-xl border border-line p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-text-muted">Subtotal</span>
                 <span className="font-medium text-text-main">{formatCurrency(subtotal)}</span>
@@ -264,7 +264,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
                   <select 
                     value={discountType} 
                     onChange={e => setDiscountType(e.target.value as any)}
-                    className="bg-transparent border border-text-muted/20 rounded px-1 text-xs focus:outline-none"
+                    className="bg-transparent border border-line rounded px-1 text-xs focus:outline-none"
                   >
                     <option value="flat">{symbol}</option>
                     <option value="percentage">%</option>
@@ -275,7 +275,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
                     type="number" 
                     value={discount}
                     onChange={e => setDiscount(Number(e.target.value))}
-                    className="w-16 bg-base border border-text-muted/20 rounded px-2 py-0.5 text-right text-sm focus:outline-none focus:border-primary"
+                    className="w-16 bg-base border border-line rounded px-2 py-0.5 text-right text-sm focus:outline-none focus:border-primary"
                   />
                   <span className="text-error font-medium w-16 text-right">-{formatCurrency(discountAmount)}</span>
                 </div>
@@ -290,7 +290,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
                 <span className="font-medium text-text-main">{formatCurrency(sgst, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
               </div>
 
-              <div className="border-t border-text-muted/20 pt-3 flex justify-between items-center">
+              <div className="border-t border-line pt-3 flex justify-between items-center">
                 <span className="font-bold text-text-main">Total</span>
                 <span className="text-xl font-bold text-primary">{formatCurrency(total, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
               </div>
@@ -298,7 +298,7 @@ export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialT
           </div>
         </div>
 
-        <div className="p-4 border-t border-text-muted/10 bg-base flex justify-end gap-3">
+        <div className="p-4 border-t border-line bg-base flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave} disabled={!patientId || lineItems.every(li => li.procedureName.trim() === '')} className="gap-2">
             <Plus className="w-4 h-4" /> Generate Invoice

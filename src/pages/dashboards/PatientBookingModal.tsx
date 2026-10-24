@@ -102,8 +102,8 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-lg rounded-2xl border border-text-muted/20 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
-        <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base rounded-t-2xl">
+      <div className="bg-surface w-full max-w-lg rounded-panel border border-line shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-line flex justify-between items-center bg-base rounded-t-2xl">
           <h2 className="text-lg font-bold text-text-main">{isReschedule ? 'Reschedule Appointment' : 'Book an Appointment'}</h2>
           <button onClick={onClose} aria-label="Close" className="p-2 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -127,7 +127,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                     className={`p-3 text-sm font-medium border rounded-xl text-left transition-colors ${
                       reason === r
                         ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-text-muted/20 text-text-main hover:border-primary/50'
+                        : 'border-line text-text-main hover:border-primary/50'
                     }`}
                   >
                     {r}
@@ -169,7 +169,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                       className={`w-full p-4 flex items-center gap-3 border rounded-xl text-left transition-colors ${
                         clinicId === c.id
                           ? 'border-primary bg-primary/5'
-                          : 'border-text-muted/20 hover:border-primary/50'
+                          : 'border-line hover:border-primary/50'
                       }`}
                     >
                       <MapPin className={`w-5 h-5 ${clinicId === c.id ? 'text-primary' : 'text-text-muted'}`} />
@@ -188,7 +188,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                   value={dentistId}
                   onChange={(e) => setDentistId(e.target.value)}
                   disabled={!clinicId}
-                  className="w-full px-4 py-3 bg-base border border-text-muted/20 rounded-xl focus:outline-none focus:border-primary text-sm font-medium"
+                  className="w-full px-4 py-3 bg-base border border-line rounded-xl focus:outline-none focus:border-primary text-sm font-medium"
                 >
                   <option value="">No Preference</option>
                   {dentists.map(d => (
@@ -197,7 +197,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                 </select>
               </div>
 
-              <div className="pt-4 flex justify-between border-t border-text-muted/10">
+              <div className="pt-4 flex justify-between border-t border-line">
                 <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
                 <Button onClick={() => setStep(3)} disabled={!clinicId}>Next</Button>
               </div>
@@ -219,7 +219,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                         className={`flex flex-col items-center min-w-[70px] p-3 border rounded-xl transition-colors shrink-0 ${
                           isSelected
                             ? 'border-primary bg-primary text-white'
-                            : 'border-text-muted/20 text-text-main hover:border-primary/50 bg-base'
+                            : 'border-line text-text-main hover:border-primary/50 bg-base'
                         }`}
                       >
                         <span className="text-xs opacity-80">{format(d, 'EEE')}</span>
@@ -242,7 +242,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                         className={`py-2 px-3 text-sm font-bold border rounded-lg transition-colors ${
                           selectedTime === t
                             ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-text-muted/20 text-text-main hover:border-primary/50'
+                            : 'border-line text-text-main hover:border-primary/50'
                         }`}
                       >
                         {t}
@@ -256,7 +256,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
                 <div role="alert" className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">{submitError}</div>
               )}
 
-              <div className="pt-4 flex justify-between border-t border-text-muted/10">
+              <div className="pt-4 flex justify-between border-t border-line">
                 {isReschedule ? <div /> : <Button variant="outline" onClick={() => setStep(2)}>Back</Button>}
                 <Button onClick={handleBook} loading={submitting} disabled={!selectedDate || !selectedTime}>
                   {isReschedule ? 'Confirm New Time' : 'Confirm Booking'}

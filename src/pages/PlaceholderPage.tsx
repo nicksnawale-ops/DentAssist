@@ -24,7 +24,7 @@ export function PlaceholderPage({
         <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-[1.3] pointer-events-none" aria-hidden="true" />
         
         {/* Icon Badge */}
-        <div className="relative w-20 h-20 rounded-full bg-[#EAF7F5] border border-dashed border-primary/40 flex items-center justify-center text-[#14A89D] shadow-sm">
+        <div className="relative w-20 h-20 rounded-full bg-[#EAF7F5] border border-dashed border-primary/40 flex items-center justify-center text-accent shadow-panel">
           <Icon className="w-10 h-10" strokeWidth={1.5} />
         </div>
       </div>
@@ -46,8 +46,8 @@ export function PlaceholderPage({
           </Button>
 
           {showPlanned && (
-            <div className="w-full mt-3 bg-surface border border-text-muted/10 rounded-xl p-5 text-left shadow-lg transform transition-all duration-200 opacity-100 translate-y-0">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Planned Features</h4>
+            <div className="w-full mt-3 bg-surface border border-line rounded-xl p-5 text-left shadow-lg transform transition-all duration-200 opacity-100 translate-y-0">
+              <h4 className="text-xs font-semibold text-text-muted mb-3">Planned Features</h4>
               <ul className="space-y-2.5">
                 {plannedFeatures.map((feature, idx) => (
                   <li key={idx} className="flex items-start gap-2.5 text-sm text-text-main">

@@ -73,7 +73,7 @@ export function PatientAppointmentsList() {
     const clinic = clinicFor(appt);
 
     return (
-      <Card key={appt.id} className="mb-4 shadow-sm border-text-muted/10">
+      <Card key={appt.id} className="mb-4 shadow-panel border-line">
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -95,7 +95,7 @@ export function PatientAppointmentsList() {
                     <MapPin className="w-4 h-4" /> {clinic?.name || 'Clinic'}
                   </div>
                   {!isUpcoming && appt.status !== 'completed' && (
-                    <div className="text-xs font-medium uppercase tracking-wider text-text-muted">{appt.status.replace('_', ' ')}</div>
+                    <div className="text-xs font-medium text-text-muted">{appt.status.replace('_', ' ')}</div>
                   )}
                 </div>
               </div>
@@ -118,7 +118,7 @@ export function PatientAppointmentsList() {
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-text-main tracking-tight mb-2">My Appointments</h1>
+          <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Appointments</h1>
           <p className="text-sm text-text-muted">Manage your upcoming visits and view past history.</p>
         </div>
         <Button className="gap-2" onClick={() => setIsBookingModalOpen(true)}>
@@ -132,20 +132,20 @@ export function PatientAppointmentsList() {
       {loading && <p className="text-sm text-text-muted">Loading your appointments…</p>}
 
       <div>
-        <h2 className="text-xl font-semibold text-text-main mb-4 border-b border-text-muted/10 pb-2">Upcoming</h2>
+        <h2 className="text-xl font-semibold text-text-main mb-4 border-b border-line pb-2">Upcoming</h2>
         {upcoming.length > 0 ? (
           upcoming.map(a => renderAppointmentCard(a, true))
         ) : (
-          <p className="text-sm text-text-muted italic bg-base p-6 rounded-xl border border-text-muted/10 text-center">No upcoming appointments scheduled.</p>
+          <p className="text-sm text-text-muted italic bg-base p-6 rounded-xl border border-line text-center">No upcoming appointments scheduled.</p>
         )}
       </div>
 
       <div className="pt-4">
-        <h2 className="text-xl font-semibold text-text-main mb-4 border-b border-text-muted/10 pb-2">Past</h2>
+        <h2 className="text-xl font-semibold text-text-main mb-4 border-b border-line pb-2">Past</h2>
         {past.length > 0 ? (
           past.map(a => renderAppointmentCard(a, false))
         ) : (
-          <p className="text-sm text-text-muted italic bg-base p-6 rounded-xl border border-text-muted/10 text-center">No past appointments.</p>
+          <p className="text-sm text-text-muted italic bg-base p-6 rounded-xl border border-line text-center">No past appointments.</p>
         )}
       </div>
 

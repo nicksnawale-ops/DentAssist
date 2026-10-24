@@ -33,7 +33,7 @@ export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, o
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-base/80 backdrop-blur-sm z-50 transition-opacity" />
-        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-surface border-l border-text-muted/10 p-6 shadow-2xl flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
+        <Dialog.Content className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-surface border-l border-line p-6 shadow-2xl flex flex-col data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right">
           <div className="flex items-center justify-between mb-5 flex-none">
             <Dialog.Title className="text-xl font-bold text-text-main flex items-center gap-2">
               <ListTodo className="w-5 h-5 text-primary" />
@@ -59,7 +59,7 @@ export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, o
                  if (entry.status !== 'waiting') return null;
                  
                  return (
-                   <div key={entry.id} className="p-4 bg-base rounded-xl border border-text-muted/10 space-y-3">
+                   <div key={entry.id} className="p-4 bg-base rounded-xl border border-line space-y-3">
                      <div className="flex justify-between items-start gap-2">
                        <div>
                          <h4 className="font-bold text-sm text-text-main flex items-center gap-1.5">

@@ -73,11 +73,11 @@ export function DocumentViewer({ document, allDocuments, onClose }: DocumentView
 
   return (
     <div className="fixed inset-0 z-50 bg-base/95 backdrop-blur-sm flex flex-col animate-in fade-in">
-      <div className="flex justify-between items-center p-4 border-b border-text-muted/10 bg-surface">
+      <div className="flex justify-between items-center p-4 border-b border-line bg-surface">
          <div>
            <h3 className="font-bold text-text-main flex items-center gap-3">
              {document.fileName}
-             <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2 py-0.5 rounded">{document.type}</span>
+             <span className="text-[11px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">{document.type}</span>
            </h3>
            <p className="text-xs text-text-muted mt-1">Uploaded {format(parseISO(document.uploadedAt), 'PPP')} • {document.tags?.join(', ') || 'No tags'}</p>
          </div>
@@ -104,7 +104,7 @@ export function DocumentViewer({ document, allDocuments, onClose }: DocumentView
 
       <div className="flex-1 flex overflow-hidden">
          {/* Left Side: Main Image */}
-         <div className={`flex-1 relative bg-[#0a0a0a] flex items-center justify-center overflow-hidden ${isCompareMode ? 'border-r border-text-muted/20' : ''}`}>
+         <div className={`flex-1 relative bg-[#0a0a0a] flex items-center justify-center overflow-hidden ${isCompareMode ? 'border-r border-line' : ''}`}>
             {isImage ? (
                <div className="relative w-full h-full flex items-center justify-center p-8">
                  <img 
@@ -138,7 +138,7 @@ export function DocumentViewer({ document, allDocuments, onClose }: DocumentView
 
             {/* Image Controls Floating Panel */}
             {isImage && !isCompareMode && !isAnnotating && (
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface/90 backdrop-blur border border-text-muted/20 rounded-full px-6 py-3 flex gap-6 shadow-xl z-20">
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface/90 backdrop-blur border border-line rounded-full px-6 py-3 flex gap-6 shadow-xl z-20">
                  <div className="flex items-center gap-3">
                    <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))} className="text-text-muted hover:text-text-main"><ZoomOut className="w-4 h-4" /></button>
                    <span className="text-xs font-bold text-text-main w-12 text-center">{Math.round(zoom * 100)}%</span>
@@ -162,7 +162,7 @@ export function DocumentViewer({ document, allDocuments, onClose }: DocumentView
             {/* Annotation Controls Floating Panel */}
             {isAnnotating && (
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-surface/90 backdrop-blur border border-error/30 rounded-full px-6 py-3 flex gap-4 shadow-xl z-20">
-                 <Button size="sm" variant="outline" onClick={clearAnnotations} className="gap-2 border-text-muted/20"><Trash2 className="w-4 h-4" /> Clear</Button>
+                 <Button size="sm" variant="outline" onClick={clearAnnotations} className="gap-2 border-line"><Trash2 className="w-4 h-4" /> Clear</Button>
                  <Button size="sm" onClick={handleSaveAnnotations} className="gap-2 bg-error hover:bg-error/90 text-white border-transparent"><Save className="w-4 h-4" /> Save Annotation</Button>
                  <Button size="sm" variant="outline" onClick={() => setIsAnnotating(false)} className="border-transparent">Cancel</Button>
               </div>
@@ -171,12 +171,12 @@ export function DocumentViewer({ document, allDocuments, onClose }: DocumentView
 
          {/* Right Side: Compare Mode */}
          {isCompareMode && (
-           <div className="flex-1 relative bg-[#0a0a0a] flex flex-col border-l border-text-muted/10">
-              <div className="p-3 bg-surface border-b border-text-muted/10 flex items-center justify-between z-10">
+           <div className="flex-1 relative bg-[#0a0a0a] flex flex-col border-l border-line">
+              <div className="p-3 bg-surface border-b border-line flex items-center justify-between z-10">
                  <select 
                    value={compareDocId} 
                    onChange={e => setCompareDocId(e.target.value)}
-                   className="bg-base border border-text-muted/20 rounded-lg px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:border-primary w-full max-w-sm"
+                   className="bg-base border border-line rounded-lg px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:border-primary w-full max-w-sm"
                  >
                    <option value="">Select an image to compare...</option>
                    {allDocuments.filter(d => (d.type === 'X-Ray' || d.type === 'Intraoral Photo') && d.id !== document.id).map(d => (

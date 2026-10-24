@@ -48,7 +48,7 @@ export function InvoicesList() {
 
   const getStatusBadge = (status: InvoiceStatus) => {
     const styles = {
-      'Draft': 'bg-text-muted/10 text-text-muted border-text-muted/20',
+      'Draft': 'bg-text-muted/10 text-text-muted border-line',
       'Sent': 'bg-blue-500/10 text-blue-800 border-blue-500/20',
       'Partially Paid': 'bg-yellow-500/10 text-yellow-800 border-yellow-500/20',
       'Paid': 'bg-success/10 text-success border-success/20',
@@ -81,7 +81,7 @@ export function InvoicesList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col md:flex-row gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -89,14 +89,14 @@ export function InvoicesList() {
             placeholder="Search by invoice number or patient name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
         <div className="flex gap-4">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary min-w-[140px]"
+            className="px-3 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary min-w-[140px]"
           >
             <option value="All">All Statuses</option>
             <option value="Draft">Draft</option>
@@ -108,7 +108,7 @@ export function InvoicesList() {
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value as any)}
-            className="px-3 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary min-w-[140px]"
+            className="px-3 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary min-w-[140px]"
           >
             <option value="all">All Dates</option>
             <option value="this_month">This Month</option>
@@ -118,10 +118,10 @@ export function InvoicesList() {
       </div>
 
       {/* Invoices Table */}
-      <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4">Invoice #</th>
                 <th className="px-6 py-4">Patient</th>
@@ -132,7 +132,7 @@ export function InvoicesList() {
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((invoice) => {
                   const patient = mockPatients.find(p => p.id === invoice.patientId);

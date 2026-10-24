@@ -6,10 +6,15 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
 import { Calendar as CalendarIcon, MapPin, User, FileText, DollarSign, Star } from 'lucide-react';
 import { PatientBookingModal } from './PatientBookingModal';
+import { PageHeader, greeting } from '../../components/ui/PageHeader';
+import { useNavigate } from 'react-router-dom';
+import { useCurrency } from '../../utils/currencyConfig';
 import { generateICS } from '../../utils/icsGenerator';
 
 export function PatientDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { formatCurrency } = useCurrency();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -54,18 +59,18 @@ export function PatientDashboard() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main tracking-tight">Welcome, {user?.firstName}</h1>
-          <p className="text-sm text-text-muted">Manage your appointments and view your records.</p>
-        </div>
-        <Button className="gap-2" onClick={() => setIsBookingModalOpen(true)}>
-          <CalendarIcon className="w-4 h-4" /> Book Appointment
-        </Button>
-      </div>
+    <div className="max-w-5xl mx-auto">
+      <PageHeader
+        title={greeting(user?.firstName)}
+        description="Your visits, records and bills in one place."
+        actions={
+          <Button onClick={() => setIsBookingModalOpen(true)}>
+            <CalendarIcon className="w-4 h-4" /> Book appointment
+          </Button>
+        }
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card className="border-primary/20 shadow-md">
           <CardHeader className="bg-primary/5 pb-4 border-b border-primary/10 rounded-t-2xl">
             <CardTitle className="text-primary flex items-center gap-2">
@@ -85,7 +90,7 @@ export function PatientDashboard() {
                 <p className="text-text-main font-medium">{data.nextAppointment.time}</p>
               </div>
               
-              <div className="space-y-2 pt-4 border-t border-text-muted/10">
+              <div className="space-y-2 pt-4 border-t border-line">
                 <div className="flex items-start gap-3">
                   <User className="w-5 h-5 text-text-muted shrink-0" />
                   <p className="text-sm text-text-main">{data.nextAppointment.providerName}</p>
@@ -125,7 +130,7 @@ export function PatientDashboard() {
           
           {/* Post-appointment Feedback Prompt */}
           {!reviewSubmitted && (
-            <Card className="border-primary/20 shadow-sm bg-primary/5">
+            <Card className="border-primary/20 shadow-panel bg-primary/5">
               <CardContent className="p-5">
                 <h4 className="font-bold text-sm text-text-main mb-2">How was your recent visit?</h4>
                 <div className="flex gap-1 mb-3">
@@ -143,7 +148,7 @@ export function PatientDashboard() {
                   <div className="animate-in fade-in slide-in-from-top-2">
                     <textarea 
                       placeholder="Any additional comments? (optional)"
-                      className="w-full text-sm p-2 rounded border border-text-muted/20 bg-base focus:outline-none focus:border-primary mb-2 min-h-[60px]"
+                      className="w-full text-sm p-2 rounded border border-line bg-base focus:outline-none focus:border-primary mb-2 min-h-[60px]"
                     />
                     <Button size="sm" onClick={() => setReviewSubmitted(true)}>Submit Feedback</Button>
                   </div>
@@ -158,13 +163,13 @@ export function PatientDashboard() {
                 <FileText className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Recent Treatment</p>
+                <p className="text-xs font-semibold text-text-muted mb-1">Recent Treatment</p>
                 {!data.recentTreatment ? (
                   <p className="text-sm text-text-muted">No completed visits yet.</p>
                 ) : (<>
                 <h4 className="font-semibold text-text-main mb-1">{data.recentTreatment.procedure}</h4>
                 <p className="text-xs text-text-muted mb-3">{data.recentTreatment.date}</p>
-                <div className="bg-base rounded-lg p-3 text-sm text-text-main border border-text-muted/10">
+                <div className="bg-base rounded-lg p-3 text-sm text-text-main border border-line">
                   <span className="font-medium">Notes:</span> {data.recentTreatment.notes || '—'}
                 </div>
                 </>)}
@@ -175,14 +180,14 @@ export function PatientDashboard() {
             <CardContent className="p-6 flex flex-col justify-center gap-4 h-[calc(100%-80px)] xl:h-auto">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Outstanding Balance</p>
-                  <h3 className="text-3xl font-bold text-text-main">${data.outstandingBalance.toFixed(2)}</h3>
+                  <p className="text-xs font-semibold text-text-muted mb-1">Outstanding Balance</p>
+                  <h3 className="text-3xl font-semibold text-text-main tabular">{formatCurrency(data.outstandingBalance || 0)}</h3>
                 </div>
                 <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center text-warning shrink-0">
                   <DollarSign className="w-6 h-6" />
                 </div>
               </div>
-              <Button variant="outline" className="w-full mt-2">Pay Now</Button>
+              <Button variant="outline" className="w-full mt-2" onClick={() => navigate('/bills')}>View bills</Button>
             </CardContent>
           </Card>
         </div>

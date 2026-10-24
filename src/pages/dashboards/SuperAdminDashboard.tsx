@@ -6,20 +6,41 @@ import { SkeletonCard } from '../../components/ui/Skeleton';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { UserPlus, Building, Calendar, Wallet } from 'lucide-react';
 import { useCurrency } from '../../utils/currencyConfig';
+import { format } from 'date-fns';
+import { PageHeader, greeting } from '../../components/ui/PageHeader';
+import { StatTile } from '../../components/ui/StatTile';
 
 export function SuperAdminDashboard() {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     if (!user) return;
     getDashboardStats('super_admin').then(res => {
       setData(res.data);
+      setError(res.error?.message || null);
       setLoading(false);
     });
   }, [user]);
+
+  const header = (
+    <PageHeader
+      title={greeting(user?.firstName)}
+      description={`All clinics, ${format(new Date(), 'EEEE d MMMM')}`}
+    />
+  );
+
+  if (!loading && !data) {
+    return (
+      <div>
+        {header}
+        <Card className="p-6 text-sm text-error">{error || 'The dashboard could not be loaded. Refresh to try again.'}</Card>
+      </div>
+    );
+  }
 
   if (loading || !data) {
     return (
@@ -32,90 +53,43 @@ export function SuperAdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main tracking-tight">Organization Overview</h1>
-          <p className="text-sm text-text-muted">Welcome back! Here's what's happening across all clinics.</p>
-        </div>
+    <div className="space-y-4 sm:space-y-6">
+      {header}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatTile label="Active clinics" value={data.totalClinics} icon={Building} to="/clinics" />
+        <StatTile label="Patients" value={data.activePatients.toLocaleString()} icon={UserPlus} to="/patients" />
+        <StatTile label="Appointments today" value={data.todayAppointments} icon={Calendar} to="/appointments" />
+        <StatTile label="Revenue this month" value={formatCurrency(data.revenueTrend.length ? data.revenueTrend[data.revenueTrend.length - 1].revenue : 0)} icon={Wallet} to="/billing" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Total Clinics</p>
-                <h3 className="text-3xl font-bold text-text-main">{data.totalClinics}</h3>
-              </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                <Building className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Active Patients</p>
-                <h3 className="text-3xl font-bold text-text-main">{data.activePatients.toLocaleString()}</h3>
-              </div>
-              <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center text-accent">
-                <UserPlus className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Today's Appointments</p>
-                <h3 className="text-3xl font-bold text-text-main">{data.todayAppointments}</h3>
-              </div>
-              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center text-success">
-                <Calendar className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Monthly Revenue</p>
-                <h3 className="text-3xl font-bold text-text-main">{formatCurrency(data.revenueTrend.length ? data.revenueTrend[data.revenueTrend.length - 1].revenue : 0)}</h3>
-              </div>
-              <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center text-warning">
-                <Wallet className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
-            <CardDescription>Aggregate revenue across all clinics over the last 6 months.</CardDescription>
+            <CardTitle>Revenue</CardTitle>
+            <CardDescription>All clinics, last 6 months</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px] w-full">
+            {data.revenueTrend.length === 0 ? (
+              <div className="h-[240px] flex items-center justify-center rounded-control bg-surface-hover text-sm text-text-muted text-center px-6">
+                Revenue appears here once invoices are recorded.
+              </div>
+            ) : (
+            <div className="h-[240px] sm:h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.revenueTrend} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#DCE5E6" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#5A6B6E', fontSize: 12}} dy={10} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#5A6B6E', fontSize: 12}} tickFormatter={(val) => formatCurrency(val, {notation: "compact"})} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ borderRadius: '10px', border: '1px solid #DCE5E6', boxShadow: '0 12px 32px -8px rgb(11 54 64 / 0.18)', fontSize: 13 }}
                     formatter={(value: number) => [formatCurrency(value), 'Revenue']}
                   />
-                  <Line type="monotone" dataKey="revenue" stroke="#0F4C5C" strokeWidth={3} dot={{r: 4, fill: '#0F4C5C', strokeWidth: 2, stroke: '#FFFFFF'}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="revenue" stroke="#12A594" strokeWidth={2.5} dot={{r: 3, fill: '#12A594', strokeWidth: 2, stroke: '#FFFFFF'}} activeDot={{r: 5}} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -137,7 +111,7 @@ export function SuperAdminDashboard() {
                         <p className="text-xs text-text-muted">{clinic.patients} patients</p>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-success">{formatCurrency(clinic.revenue)}</span>
+                    <span className="text-sm font-medium text-text-main tabular">{formatCurrency(clinic.revenue)}</span>
                   </div>
                 ))}
               </div>
@@ -149,11 +123,11 @@ export function SuperAdminDashboard() {
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-text-muted/10 before:to-transparent hidden pb-4" /> {/* Just a spacer hack to keep DOM clean */}
-              <div className="space-y-4">
+                            <div className="space-y-4">
+                {data.recentActivity.length === 0 && <p className="text-sm text-text-muted">Changes made by your team will show here.</p>}
                 {data.recentActivity.map((activity: any) => (
                   <div key={activity.id} className="relative pl-6">
-                    <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-primary ring-4 ring-primary/10"></div>
+                    <div className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-accent"></div>
                     <p className="text-sm text-text-main">{activity.text}</p>
                     <p className="text-xs text-text-muted mt-0.5">{activity.time}</p>
                   </div>

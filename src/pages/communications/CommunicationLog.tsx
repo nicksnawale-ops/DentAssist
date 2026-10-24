@@ -230,14 +230,14 @@ export function CommunicationLog() {
   };
 
   return (
-    <div className="h-full flex bg-white rounded-2xl shadow-sm border border-text-muted/10 overflow-hidden">
+    <div className="h-full flex bg-white rounded-panel shadow-panel border border-line overflow-hidden">
       
       {/* LEFT PANEL */}
       <div className={`w-full md:w-[35%] flex-shrink-0 flex flex-col border-r border-[#E5EEEC] bg-white transition-transform ${isMobileThreadView ? 'hidden md:flex' : 'flex'}`}>
         
         {/* Left Panel Header */}
-        <div className="p-4 border-b border-text-muted/10 shrink-0">
-          <h1 className="text-xl font-bold text-[#0F4C5C] tracking-tight mb-4">Communications</h1>
+        <div className="p-4 border-b border-line shrink-0">
+          <h1 className="text-[22px] font-semibold leading-tight text-text-main mb-4">Messages</h1>
           
           <div className="relative w-full mb-3">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -246,7 +246,7 @@ export function CommunicationLog() {
               placeholder="Search patients or messages..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#F7FAFA] border border-text-muted/20 rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-[#14A89D]/20 focus:border-[#14A89D] focus:outline-none transition-all"
+              className="w-full bg-base border border-line rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-all"
             />
           </div>
           
@@ -256,7 +256,7 @@ export function CommunicationLog() {
                 <button
                   key={filter}
                   onClick={() => setChannelFilter(filter)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${channelFilter === filter ? 'bg-[#14A89D] text-white' : 'bg-surface text-text-muted hover:bg-text-muted/10'}`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${channelFilter === filter ? 'bg-accent text-white' : 'bg-surface text-text-muted hover:bg-text-muted/10'}`}
                 >
                   {filter}
                 </button>
@@ -265,7 +265,7 @@ export function CommunicationLog() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-surface border border-text-muted/20 rounded-lg px-2 py-1 text-xs text-text-main focus:ring-2 focus:ring-[#14A89D]/20 focus:border-[#14A89D] outline-none min-w-[130px]"
+              className="bg-surface border border-line rounded-lg px-2 py-1 text-xs text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none min-w-[130px]"
             >
               <option value="All">All Statuses</option>
               <option value="Read">Read</option>
@@ -281,14 +281,14 @@ export function CommunicationLog() {
             <div 
               key={conv.patientId}
               onClick={() => handleSelectConversation(conv.patientId)}
-              className={`flex items-start gap-3 p-4 border-b border-text-muted/10 cursor-pointer transition-colors relative ${selectedPatientId === conv.patientId ? 'bg-[#EAF7F5]' : 'hover:bg-gray-50'}`}
+              className={`flex items-start gap-3 p-4 border-b border-line cursor-pointer transition-colors relative ${selectedPatientId === conv.patientId ? 'bg-[#EAF7F5]' : 'hover:bg-gray-50'}`}
             >
               {selectedPatientId === conv.patientId && (
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#14A89D]"></div>
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent"></div>
               )}
               
               <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-[#0F4C5C]/10 flex items-center justify-center text-[#0F4C5C] font-bold text-sm shrink-0">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                   {getInitials(conv.patientName)}
                 </div>
               </div>
@@ -296,7 +296,7 @@ export function CommunicationLog() {
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-0.5">
                   <div className="flex items-center gap-1.5 truncate">
-                    {conv.hasUnread && <div className="w-2 h-2 rounded-full bg-[#14A89D] shrink-0"></div>}
+                    {conv.hasUnread && <div className="w-2 h-2 rounded-full bg-accent shrink-0"></div>}
                     <h3 className={`text-sm truncate ${conv.hasUnread ? 'font-bold text-text-main' : 'font-medium text-text-main'}`}>
                       {conv.patientName}
                     </h3>
@@ -312,7 +312,7 @@ export function CommunicationLog() {
                   <p className={`text-sm truncate ${conv.hasUnread ? 'font-medium text-text-main' : 'text-text-muted'}`}>
                     {conv.lastMessage.message}
                   </p>
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                  <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${
                      conv.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
                      'bg-gray-100 text-gray-700'
                    }`}>
@@ -331,22 +331,22 @@ export function CommunicationLog() {
       </div>
       
       {/* RIGHT PANEL */}
-      <div className={`w-full md:w-[65%] flex-col bg-[#F7FAFA] ${(!isMobileThreadView && !selectedPatientId) ? 'hidden md:flex' : (isMobileThreadView ? 'flex' : 'hidden md:flex')}`}>
+      <div className={`w-full md:w-[65%] flex-col bg-base ${(!isMobileThreadView && !selectedPatientId) ? 'hidden md:flex' : (isMobileThreadView ? 'flex' : 'hidden md:flex')}`}>
         {selectedConversation ? (
           <>
             {/* Thread Header */}
-            <div className="h-16 border-b border-text-muted/10 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-sm z-10">
+            <div className="h-16 border-b border-line bg-white flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-panel z-10">
               <div className="flex items-center gap-3">
                 <button onClick={handleBackToList} className="md:hidden p-1.5 mr-1 text-text-muted hover:bg-gray-100 rounded-full">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-[#0F4C5C]/10 flex items-center justify-center text-[#0F4C5C] font-bold text-sm shrink-0">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
                   {getInitials(selectedConversation.patientName)}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-text-main">{selectedConversation.patientName}</h2>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 ${
+                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${
                        selectedConversation.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
                        'bg-gray-100 text-gray-700'
                      }`}>
@@ -375,17 +375,17 @@ export function CommunicationLog() {
                   <React.Fragment key={msg.id}>
                     {showDate && (
                       <div className="flex justify-center my-4">
-                        <div className="bg-white/60 backdrop-blur-sm shadow-sm border border-black/5 rounded-full px-3 py-1 text-xs text-text-muted font-medium">
+                        <div className="bg-white/60 backdrop-blur-sm shadow-panel border border-black/5 rounded-full px-3 py-1 text-xs text-text-muted font-medium">
                           {isSameDay(new Date(msg.timestamp), now) ? 'Today' : format(new Date(msg.timestamp), 'MMMM d, yyyy')}
                         </div>
                       </div>
                     )}
                     
                     <div className={`flex w-full ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`relative max-w-[85%] sm:max-w-[75%] rounded-xl px-3 py-2 shadow-sm text-[15px] leading-snug ${isOutbound ? 'bg-[#DCF8C6] text-[#111B21] rounded-br-sm' : 'bg-white text-text-main rounded-bl-sm border border-black/5'}`}>
+                      <div className={`relative max-w-[85%] sm:max-w-[75%] rounded-xl px-3 py-2 shadow-panel text-[15px] leading-snug ${isOutbound ? 'bg-[#DCF8C6] text-[#111B21] rounded-br-sm' : 'bg-white text-text-main rounded-bl-sm border border-black/5'}`}>
                          <p className="whitespace-pre-wrap pb-3.5 pr-2">{msg.message}</p>
                          
-                         <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[10px] text-black/40 font-medium">
+                         <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-black/40 font-medium">
                            <span>{format(new Date(msg.timestamp), 'h:mm a')}</span>
                            {isOutbound && getStatusIcon(msg.status)}
                          </div>
@@ -420,7 +420,7 @@ export function CommunicationLog() {
                             setShowTemplates(false);
                           }}
                         >
-                          <span className="text-sm font-medium text-text-main group-hover:text-[#14A89D]">{tpl.name}</span>
+                          <span className="text-sm font-medium text-text-main group-hover:text-accent">{tpl.name}</span>
                           <span className="text-[11px] text-text-muted line-clamp-1">{tpl.text}</span>
                         </button>
                       ))}
@@ -428,7 +428,7 @@ export function CommunicationLog() {
                   )}
                 </div>
 
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${
                    selectedConversation.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
                    'bg-gray-100 text-gray-700'
                  }`}>
@@ -441,13 +441,13 @@ export function CommunicationLog() {
                   value={composeMessage}
                   onChange={(e) => setComposeMessage(e.target.value)}
                   placeholder="Type a message or select a template..."
-                  className="flex-1 bg-white border border-text-muted/20 rounded-xl px-4 py-2.5 text-sm text-text-main focus:ring-2 focus:ring-[#14A89D]/20 focus:border-[#14A89D] outline-none resize-none min-h-[44px] max-h-[100px]"
+                  className="flex-1 bg-white border border-line rounded-xl px-4 py-2.5 text-sm text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none min-h-[44px] max-h-[100px]"
                   rows={composeMessage.split('\n').length > 3 ? 4 : (composeMessage.split('\n').length || 1)}
                   style={{ overflowY: composeMessage.split('\n').length > 4 ? 'auto' : 'hidden' }}
                 />
                 
                 {composeMessage && (
-                   <div className="absolute bottom-3 right-16 text-[10px] text-text-muted pointer-events-none bg-white px-1">
+                   <div className="absolute bottom-3 right-16 text-[11px] text-text-muted pointer-events-none bg-white px-1">
                      {composeMessage.length} / 1024
                    </div>
                 )}
@@ -455,7 +455,7 @@ export function CommunicationLog() {
                 <button
                   disabled={!composeMessage.trim()}
                   onClick={handleSendMessage}
-                  className="w-11 h-11 shrink-0 rounded-full bg-[#0F4C5C] text-white flex items-center justify-center hover:bg-[#14A89D] disabled:opacity-50 disabled:hover:bg-[#0F4C5C] transition-colors"
+                  className="w-11 h-11 shrink-0 rounded-full bg-primary text-white flex items-center justify-center hover:bg-accent disabled:opacity-50 disabled:hover:bg-primary transition-colors"
                 >
                   <Send className="w-5 h-5 -ml-0.5" />
                 </button>
@@ -464,7 +464,7 @@ export function CommunicationLog() {
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
-            <div className="w-16 h-16 rounded-full bg-surface border border-text-muted/10 flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-surface border border-line flex items-center justify-center mb-4">
               <MessageSquare className="w-8 h-8 text-text-muted/40" />
             </div>
             <h3 className="text-lg font-medium text-text-main">Your Messages</h3>

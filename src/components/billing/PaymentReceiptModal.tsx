@@ -38,9 +38,9 @@ export function PaymentReceiptModal({ invoice, payment, onClose }: PaymentReceip
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-4xl rounded-2xl border border-text-muted/20 shadow-2xl flex flex-col h-[90vh]">
+      <div className="bg-surface w-full max-w-4xl rounded-panel border border-line shadow-2xl flex flex-col h-[90vh]">
          {/* Header */}
-         <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base">
+         <div className="p-4 border-b border-line flex justify-between items-center bg-base">
            <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
              Payment Receipt
            </h2>
@@ -75,7 +75,7 @@ export function PaymentReceiptModal({ invoice, payment, onClose }: PaymentReceip
 
          {/* Receipt Content */}
          <div className="flex-1 overflow-y-auto p-8 bg-base">
-            <div className="max-w-2xl mx-auto bg-white text-gray-900 p-10 rounded-xl shadow-sm border border-gray-200">
+            <div className="max-w-2xl mx-auto bg-white text-gray-900 p-10 rounded-xl shadow-panel border border-gray-200">
               
               <div className="flex justify-between items-start border-b border-gray-200 pb-8">
                 <div>
@@ -99,13 +99,13 @@ export function PaymentReceiptModal({ invoice, payment, onClose }: PaymentReceip
 
               <div className="mt-8 flex justify-between">
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Received From</p>
+                  <p className="text-xs font-bold text-gray-400 mb-2">Received From</p>
                   <h3 className="text-lg font-bold text-gray-900">{patientName}</h3>
                   <p className="text-sm text-gray-500">{patient?.phone}</p>
                   <p className="text-sm text-gray-500">{patient?.email}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Details</p>
+                  <p className="text-xs font-bold text-gray-400 mb-2">Payment Details</p>
                   <p className="text-sm font-medium text-gray-900">For Invoice: {invoice.invoiceNumber}</p>
                   <p className="text-sm text-gray-500">Method: {payment.method}</p>
                   {payment.referenceNumber && <p className="text-sm text-gray-500">Ref: {payment.referenceNumber}</p>}
@@ -113,11 +113,11 @@ export function PaymentReceiptModal({ invoice, payment, onClose }: PaymentReceip
               </div>
 
               <div className="mt-12 bg-gray-50 rounded-lg p-8 text-center border border-gray-100">
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-widest mb-2">Amount Received</p>
+                <p className="text-sm font-medium text-gray-500 mb-2">Amount Received</p>
                 <h2 className="text-5xl font-black text-blue-600">{formatCurrency(payment.amount)}</h2>
                 
                 <div className="mt-6 flex justify-center gap-4 text-sm">
-                  <div className="bg-white px-4 py-2 rounded shadow-sm border border-gray-200">
+                  <div className="bg-white px-4 py-2 rounded shadow-panel border border-gray-200">
                     <span className="text-gray-500">Invoice Total: </span>
                     <span className="font-bold text-gray-900">{formatCurrency(invoice.total)}</span>
                   </div>
@@ -126,7 +126,7 @@ export function PaymentReceiptModal({ invoice, payment, onClose }: PaymentReceip
 
               <div className="mt-16 pt-8 border-t border-gray-200 flex justify-between items-end">
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Notes</p>
+                  <p className="text-xs font-bold text-gray-400 mb-1">Notes</p>
                   <p className="text-sm text-gray-600">{payment.notes || 'Thank you for your payment.'}</p>
                 </div>
                 <div className="text-center">

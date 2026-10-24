@@ -12,7 +12,7 @@ export function RoleRoute({ allowedRoles, children }: RoleRouteProps) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-text-muted text-sm tracking-widest uppercase">Loading...</div>;
+    return <div className="flex h-full items-center justify-center text-text-muted text-sm">Loading...</div>;
   }
 
   if (!user) {

@@ -50,7 +50,7 @@ export function RolesPermissionsPanel() {
       </CardHeader>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-surface border-y border-text-muted/10">
+          <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
             <tr>
               <th className="px-6 py-4 font-semibold text-text-main">Module</th>
               {ALL_ROLES.map(role => (
@@ -60,7 +60,7 @@ export function RolesPermissionsPanel() {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-text-muted/10">
+          <tbody className="divide-y divide-line">
             {permissions.map((perm) => (
               <tr key={perm.id} className="hover:bg-surface-hover/50 transition-colors">
                 <td className="px-6 py-4 font-medium text-text-main">{perm.module}</td>
@@ -72,7 +72,7 @@ export function RolesPermissionsPanel() {
                       <div className="flex items-center justify-center gap-2 text-xs">
                         {/* View */}
                         <label className={`flex flex-col items-center gap-1 ${isSA ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                           <span className="text-text-muted text-[10px] uppercase">V</span>
+                           <span className="text-text-muted text-[11px] uppercase">V</span>
                            <input 
                              type="checkbox" 
                              checked={rolePerm.view} 
@@ -83,7 +83,7 @@ export function RolesPermissionsPanel() {
                         </label>
                         {/* Edit */}
                         <label className={`flex flex-col items-center gap-1 ${isSA ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                           <span className="text-text-muted text-[10px] uppercase">E</span>
+                           <span className="text-text-muted text-[11px] uppercase">E</span>
                            <input 
                              type="checkbox" 
                              checked={rolePerm.edit} 
@@ -94,7 +94,7 @@ export function RolesPermissionsPanel() {
                         </label>
                         {/* Delete */}
                         <label className={`flex flex-col items-center gap-1 ${isSA ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-                           <span className="text-text-muted text-[10px] uppercase">D</span>
+                           <span className="text-text-muted text-[11px] uppercase">D</span>
                            <input 
                              type="checkbox" 
                              checked={rolePerm.delete} 
@@ -112,7 +112,7 @@ export function RolesPermissionsPanel() {
           </tbody>
         </table>
       </div>
-      <div className="p-4 border-t border-text-muted/10 bg-base flex justify-end">
+      <div className="p-4 border-t border-line bg-base flex justify-end">
         <Button onClick={() => {}}>Save Configuration</Button>
       </div>
     </Card>

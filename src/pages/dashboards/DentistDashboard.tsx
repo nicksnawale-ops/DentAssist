@@ -1,148 +1,158 @@
-import { useCurrency } from '../../utils/currencyConfig';
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { useCurrency } from '../../utils/currencyConfig';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardStats } from '../../api/apiService';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { Badge } from '../../components/ui/Badge';
-import { Users, FileText, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { PageHeader, greeting } from '../../components/ui/PageHeader';
+import { StatTile } from '../../components/ui/StatTile';
+import { Users, FileText, Wallet, AlertTriangle, CalendarCheck, ChevronRight, ShieldAlert } from 'lucide-react';
+
+interface ScheduleItem {
+  id: string;
+  patientId?: string;
+  time: string;
+  patientName: string;
+  procedure: string;
+  status?: string;
+}
+
+const STATUS_LABEL: Record<string, { label: string; variant: 'secondary' | 'success' | 'outline' | 'warning' }> = {
+  in_progress: { label: 'In chair', variant: 'secondary' },
+  confirmed: { label: 'Confirmed', variant: 'success' },
+  scheduled: { label: 'Booked', variant: 'outline' },
+  completed: { label: 'Done', variant: 'outline' },
+};
 
 export function DentistDashboard() {
   const { formatCurrency } = useCurrency();
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     getDashboardStats('dentist').then(res => {
       setData(res.data);
+      setError(res.error?.message || null);
       setLoading(false);
     });
   }, [user]);
 
-  if (loading || !data) {
+  const header = (
+    <PageHeader
+      title={greeting(user?.lastName ? `Dr. ${user.lastName}` : user?.firstName)}
+      description={format(new Date(), 'EEEE, d MMMM')}
+    />
+  );
+
+  if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SkeletonCard /><SkeletonCard /><SkeletonCard />
-        <div className="md:col-span-2"><SkeletonCard /></div>
-        <div className="md:col-span-1"><SkeletonCard /></div>
+      <div>
+        {header}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <SkeletonCard />
+          <div className="lg:col-span-2"><SkeletonCard /></div>
+        </div>
       </div>
     );
   }
 
+  if (!data) {
+    return (
+      <div>
+        {header}
+        <Card className="p-6 text-sm text-error">{error || 'The dashboard could not be loaded. Refresh to try again.'}</Card>
+      </div>
+    );
+  }
+
+  const schedule: ScheduleItem[] = data.todaySchedule || [];
+  const next = data.nextPatient;
+
   return (
-    <div className="space-y-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-main tracking-tight">Dr. {user?.lastName}'s Dashboard</h1>
-        <p className="text-sm text-text-muted">Here is your daily overview and schedule.</p>
+    <div>
+      {header}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
+        {/* Next patient: the one thing a dentist needs between appointments */}
+        <section className="rounded-panel bg-ink text-white p-5 sm:p-6 flex flex-col" aria-labelledby="next-patient">
+          <h2 id="next-patient" className="text-sm text-white/60 mb-3">Next patient</h2>
+          {next ? (
+            <>
+              <div className="text-[22px] font-semibold leading-tight">{next.name}</div>
+              <div className="mt-1 text-[15px] text-white/75">
+                <time>{next.time}</time>, {next.procedure}
+              </div>
+              <div className="mt-5 flex items-start gap-3 rounded-control bg-white/[0.07] p-3.5">
+                <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                <p className="text-sm leading-relaxed text-white/85">{next.notes}</p>
+              </div>
+              <div className="mt-auto pt-5">
+                <Link
+                  to={next.patientId ? `/patients/${next.patientId}` : '/patients'}
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 h-11 px-5 rounded-control bg-accent text-ink font-semibold hover:bg-accent/90"
+                >
+                  Open patient record
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="text-[15px] text-white/75">No more patients today.</p>
+          )}
+        </section>
+
+        {/* Today's schedule */}
+        <Card className="lg:col-span-2 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-line">
+            <h2 className="text-[17px] font-semibold text-text-main">Today's schedule</h2>
+            <span className="text-[13px] text-text-muted">{schedule.length} booked</span>
+          </div>
+          {schedule.length === 0 ? (
+            <EmptyState icon={CalendarCheck} title="Nothing booked today" description="Your appointments for today will appear here." />
+          ) : (
+            <ol className="divide-y divide-line">
+              {schedule.map(appt => {
+                const status = appt.status ? STATUS_LABEL[appt.status] : undefined;
+                const isNow = appt.status === 'in_progress';
+                return (
+                  <li key={appt.id}>
+                    <Link
+                      to={appt.patientId ? `/patients/${appt.patientId}` : '/patients'}
+                      className={`flex items-center gap-4 px-5 py-3.5 hover:bg-surface-hover ${isNow ? 'bg-accent/[0.06]' : ''}`}
+                    >
+                      <time className="w-[72px] shrink-0 text-sm font-medium text-text-main">{appt.time}</time>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[15px] font-medium text-text-main truncate">{appt.patientName}</div>
+                        <div className="text-[13px] text-text-muted truncate">{appt.procedure}</div>
+                      </div>
+                      {status && <Badge variant={status.variant} className="hidden sm:inline-flex">{status.label}</Badge>}
+                      <ChevronRight className="w-4 h-4 text-text-muted/60 shrink-0" aria-hidden="true" />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Patients This Week</p>
-                <h3 className="text-3xl font-bold text-text-main">{data.patientsSeenThisWeek}</h3>
-              </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                <Users className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Pending Plans</p>
-                <h3 className="text-3xl font-bold text-text-main">{data.pendingTreatmentPlans}</h3>
-              </div>
-              <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center text-warning">
-                <FileText className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Low Inventory</p>
-                <h3 className="text-3xl font-bold text-error">{data.lowInventoryItems}</h3>
-              </div>
-              <div className="w-12 h-12 bg-error/10 rounded-full flex items-center justify-center text-error">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-text-muted mb-1">Today's Revenue</p>
-                <h3 className="text-3xl font-bold text-text-main">{formatCurrency(data.todayRevenue)}</h3>
-              </div>
-              <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center text-success">
-                <DollarSign className="w-6 h-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {data.todaySchedule.map((appt: any) => (
-                <div key={appt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-text-muted/10 hover:bg-base/50 transition-colors">
-                  <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                    <div className="flex flex-col items-center justify-center bg-primary/5 text-primary rounded-lg px-3 py-2 min-w-[80px]">
-                      <Clock className="w-4 h-4 mb-1" />
-                      <span className="text-xs font-semibold">{appt.time}</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-text-main">{appt.patientName}</p>
-                      <p className="text-sm text-text-muted">{appt.procedure}</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">View File</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div>
-          <Card className="bg-primary text-white border-none shadow-md">
-            <CardHeader>
-              <CardTitle className="text-white">Next Patient</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!data.nextPatient ? (
-                <p className="text-primary-100">No more patients scheduled for today.</p>
-              ) : (<>
-              <h3 className="text-2xl font-bold mb-1">{data.nextPatient.name}</h3>
-              <p className="text-primary-100 mb-4">{data.nextPatient.time} • {data.nextPatient.procedure}</p>
-              
-              <div className="bg-white/10 p-4 rounded-xl">
-                <p className="text-xs text-primary-100 uppercase tracking-wider font-semibold mb-1">Notes</p>
-                <p className="text-sm">{data.nextPatient.notes}</p>
-              </div>
-
-              <button className="w-full mt-6 bg-white text-primary font-semibold py-2.5 rounded-lg hover:bg-white/90 transition-colors">
-                Start Session
-              </button>
-              </>)}
-            </CardContent>
-          </Card>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatTile label="Seen this week" value={data.patientsSeenThisWeek} icon={Users} />
+        <StatTile label="Plans awaiting approval" value={data.pendingTreatmentPlans} icon={FileText} to="/treatments" />
+        <StatTile label="Billed today" value={formatCurrency(data.todayRevenue || 0)} icon={Wallet} />
+        <StatTile
+          label="Low stock items"
+          value={data.lowInventoryItems}
+          icon={AlertTriangle}
+          tone={data.lowInventoryItems > 0 ? 'error' : undefined}
+          to="/inventory"
+        />
       </div>
     </div>
   );

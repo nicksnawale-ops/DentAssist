@@ -97,7 +97,7 @@ export function StaffProfile() {
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-main tracking-tight">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">
                 {staff.firstName} {staff.lastName}
               </h1>
               <Badge variant={
@@ -120,7 +120,7 @@ export function StaffProfile() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-text-muted/10 overflow-x-auto">
+      <div className="flex items-center gap-6 border-b border-line overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
           className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
@@ -159,26 +159,26 @@ export function StaffProfile() {
           <Card className="p-6 col-span-1 lg:col-span-2 space-y-6">
             <h3 className="text-lg font-bold text-text-main">Contact & Professional Info</h3>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-text-muted/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-line">
               <div className="space-y-4">
                  <div className="flex items-center gap-3">
                     <Mail className="w-4 h-4 text-text-muted" />
                     <div>
-                      <div className="text-xs text-text-muted uppercase tracking-wider font-medium">Email</div>
+                      <div className="text-xs text-text-muted font-medium">Email</div>
                       <div className="text-sm text-text-main">{staff.email}</div>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
                     <Phone className="w-4 h-4 text-text-muted" />
                     <div>
-                      <div className="text-xs text-text-muted uppercase tracking-wider font-medium">Phone</div>
+                      <div className="text-xs text-text-muted font-medium">Phone</div>
                       <div className="text-sm text-text-main">{staff.phone || 'N/A'}</div>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
                     <Calendar className="w-4 h-4 text-text-muted" />
                     <div>
-                      <div className="text-xs text-text-muted uppercase tracking-wider font-medium">Date Joined</div>
+                      <div className="text-xs text-text-muted font-medium">Date Joined</div>
                       <div className="text-sm text-text-main">
                         {staff.dateJoined ? new Date(staff.dateJoined).toLocaleDateString() : 'N/A'}
                       </div>
@@ -189,11 +189,11 @@ export function StaffProfile() {
               {staff.role === 'dentist' && (
                 <div className="space-y-4">
                   <div>
-                    <div className="text-xs text-text-muted uppercase tracking-wider font-medium mb-1">License No.</div>
+                    <div className="text-xs text-text-muted font-medium mb-1">License No.</div>
                     <div className="text-sm text-text-main">{staff.licenseNumber || 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-text-muted uppercase tracking-wider font-medium mb-1">Specializations</div>
+                    <div className="text-xs text-text-muted font-medium mb-1">Specializations</div>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {staff.specializations?.map(spec => (
                         <Badge key={spec} variant="secondary">{spec}</Badge>
@@ -213,7 +213,7 @@ export function StaffProfile() {
             {assignedClinics.length > 0 ? (
               <div className="space-y-3">
                 {assignedClinics.map(clinic => (
-                  <div key={clinic.id} className="p-3 bg-base rounded-lg border border-text-muted/10">
+                  <div key={clinic.id} className="p-3 bg-base rounded-lg border border-line">
                     <div className="font-medium text-sm text-text-main">{clinic.name}</div>
                     <div className="text-xs text-text-muted truncate">{clinic.address?.city}, {clinic.address?.state}</div>
                   </div>
@@ -237,7 +237,7 @@ export function StaffProfile() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {staff.workingHours?.map(hour => (
-                <div key={hour.day} className="flex items-center justify-between p-4 bg-base rounded-lg border border-text-muted/10">
+                <div key={hour.day} className="flex items-center justify-between p-4 bg-base rounded-lg border border-line">
                   <span className="font-medium text-sm text-text-main">{hour.day}</span>
                   {hour.isWorking ? (
                     <span className="text-sm text-text-main">{hour.startTime} - {hour.endTime}</span>
@@ -260,17 +260,17 @@ export function StaffProfile() {
             <Card className="p-6 flex flex-col items-center justify-center text-center">
               <TrendingUp className="w-8 h-8 text-primary mb-3" />
               <span className="text-3xl font-bold text-text-main">124</span>
-              <span className="text-xs text-text-muted uppercase tracking-wider font-medium mt-1">Patients This Month</span>
+              <span className="text-xs text-text-muted font-medium mt-1">Patients This Month</span>
             </Card>
             <Card className="p-6 flex flex-col items-center justify-center text-center">
               <Star className="w-8 h-8 text-primary mb-3 fill-primary/20" />
               <span className="text-3xl font-bold text-text-main">4.8</span>
-              <span className="text-xs text-text-muted uppercase tracking-wider font-medium mt-1">Average Rating</span>
+              <span className="text-xs text-text-muted font-medium mt-1">Average Rating</span>
             </Card>
             <Card className="p-6 flex flex-col items-center justify-center text-center">
               <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg mb-3">{symbol}</div>
               <span className="text-3xl font-bold text-text-main">3.2L</span>
-              <span className="text-xs text-text-muted uppercase tracking-wider font-medium mt-1">Revenue Generated</span>
+              <span className="text-xs text-text-muted font-medium mt-1">Revenue Generated</span>
             </Card>
          </div>
       )}

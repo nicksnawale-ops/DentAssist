@@ -44,8 +44,8 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
   };
 
   return (
-    <div className="w-full md:w-80 border-l border-text-muted/10 bg-base flex flex-col h-full animate-in slide-in-from-right-4">
-      <div className="flex justify-between items-center p-4 border-b border-text-muted/10 bg-surface">
+    <div className="w-full md:w-80 border-l border-line bg-base flex flex-col h-full animate-in slide-in-from-right-4">
+      <div className="flex justify-between items-center p-4 border-b border-line bg-surface">
         <h3 className="font-bold text-lg text-text-main">Tooth {num}</h3>
         <button onClick={onClose} className="p-1 text-text-muted hover:bg-text-muted/10 rounded-full">
           <X className="w-5 h-5" />
@@ -54,7 +54,7 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
 
       <div className="p-4 flex-1 overflow-y-auto space-y-6">
         <div>
-          <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Conditions</label>
+          <label className="block text-xs font-bold text-text-muted mb-2">Conditions</label>
           <div className="flex flex-wrap gap-2">
             {ALL_CONDITIONS.map(cond => (
               <button
@@ -62,8 +62,8 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
                 onClick={() => toggleCondition(cond)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                   conditions.includes(cond)
-                  ? 'bg-primary text-white border-primary shadow-sm'
-                  : 'bg-surface border-text-muted/20 text-text-main hover:border-text-muted/40'
+                  ? 'bg-primary text-white border-primary shadow-panel'
+                  : 'bg-surface border-line text-text-main hover:border-text-muted/40'
                 }`}
               >
                 {cond}
@@ -73,17 +73,17 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Clinical Notes</label>
+          <label className="block text-xs font-bold text-text-muted mb-2">Clinical Notes</label>
           <textarea 
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full bg-surface border border-text-muted/20 rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-24"
+            className="w-full bg-surface border border-line rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-24"
             placeholder="Add clinical observations..."
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">History</label>
+          <label className="block text-xs font-bold text-text-muted mb-2">History</label>
           {record && record.history && record.history.length > 0 ? (
             <div className="space-y-3 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-text-muted/20 before:to-transparent">
               {record.history.map((entry, idx) => (
@@ -91,7 +91,7 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
                   <div className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-primary bg-base shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
                      <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
                   </div>
-                  <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-text-muted/10 bg-surface shadow-sm text-xs">
+                  <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-line bg-surface shadow-panel text-xs">
                      <div className="flex items-center gap-1 text-text-muted mb-1"><CalendarIcon className="w-3 h-3" /> {entry.date}</div>
                      <div className="font-bold text-text-main">{entry.action}</div>
                      <div className="text-text-muted mt-0.5">by {entry.dentist}</div>
@@ -105,7 +105,7 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave
         </div>
       </div>
 
-      <div className="p-4 border-t border-text-muted/10 bg-surface flex flex-col gap-3">
+      <div className="p-4 border-t border-line bg-surface flex flex-col gap-3">
          <Button 
            onClick={() => onSave(fdi, { conditions, notes })}
            className="w-full gap-2"

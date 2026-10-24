@@ -203,7 +203,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-base/80 backdrop-blur-sm z-50 transition-opacity" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] bg-surface border border-text-muted/10 p-6 shadow-2xl rounded-2xl max-h-[90vh] overflow-y-auto">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] bg-surface border border-line p-6 shadow-2xl rounded-panel max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-5">
             <Dialog.Title className="text-xl font-bold text-text-main flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-primary" />
@@ -225,17 +225,17 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
             {/* Patient Section */}
             <div className="bg-base p-4 rounded-xl border border-text-muted/5 space-y-4">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-text-main uppercase tracking-wider">Patient Details</label>
+                <label className="text-sm font-semibold text-text-main">Patient Details</label>
                 {!initialPatientId && (
-                  <div className="flex bg-surface rounded-md p-1 border border-text-muted/10">
-                    <button type="button" onClick={() => setIsNewPatient(false)} className={`text-xs font-medium px-3 py-1 rounded ${!isNewPatient ? 'bg-primary text-white shadow-sm' : 'text-text-muted'}`}>Existing</button>
-                    <button type="button" onClick={() => setIsNewPatient(true)} className={`text-xs font-medium px-3 py-1 rounded ${isNewPatient ? 'bg-primary text-white shadow-sm' : 'text-text-muted'}`}>New</button>
+                  <div className="flex bg-surface rounded-md p-1 border border-line">
+                    <button type="button" onClick={() => setIsNewPatient(false)} className={`text-xs font-medium px-3 py-1 rounded ${!isNewPatient ? 'bg-primary text-white shadow-panel' : 'text-text-muted'}`}>Existing</button>
+                    <button type="button" onClick={() => setIsNewPatient(true)} className={`text-xs font-medium px-3 py-1 rounded ${isNewPatient ? 'bg-primary text-white shadow-panel' : 'text-text-muted'}`}>New</button>
                   </div>
                 )}
               </div>
               
               {!isNewPatient ? (
-                <select required className="w-full bg-surface border border-text-muted/20 rounded-md px-3 py-2 text-sm text-text-main" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={!!initialPatientId}>
+                <select required className="w-full bg-surface border border-line rounded-md px-3 py-2 text-sm text-text-main" value={patientId} onChange={e => setPatientId(e.target.value)} disabled={!!initialPatientId}>
                   <option value="" disabled>Select Patient...</option>
                   {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName} - {p.phone}</option>)}
                 </select>
@@ -245,8 +245,8 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
                   <Input placeholder="Last Name" required value={newPatientData.lastName} onChange={e => setNewPatientData({...newPatientData, lastName: e.target.value})} />
                   <Input placeholder="Phone Number" required value={newPatientData.phone} onChange={e => setNewPatientData({...newPatientData, phone: e.target.value})} className="md:col-span-2" />
                   
-                  <div className="md:col-span-2 p-3 bg-surface border border-text-muted/10 rounded-lg space-y-3">
-                    <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Communication Preferences</label>
+                  <div className="md:col-span-2 p-3 bg-surface border border-line rounded-lg space-y-3">
+                    <label className="text-xs font-semibold text-text-muted">Communication Preferences</label>
                     <div className="flex items-center gap-4">
                        <label className="flex items-center gap-2 cursor-pointer">
                          <input type="checkbox" checked={newPatientData.communicationPrefs.whatsappOptIn} onChange={e => setNewPatientData({...newPatientData, communicationPrefs: {...newPatientData.communicationPrefs, whatsappOptIn: e.target.checked}})} className="rounded border-text-muted/30 text-primary focus:ring-primary h-4 w-4" />
@@ -254,7 +254,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
                        </label>
                        <div className="h-4 w-[1px] bg-text-muted/20"></div>
                        <select 
-                         className="bg-base border border-text-muted/20 rounded px-2 py-1 text-sm text-text-main"
+                         className="bg-base border border-line rounded px-2 py-1 text-sm text-text-main"
                          value={newPatientData.communicationPrefs.language}
                          onChange={e => setNewPatientData({...newPatientData, communicationPrefs: {...newPatientData.communicationPrefs, language: e.target.value}})}
                        >
@@ -271,21 +271,21 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
             {/* Appointment Details */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Provider</label>
-                <select className="w-full bg-surface border border-text-muted/20 rounded-md px-3 py-2 text-sm text-text-main" value={dentistId} onChange={e => setDentistId(e.target.value)} required>
+                <label className="text-xs font-semibold text-text-muted">Provider</label>
+                <select className="w-full bg-surface border border-line rounded-md px-3 py-2 text-sm text-text-main" value={dentistId} onChange={e => setDentistId(e.target.value)} required>
                   {dentists.map(d => <option key={d.id} value={d.id}>Dr. {d.firstName} {d.lastName}</option>)}
                 </select>
               </div>
               <div className="space-y-3">
-                <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Procedure Type</label>
-                <select className="w-full bg-surface border border-text-muted/20 rounded-md px-3 py-2 text-sm text-text-main" value={procedureType} onChange={e => setProcedureType(e.target.value)} required>
+                <label className="text-xs font-semibold text-text-muted">Procedure Type</label>
+                <select className="w-full bg-surface border border-line rounded-md px-3 py-2 text-sm text-text-main" value={procedureType} onChange={e => setProcedureType(e.target.value)} required>
                   {PROCEDURE_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
             </div>
 
             {/* Date & Time */}
-            <div className="border border-text-muted/10 rounded-xl p-4 space-y-4">
+            <div className="border border-line rounded-xl p-4 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-text-muted flex items-center gap-1"><CalendarIcon className="w-3.5 h-3.5"/> Date</label>
@@ -324,7 +324,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
                 <div className="pl-8 flex items-end gap-4 animate-in fade-in slide-in-from-top-2">
                    <div className="space-y-1">
                      <label className="text-xs text-text-muted block">Frequency</label>
-                     <select className="bg-surface border border-text-muted/20 rounded pl-2 pr-8 py-1.5 text-sm" value={recurrenceFreq} onChange={e => setRecurrenceFreq(e.target.value as any)}>
+                     <select className="bg-surface border border-line rounded pl-2 pr-8 py-1.5 text-sm" value={recurrenceFreq} onChange={e => setRecurrenceFreq(e.target.value as any)}>
                        <option value="weekly">Weekly</option>
                        <option value="biweekly">Bi-weekly</option>
                        <option value="monthly">Monthly</option>
@@ -341,9 +341,9 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
               )}
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-text-muted flex items-center gap-1 uppercase tracking-wider"><FileText className="w-3.5 h-3.5"/> Notes</label>
+                <label className="text-xs font-semibold text-text-muted flex items-center gap-1"><FileText className="w-3.5 h-3.5"/> Notes</label>
                 <textarea 
-                  className="w-full bg-surface border border-text-muted/20 rounded-md px-3 py-2 text-sm text-text-main min-h-[80px]"
+                  className="w-full bg-surface border border-line rounded-md px-3 py-2 text-sm text-text-main min-h-[80px]"
                   placeholder="Optional internal notes..."
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
@@ -371,7 +371,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
             </div>
 
             {/* Footer */}
-            <div className="pt-4 border-t border-text-muted/10 flex items-center justify-between">
+            <div className="pt-4 border-t border-line flex items-center justify-between">
               <Button type="button" variant="outline" onClick={handleWaitlist} className="text-text-muted hover:text-text-main">
                  Add to Waitlist instead
               </Button>

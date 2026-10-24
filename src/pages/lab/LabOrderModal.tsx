@@ -33,8 +33,8 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-3xl rounded-2xl border border-text-muted/20 shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base rounded-t-2xl">
+      <div className="bg-surface w-full max-w-3xl rounded-panel border border-line shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-line flex justify-between items-center bg-base rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-600">
               <FlaskConical className="w-5 h-5" />
@@ -68,7 +68,7 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 bg-surface z-10 transition-colors ${idx <= currentStatusIndex ? 'border-primary text-primary' : 'border-text-muted/30 text-transparent'}`}>
                       {idx <= currentStatusIndex && <div className="w-2 h-2 bg-primary rounded-full" />}
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider text-center max-w-[60px] ${idx <= currentStatusIndex ? 'text-primary' : 'text-text-muted/50'}`}>
+                    <span className={`text-[11px] font-bold text-center max-w-[60px] ${idx <= currentStatusIndex ? 'text-primary' : 'text-text-muted/50'}`}>
                       {st}
                     </span>
                   </div>
@@ -78,15 +78,15 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
 
             {/* Order Details */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-base p-4 rounded-xl border border-text-muted/10">
+              <div className="bg-base p-4 rounded-xl border border-line">
                 <p className="text-xs text-text-muted font-medium mb-1">Assigned Lab</p>
                 <p className="font-bold text-text-main">{lab?.name}</p>
               </div>
-              <div className="bg-base p-4 rounded-xl border border-text-muted/10">
+              <div className="bg-base p-4 rounded-xl border border-line">
                 <p className="text-xs text-text-muted font-medium mb-1">Expected Delivery</p>
                 <p className="font-bold text-text-main">{format(parseISO(order.expectedDeliveryDate), 'MMM d, yyyy')}</p>
               </div>
-              <div className="bg-base p-4 rounded-xl border border-text-muted/10 col-span-2">
+              <div className="bg-base p-4 rounded-xl border border-line col-span-2">
                 <p className="text-xs text-text-muted font-medium mb-1">Specifications</p>
                 <div className="flex gap-4">
                    {order.toothNumbers.length > 0 && (
@@ -111,7 +111,7 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
                     <div className="mt-1">
                        <CheckCircle className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="flex-1 bg-base p-3 rounded-lg border border-text-muted/10">
+                    <div className="flex-1 bg-base p-3 rounded-lg border border-line">
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-bold text-sm text-text-main">{update.status}</span>
                         <span className="text-xs text-text-muted flex items-center gap-1"><Clock className="w-3 h-3" /> {format(parseISO(update.updatedAt), 'MMM d, h:mm a')}</span>
@@ -128,14 +128,14 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
           {/* Right Column: Actions & Attachments */}
           <div className="w-full md:w-64 space-y-6">
             
-            <form onSubmit={handleUpdate} className="bg-base p-4 rounded-xl border border-text-muted/10 space-y-4">
+            <form onSubmit={handleUpdate} className="bg-base p-4 rounded-xl border border-line space-y-4">
               <h4 className="font-bold text-sm text-text-main">Log Status Update</h4>
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1">New Status</label>
                 <select 
                   value={newUpdateStatus}
                   onChange={e => setNewUpdateStatus(e.target.value as LabOrderStatus)}
-                  className="w-full px-3 py-2 bg-surface border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
                 >
                   {statuses.map(st => <option key={st} value={st}>{st}</option>)}
                 </select>
@@ -146,7 +146,7 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
                   required
                   value={newUpdateNote}
                   onChange={e => setNewUpdateNote(e.target.value)}
-                  className="w-full px-3 py-2 bg-surface border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary min-h-[80px]"
+                  className="w-full px-3 py-2 bg-surface border border-line rounded-lg text-sm focus:outline-none focus:border-primary min-h-[80px]"
                   placeholder="E.g., Called lab, delayed by 1 day..."
                 />
               </div>
@@ -159,7 +159,7 @@ export function LabOrderModal({ order, onClose }: LabOrderModalProps) {
               </h4>
               <div className="space-y-2">
                 {/* Mock file */}
-                <div className="flex items-center justify-between p-2 bg-base border border-text-muted/10 rounded-lg text-sm">
+                <div className="flex items-center justify-between p-2 bg-base border border-line rounded-lg text-sm">
                   <span className="truncate text-text-main">intraoral_scan.stl</span>
                   <a href="#" className="text-primary hover:underline text-xs">View</a>
                 </div>

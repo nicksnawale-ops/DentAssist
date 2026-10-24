@@ -125,7 +125,7 @@ export function ClinicsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-main tracking-tight">Clinics Management</h1>
+          <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Clinics Management</h1>
           <p className="text-sm text-text-muted mt-1">Manage all clinic locations, view stats, and config.</p>
         </div>
         <Button onClick={() => setModalOpen(true)} className="gap-2">

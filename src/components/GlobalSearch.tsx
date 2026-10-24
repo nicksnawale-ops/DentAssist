@@ -8,7 +8,12 @@ import { mockInvoices } from '../data/mockInvoices';
 import { mockUsers } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
-export function GlobalSearch() {
+interface GlobalSearchProps {
+  className?: string;
+  autoFocus?: boolean;
+}
+
+export function GlobalSearch({ className, autoFocus = false }: GlobalSearchProps = {}) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -139,14 +144,31 @@ export function GlobalSearch() {
     setSelectedIndex(0);
   }, [query]);
 
+  // Ctrl/Cmd + K jumps to search from anywhere (desktop instance only).
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [autoFocus]);
+
   return (
-    <div className="hidden md:flex items-center relative max-w-md w-full" ref={dropdownRef}>
-      <Search className="w-4 h-4 absolute left-3 text-text-muted" aria-hidden="true" />
+    <div className={`flex items-center relative w-full ${className || ''}`} ref={dropdownRef}>
+      <Search className="w-4 h-4 absolute left-3 text-text-muted pointer-events-none" aria-hidden="true" />
       <input 
         ref={inputRef}
         type="text" 
-        placeholder="Search patients, appointments..." 
-        className="w-full bg-base border-none rounded-full py-2 pl-10 pr-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all placeholder:text-text-muted"
+        placeholder="Search patients, appointments, invoices"
+        className="w-full h-10 bg-base border border-transparent rounded-control pl-9 pr-14 text-sm text-text-main hover:border-line focus:bg-surface focus:border-accent focus:ring-4 focus:ring-accent/15 focus:outline-none transition-[border-color,box-shadow,background-color] placeholder:text-text-muted/80"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -154,11 +176,16 @@ export function GlobalSearch() {
         }}
         onFocus={() => setIsOpen(true)}
         onKeyDown={handleKeyDown}
-        aria-label="Global Search"
+        aria-label="Search"
       />
+      {!autoFocus && !query && (
+        <kbd className="hidden lg:inline-flex absolute right-3 items-center rounded border border-line bg-surface px-1.5 text-[11px] font-medium text-text-muted pointer-events-none">
+          Ctrl K
+        </kbd>
+      )}
 
       {isOpen && query.trim().length > 1 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-surface rounded-xl border border-text-muted/10 shadow-xl overflow-hidden z-50 max-h-96 overflow-y-auto">
+        <div className={`absolute top-full left-0 right-0 mt-2 bg-surface rounded-panel border border-line shadow-float overflow-hidden z-50 overflow-y-auto ${autoFocus ? 'max-h-[calc(100dvh-5rem)]' : 'max-h-96'}`}>
           {results.length > 0 ? (
             <div className="py-2">
               {results.map((result, index) => {
@@ -183,8 +210,7 @@ export function GlobalSearch() {
                       <div className="text-sm font-semibold text-text-main">{result.title}</div>
                       <div className="text-xs text-text-muted flex gap-2">
                         <span className="font-medium text-primary/70">{result.type}</span>
-                        <span>&bull;</span>
-                        <span>{result.subtitle}</span>
+                        <span className="truncate">{result.subtitle}</span>
                       </div>
                     </div>
                   </button>

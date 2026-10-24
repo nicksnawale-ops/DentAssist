@@ -27,13 +27,13 @@ export function DataTable<T extends { id: string | number }>({
 
   if (loading && data.length === 0) {
     return (
-      <div className="rounded-2xl border border-primary/5 bg-surface overflow-hidden shadow-sm">
-        <div className="border-b border-text-muted/10 bg-base/50 p-4">
-          <Skeleton className="h-5 w-48" />
+      <div className="rounded-panel border border-line bg-surface overflow-hidden shadow-panel" aria-busy="true">
+        <div className="border-b border-line bg-surface-hover px-5 py-3.5">
+          <Skeleton className="h-4 w-40" />
         </div>
-        <div className="divide-y divide-text-muted/10">
+        <div className="divide-y divide-line">
           {[1, 2, 3, 4].map(i => (
-            <div key={i} className="p-4 flex gap-4">
+            <div key={i} className="px-5 py-4 flex gap-4">
               <Skeleton className="h-4 w-1/4" />
               <Skeleton className="h-4 w-1/4" />
               <Skeleton className="h-4 w-1/4 hidden sm:block" />
@@ -46,35 +46,39 @@ export function DataTable<T extends { id: string | number }>({
   }
 
   if (data.length === 0 && emptyState) {
-    return <div className="p-4 border border-text-muted/10 rounded-2xl bg-surface shadow-sm">{emptyState}</div>;
+    return <div className="p-4 border border-line rounded-panel bg-surface shadow-panel">{emptyState}</div>;
   }
 
+  const [primary, ...rest] = columns;
+
   return (
-    <div className="rounded-2xl border border-primary/5 bg-surface overflow-hidden shadow-sm">
-      {/* Desktop Table */}
+    <div className="rounded-panel border border-line bg-surface overflow-hidden shadow-panel">
+      {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-base/80 text-text-muted font-medium text-xs uppercase tracking-wider">
+          <thead className="bg-surface-hover text-text-muted text-[13px] font-medium">
             <tr>
               {columns.map(col => (
-                <th key={col.key} className="px-6 py-4 border-b border-text-muted/10">
+                <th key={col.key} scope="col" className="px-5 py-3 border-b border-line font-medium">
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-text-muted/10">
+          <tbody className="divide-y divide-line">
             {data.map(row => (
-              <tr 
-                key={row.id} 
+              <tr
+                key={row.id}
                 onClick={() => onRowClick?.(row)}
+                onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
                 className={cn(
-                  "hover:bg-primary/5 transition-colors",
-                  onRowClick && "cursor-pointer"
+                  "transition-colors",
+                  onRowClick && "cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
                 )}
               >
                 {columns.map(col => (
-                  <td key={col.key} className="px-6 py-4 text-text-main">
+                  <td key={col.key} className="px-5 py-3.5 text-text-main">
                     {col.cell(row)}
                   </td>
                 ))}
@@ -84,29 +88,35 @@ export function DataTable<T extends { id: string | number }>({
         </table>
       </div>
 
-      {/* Mobile Stacked Cards */}
-      <div className="md:hidden flex flex-col divide-y divide-text-muted/10">
+      {/* Phones: one card per row. First column is the title, the rest are label/value pairs. */}
+      <ul className="md:hidden divide-y divide-line">
         {data.map(row => (
-          <div 
-            key={row.id} 
-            onClick={() => onRowClick?.(row)}
-            className={cn(
-              "p-4 space-y-3 hover:bg-primary/5 transition-colors",
-              onRowClick && "cursor-pointer"
-            )}
-          >
-            {columns.map((col, idx) => (
-              <div key={col.key} className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1">
-                 {/* Only show header label for properties after the first one to make the card look cleaner */}
-                {idx > 0 && <span className="text-xs text-text-muted font-medium uppercase tracking-wider">{col.header}</span>}
-                <div className={cn("text-sm text-text-main", idx === 0 && "font-semibold text-base")}>
-                  {col.cell(row)}
-                </div>
-              </div>
-            ))}
-          </div>
+          <li key={row.id}>
+            <div
+              role={onRowClick ? 'button' : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              onClick={() => onRowClick?.(row)}
+              onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined}
+              className={cn(
+                "px-4 py-4 transition-colors",
+                onRowClick && "cursor-pointer active:bg-surface-hover"
+              )}
+            >
+              {primary && <div className="text-[15px] font-semibold text-text-main mb-2.5">{primary.cell(row)}</div>}
+              {rest.length > 0 && (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  {rest.map(col => (
+                    <div key={col.key} className="min-w-0">
+                      <dt className="text-xs text-text-muted mb-0.5">{col.header}</dt>
+                      <dd className="text-sm text-text-main break-words">{col.cell(row)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

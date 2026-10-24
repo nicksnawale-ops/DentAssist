@@ -35,8 +35,8 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
 
   return (
     <div className="fixed inset-0 z-[60] bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-md rounded-2xl border border-text-muted/20 shadow-2xl overflow-hidden flex flex-col">
-         <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base">
+      <div className="bg-surface w-full max-w-md rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col">
+         <div className="p-4 border-b border-line flex justify-between items-center bg-base">
             <div>
               <h3 className="font-bold text-text-main flex items-center gap-2">
                 <IndianRupee className="w-5 h-5 text-primary" /> Record Payment
@@ -49,7 +49,7 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
          <form onSubmit={handleSave} className="p-6 space-y-4">
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex justify-between items-center">
               <span className="text-sm font-semibold text-text-main">Remaining Balance</span>
-              <span className="text-lg font-black text-primary">{formatCurrency(remainingBalance)}</span>
+              <span className="text-lg font-bold text-primary">{formatCurrency(remainingBalance)}</span>
             </div>
 
             <div>
@@ -61,7 +61,7 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
                 max={remainingBalance}
                 value={amount}
                 onChange={e => setAmount(Number(e.target.value))}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
               />
             </div>
 
@@ -70,7 +70,7 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
               <select
                 value={method}
                 onChange={e => setMethod(e.target.value as PaymentMethod)}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
               >
                 <option value="Cash">Cash</option>
                 <option value="Card">Card</option>
@@ -88,7 +88,7 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
                 value={reference}
                 onChange={e => setReference(e.target.value)}
                 placeholder="e.g. UPI TXN ID or Cheque No"
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
               />
             </div>
 
@@ -98,7 +98,7 @@ export function RecordPaymentModal({ invoice, onClose, onPaymentRecorded }: Reco
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 rows={2}
-                className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
               ></textarea>
             </div>
 
