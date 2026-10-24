@@ -338,11 +338,14 @@ class AppointmentOut(CamelModel):
     status: AppointmentStatus
     procedure_type: str
     notes: str | None = None
+    arrived_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
 class PortalBookRequest(CamelModel):
+    # Book for a family member (family account holders only). Defaults to the logged-in patient.
+    patient_id: str | None = None
     dentist_id: str
     clinic_id: str
     start_time: datetime

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Appointment } from '../../types';
 import { BookingOption, cancelMyAppointment, getBookingOptions, getMyAppointments } from '../../api/apiService';
+import { getFamily } from '../../api/familyService';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Calendar as CalendarIcon, Clock, MapPin, User as UserIcon } from 'lucide-react';
@@ -17,6 +18,10 @@ export function PatientAppointmentsList() {
   const [clinics, setClinics] = useState<BookingOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [familyNames, setFamilyNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (user?.patientId) getFamily(user.patientId).then(r => setFamilyNames(Object.fromEntries((r.data?.members || []).map(m => [m.patientId, m.name.split(' ')[0]]))));
+  }, [user?.patientId]);
 
   const load = useCallback(async () => {
     const [apptRes, optRes] = await Promise.all([getMyAppointments(), getBookingOptions()]);
@@ -90,6 +95,9 @@ export function PatientAppointmentsList() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm text-text-muted">
                     <UserIcon className="w-4 h-4" /> {dentistName(appt)}
+                    {appt.patientId !== user.patientId && familyNames[appt.patientId] && (
+                      <span className="ml-2 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[11px] font-medium">For {familyNames[appt.patientId]}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-text-muted">
                     <MapPin className="w-4 h-4" /> {clinic?.name || 'Clinic'}

@@ -45,6 +45,8 @@ class Clinic(TimestampMixin, Base):
     online_booking_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
     # Google Business review link sent to patients after a visit (e.g. https://g.page/r/.../review)
     google_review_url: Mapped[str | None] = mapped_column(String(500))
+    # Key in the reception QR code for self check-in. Regenerate to retire printed posters.
+    checkin_token: Mapped[str | None] = mapped_column(String(64))
 
 
 class User(TimestampMixin, Base):
@@ -107,6 +109,9 @@ class Patient(Base):
     outstanding_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
     # Pending profile edit submitted by the patient from the portal, awaiting staff review.
     edit_request: Mapped[dict | None] = mapped_column(JSONType)
+    # Family: members share one account holder (the head), who can manage everyone from their login.
+    family_id: Mapped[str | None] = mapped_column(ForeignKey("families.id", ondelete="SET NULL"), index=True)
+    family_relation: Mapped[str | None] = mapped_column(String(20))  # Self | Spouse | Child | Parent | Sibling | Other
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
@@ -124,6 +129,8 @@ class Appointment(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="scheduled", nullable=False)
     procedure_type: Mapped[str] = mapped_column(String(100), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
+    # When the patient arrived (self check-in by QR, or the front desk), before going into the chair.
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WaitlistEntry(Base):
@@ -749,3 +756,13 @@ class AttendanceRecord(TimestampMixin, Base):
     source: Mapped[str] = mapped_column(String(10), default="self", nullable=False)  # self | admin
     note: Mapped[str | None] = mapped_column(String(300))
     edited_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class Family(TimestampMixin, Base):
+    __tablename__ = "families"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    # The account holder: their portal login can see and book for everyone in the family.
+    head_patient_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"))

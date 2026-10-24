@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from app.api.appointments import append_note
+from app.api.patients import get_patient_for, portal_patient_ids
 from app.core.deps import DbSession, require_roles
 from app.core.errors import bad_request, forbidden, not_found
 from app.models import Appointment, Clinic, Patient, User
@@ -35,7 +36,7 @@ def _patient(db, user: User) -> Patient:
 
 def _own_appointment(db, user: User, appointment_id: str) -> Appointment:
     appt = db.get(Appointment, appointment_id)
-    if not appt or appt.patient_id != user.patient_id:
+    if not appt or appt.patient_id not in portal_patient_ids(db, user):
         raise not_found("Appointment")
     return appt
 
@@ -49,7 +50,7 @@ def _check_notice(start: datetime) -> None:
 def my_appointments(db: DbSession, user: User = PatientUser):
     _patient(db, user)
     return db.scalars(
-        select(Appointment).where(Appointment.patient_id == user.patient_id).order_by(Appointment.start_time.desc())
+        select(Appointment).where(Appointment.patient_id.in_(portal_patient_ids(db, user))).order_by(Appointment.start_time.desc())
     ).all()
 
 
@@ -76,6 +77,7 @@ def booking_options(db: DbSession, user: User = PatientUser):
 @router.post("/appointments/book", response_model=AppointmentOut, status_code=201)
 def book(body: PortalBookRequest, db: DbSession, user: User = PatientUser):
     _patient(db, user)
+    for_patient = get_patient_for(db, user, body.patient_id or user.patient_id)
     if body.end_time <= body.start_time:
         raise bad_request("endTime must be after startTime", "INVALID_TIME_RANGE")
     _check_notice(body.start_time)
@@ -84,7 +86,7 @@ def book(body: PortalBookRequest, db: DbSession, user: User = PatientUser):
     if not is_free(db, clinic, body.dentist_id, body.start_time, body.end_time):
         raise bad_request("That time isn't available. Please pick one of the times shown.", "SLOT_UNAVAILABLE")
     appt = Appointment(
-        patient_id=user.patient_id, dentist_id=body.dentist_id, clinic_id=body.clinic_id,
+        patient_id=for_patient.id, dentist_id=body.dentist_id, clinic_id=body.clinic_id,
         start_time=as_utc(body.start_time), end_time=as_utc(body.end_time),
         procedure_type=body.procedure_type, notes=body.notes, status="scheduled",
     )

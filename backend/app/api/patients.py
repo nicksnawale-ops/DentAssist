@@ -26,12 +26,27 @@ def _scoped(query, user: User):
     return query
 
 
+def portal_patient_ids(db: Session, user: User) -> set[str]:
+    """Patients a portal login may act for: themselves, plus their family if they're its account holder."""
+    if user.role != "patient" or not user.patient_id:
+        return set()
+    me = db.get(Patient, user.patient_id)
+    ids = {user.patient_id}
+    if me and me.family_id:
+        from app.models import Family
+
+        fam = db.get(Family, me.family_id)
+        if fam and fam.head_patient_id == me.id:
+            ids |= set(db.scalars(select(Patient.id).where(Patient.family_id == fam.id)))
+    return ids
+
+
 def get_patient_for(db: Session, user: User, patient_id: str) -> Patient:
     patient = db.get(Patient, patient_id)
     if not patient:
         raise not_found("Patient")
     if user.role == "patient":
-        if user.patient_id != patient.id:
+        if patient.id not in portal_patient_ids(db, user):
             raise not_found("Patient")
     else:
         allowed = accessible_clinic_ids(user)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
@@ -157,6 +157,8 @@ def check_in(appointment_id: str, user: StaffUser, db: DbSession):
     if appt.status not in ("scheduled", "confirmed"):
         raise bad_request(f"Cannot check in an appointment that is {appt.status}", "INVALID_STATUS")
     appt.status = "in_progress"
+    if not appt.arrived_at:
+        appt.arrived_at = datetime.now(timezone.utc)
     audit.record(db, user, "check_in", "appointment", appt.id)
     db.commit()
     return appt

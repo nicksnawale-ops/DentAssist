@@ -202,7 +202,11 @@ def receptionist_dashboard(db: DbSession, user: User = Depends(require_roles("re
         "lowInventoryItems": _low_stock_count(db, user),
         "queue": [
             {"id": a.id, "patientId": p.id, "patientName": _name(p.first_name, p.last_name),
-             "time": _clock(a.start_time, tz), "status": QUEUE_STATUS[a.status]}
+             "time": _clock(a.start_time, tz),
+             "status": "checked-in" if a.arrived_at and a.status in ("scheduled", "confirmed") else QUEUE_STATUS[a.status],
+             "arrivedAt": a.arrived_at,
+             "waitingMinutes": int((datetime.now(timezone.utc) - as_utc(a.arrived_at)).total_seconds() // 60)
+             if a.arrived_at and a.status in ("scheduled", "confirmed") else None}
             for a, p in rows if a.status in QUEUE_STATUS
         ],
     }
