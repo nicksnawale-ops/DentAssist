@@ -13,6 +13,7 @@ from app.core.errors import AppError, bad_request, forbidden, not_found
 from app.models import Appointment, Clinic, Notification, Patient, User
 from app.schemas import CamelModel
 from app.services import audit, ratelimit
+from app.services import messaging as msg
 from app.services.availability import Slot, clinic_tz, dentists_at, free_slots, is_free, next_free_slots
 from app.services.scheduling import as_utc
 from app.services.waitlist import matches_for
@@ -241,6 +242,7 @@ def public_book(clinic_id: str, body: PublicBookingIn, request: Request, db: DbS
             db.add(Notification(user_id=u.id, title="New online booking",
                                 message=f"{body.name.strip()} booked {visit['label'].lower()} with Dr. {dentist.last_name} on {when}. Please confirm."))
     audit.record(db, None, "online_booking", "appointment", appt.id, after={"clinic": clinic.id, "start": start.isoformat()})
+    msg.quietly(msg.appointment_message, db, appt, "booking_confirmation")
     db.commit()
     return {
         "status": "booked",

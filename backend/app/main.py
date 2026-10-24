@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,6 +12,7 @@ from app.api import (
     clinical,
     clinics,
     dashboard,
+    messaging,
     notifications,
     patient_portal,
     patients,
@@ -19,11 +22,34 @@ from app.api import (
     waitlist,
 )
 from app.core.config import get_settings
-from app.core.database import Base, engine
+from app.core.database import Base, SessionLocal, engine
 from app.core.errors import register_error_handlers
 
 settings = get_settings()
 settings.validate_for_production()
+
+
+log = logging.getLogger("dentassist.reminders")
+
+
+def _reminders_once() -> None:
+    from app.services.messaging import run_due_reminders
+
+    with SessionLocal() as db:
+        counts = run_due_reminders(db)
+        if any(counts.values()):
+            log.info("Reminders: %s", counts)
+
+
+async def _reminder_loop() -> None:
+    """Send due WhatsApp reminders every few minutes. Safe with several API workers: each
+    reminder has a unique dedupe key, so only one of them can send it."""
+    while True:
+        try:
+            await asyncio.to_thread(_reminders_once)
+        except Exception:  # noqa: BLE001
+            log.exception("Reminder run failed")
+        await asyncio.sleep(max(settings.reminders_interval_seconds, 60))
 
 
 @asynccontextmanager
@@ -32,7 +58,10 @@ async def lifespan(_: FastAPI):
         import app.models  # noqa: F401  (register models)
 
         Base.metadata.create_all(bind=engine)
+    task = asyncio.create_task(_reminder_loop()) if settings.reminders_enabled else None
     yield
+    if task:
+        task.cancel()
 
 
 app = FastAPI(
@@ -55,7 +84,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical, scheduling):
+               settings_api, billing, clinical, scheduling, messaging):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

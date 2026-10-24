@@ -1,480 +1,313 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { format, subHours, subDays, isSameDay } from 'date-fns';
-import { Search, Filter, Check, CheckCheck, Clock, AlertCircle, MessageSquare, ArrowLeft, Info, Plus, Send, FileText } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import {
+  AlertCircle, ArrowLeft, Check, CheckCheck, Clock, MessageSquare, Phone, RefreshCw, Search, Send, Settings2, Ban,
+} from 'lucide-react';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../components/ui/useToast';
+import { useAuth } from '../../context/AuthContext';
+import {
+  formatPhone, getMessageLog, getMessagingStatus, MESSAGE_KIND_LABELS, MessageLogEntry, MessagingStatus, sendReply,
+} from '../../api/messagingService';
 
+type Filter = 'all' | 'replies' | 'problems';
 
-// Dummy data for communications
-const now = new Date();
-const mockLogs = [
-  {
-    id: '1',
-    patientName: 'Jane Doe',
-    patientId: 'p-101',
-    phoneNumber: '+1 555-0100',
-    type: 'whatsapp',
-    templateName: 'booking_confirmation',
-    message: 'Hi Jane Doe, your appointment with Dr. Sarah Smith at SmileCare Downtown is confirmed for Oct 24 at 10:00 AM. Reply CONFIRM to confirm or CANCEL to cancel.',
-    status: 'read',
-    timestamp: subHours(now, 2).toISOString(),
-    error: null
-  },
-  {
-    id: '2',
-    patientName: 'John Smith',
-    patientId: 'p-102',
-    phoneNumber: '+1 555-0101',
-    type: 'whatsapp',
-    templateName: '24h_reminder',
-    message: 'Hi John Smith, reminder: you have an appointment tomorrow at 02:00 PM with Dr. Sarah Smith. See you soon!',
-    status: 'delivered',
-    timestamp: subHours(now, 5).toISOString(),
-    error: null
-  },
-  {
-    id: '5',
-    patientName: 'Alice Green',
-    patientId: 'pat_1',
-    phoneNumber: '+91 98765 11111',
-    type: 'whatsapp',
-    templateName: 'invoice_generated',
-    message: 'Hi Alice, your invoice #INV-2026-005 for ₹4,500 is ready. View and pay securely here: https://link.to/pay/INV-2026-005',
-    status: 'read',
-    timestamp: subHours(now, 6).toISOString(),
-    error: null
-  },
-  {
-    id: '6',
-    patientName: 'Alice Green',
-    patientId: 'pat_1',
-    phoneNumber: '+91 98765 11111',
-    type: 'whatsapp',
-    templateName: 'payment_receipt',
-    message: 'Hi Alice, thank you! We have received your payment of ₹4,500 via UPI. Download your receipt here: https://link.to/rcpt/1234',
-    status: 'delivered',
-    timestamp: subHours(now, 1).toISOString(),
-    error: null
-  },
-  {
-    id: '3',
-    patientName: 'Alice Johnson',
-    patientId: 'p-103',
-    phoneNumber: '+1 555-0102',
-    type: 'whatsapp',
-    templateName: 'reschedule_notice',
-    message: 'Hi Alice Johnson, your appointment has been rescheduled to Oct 25 at 11:30 AM. Reply CONFIRM to confirm.',
-    status: 'sent',
-    timestamp: subHours(now, 24).toISOString(),
-    error: null
-  },
-  {
-    id: '4',
-    patientName: 'Bob Williams',
-    patientId: 'p-104',
-    phoneNumber: '+1 555-0103',
-    type: 'whatsapp',
-    templateName: 'booking_confirmation',
-    message: 'Hi Bob Williams, your appointment with Dr. Sarah Smith is confirmed for Oct 26 at 09:00 AM. Reply CONFIRM to confirm or CANCEL to cancel.',
-    status: 'failed',
-    timestamp: subDays(now, 2).toISOString(),
-    error: 'Failed - invalid number format.'
+interface Conversation {
+  phone: string;
+  patientId: string | null;
+  name: string;
+  messages: MessageLogEntry[]; // oldest first
+  last: MessageLogEntry;
+  lastInbound?: MessageLogEntry;
+  problems: number;
+}
+
+const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function StatusTick({ m }: { m: MessageLogEntry }) {
+  switch (m.status) {
+    case 'queued': return <Clock className="w-3.5 h-3.5" aria-label="Queued" />;
+    case 'sent': return <Check className="w-3.5 h-3.5" aria-label="Sent" />;
+    case 'delivered': return <CheckCheck className="w-3.5 h-3.5" aria-label="Delivered" />;
+    case 'read': return <CheckCheck className="w-3.5 h-3.5 text-[#53BDEB]" aria-label="Read" />;
+    case 'failed': return <AlertCircle className="w-3.5 h-3.5 text-error" aria-label="Failed" />;
+    case 'skipped': return <Ban className="w-3.5 h-3.5 text-warning" aria-label="Not sent" />;
+    default: return null;
   }
-];
+}
+
+function Initials({ name }: { name: string }) {
+  const text = name.startsWith('+') ? '#' : name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return (
+    <span className="w-9 h-9 rounded-full bg-accent/15 text-accent text-[13px] font-semibold flex items-center justify-center flex-none" aria-hidden="true">
+      {text}
+    </span>
+  );
+}
+
+function dayLabel(iso: string) {
+  const d = parseISO(iso);
+  if (isToday(d)) return 'Today';
+  if (isYesterday(d)) return 'Yesterday';
+  return format(d, 'EEE d MMM yyyy');
+}
+
+function shortTime(iso: string) {
+  const d = parseISO(iso);
+  return isToday(d) ? format(d, 'h:mm a') : isYesterday(d) ? 'Yesterday' : format(d, 'd MMM');
+}
 
 export function CommunicationLog() {
-  const [logs, setLogs] = useState(mockLogs);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [channelFilter, setChannelFilter] = useState('All'); // All, WhatsApp, SMS
-  const [statusFilter, setStatusFilter] = useState('All'); // All, Read, Unread, Failed
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [status, setStatus] = useState<MessagingStatus | null>(null);
+  const [rows, setRows] = useState<MessageLogEntry[] | null>(null);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [isMobileThreadView, setIsMobileThreadView] = useState(false);
-
-  const [composeMessage, setComposeMessage] = useState('');
-  const [showTemplates, setShowTemplates] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const composerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (composerRef.current && !composerRef.current.contains(event.target as Node)) {
-        setShowTemplates(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    const res = await getMessageLog({});
+    setRefreshing(false);
+    if (res.data) setRows(res.data);
+    else setRows(r => r ?? []);
   }, []);
 
   useEffect(() => {
-    if (selectedPatientId) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    getMessagingStatus().then(r => r.data && setStatus(r.data));
+    load();
+    const t = window.setInterval(load, 30000); // new replies and delivery ticks
+    return () => window.clearInterval(t);
+  }, [load]);
+
+  const conversations = useMemo<Conversation[]>(() => {
+    const map = new Map<string, Conversation>();
+    for (const m of [...(rows || [])].reverse()) {
+      const key = m.phone || m.id;
+      let c = map.get(key);
+      if (!c) {
+        c = { phone: m.phone, patientId: m.patientId, name: m.patientName || formatPhone(m.phone) || 'Unknown', messages: [], last: m, problems: 0 };
+        map.set(key, c);
+      }
+      c.messages.push(m);
+      c.last = m;
+      if (m.patientName && c.name.startsWith('+')) { c.name = m.patientName; c.patientId = m.patientId; }
+      if (m.direction === 'inbound') c.lastInbound = m;
+      if (m.status === 'failed' || m.status === 'skipped') c.problems += 1;
     }
-  }, [selectedPatientId, logs]);
+    return [...map.values()].sort((a, b) => b.last.createdAt.localeCompare(a.last.createdAt));
+  }, [rows]);
 
-  const templates = [
-    { id: 'booking_confirmation', name: 'Booking Confirmation', text: 'Hi {patient_name}, your appointment with {dentist_name} at SmileCare Downtown is confirmed for {date} at {time}. Reply CONFIRM to confirm or CANCEL to cancel.' },
-    { id: '24h_reminder', name: '24-Hour Reminder', text: 'Hi {patient_name}, reminder: you have an appointment tomorrow at {time} with {dentist_name}. See you soon!' },
-    { id: '2h_reminder', name: '2-Hour Reminder', text: 'Hi {patient_name}, reminder: you have an appointment in 2 hours at {time} with {dentist_name}.' },
-    { id: 'reschedule_notice', name: 'Reschedule Notice', text: 'Hi {patient_name}, your appointment has been rescheduled to {date} at {time}. Reply CONFIRM to confirm.' },
-    { id: 'cancellation_notice', name: 'Cancellation Notice', text: 'Hi {patient_name}, your appointment on {date} at {time} has been cancelled. Please call us to rebook.' },
-    { id: 'post_visit_thank_you', name: 'Post-Visit Thank You', text: 'Hi {patient_name}, thank you for visiting SmileCare Downtown today! We hope you had a great experience.' },
-    { id: 'payment_invoice', name: 'Payment Invoice', text: 'Hi {patient_name}, your invoice for {amount} is ready. View and pay securely here: {link}' },
-    { id: 'payment_confirmation', name: 'Payment Confirmation', text: 'Hi {patient_name}, thank you! We have received your payment of {amount}. Download your receipt here: {link}' },
-  ];
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'queued': return <Clock className="w-3.5 h-3.5 text-gray-500" />;
-      case 'sent': return <Check className="w-3.5 h-3.5 text-gray-500" />;
-      case 'delivered': return <CheckCheck className="w-3.5 h-3.5 text-gray-500" />;
-      case 'read': return <CheckCheck className="w-3.5 h-3.5 text-blue-500" />;
-      case 'failed': return <AlertCircle className="w-3.5 h-3.5 text-red-500" />;
-      default: return null;
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  };
-
-  // Group by patient
-  const groupedLogs = logs.reduce((acc, log) => {
-    const key = log.patientId;
-    if (!acc[key]) {
-      acc[key] = {
-        patientId: log.patientId,
-        patientName: log.patientName,
-        phoneNumber: log.phoneNumber,
-        messages: []
-      };
-    }
-    acc[key].messages.push(log);
-    return acc;
-  }, {} as Record<string, any>);
-
-  const conversations = (Object.values(groupedLogs) as any[]).map((group: any) => {
-    group.messages.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    group.lastMessage = group.messages[group.messages.length - 1];
-    
-    // Check if any unread
-    group.hasUnread = group.messages.some((m: any) => ['delivered', 'sent', 'queued'].includes(m.status));
-    
-    return group;
-  }).sort((a, b) => new Date(b.lastMessage.timestamp).getTime() - new Date(a.lastMessage.timestamp).getTime());
-
-  const filteredConversations = conversations.filter((conv: any) => {
-    const matchesSearch = conv.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          conv.phoneNumber.includes(searchTerm) ||
-                          conv.messages.some((m: any) => m.message.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesChannel = channelFilter === 'All' || 
-                           (channelFilter === 'WhatsApp' && conv.messages.some((m: any) => m.type === 'whatsapp')) ||
-                           (channelFilter === 'SMS' && conv.messages.some((m: any) => m.type === 'sms'));
-
-    const matchesStatus = statusFilter === 'All' ||
-                          (statusFilter === 'Unread' && conv.messages.some((m: any) => ['delivered', 'sent', 'queued'].includes(m.status))) ||
-                          (statusFilter === 'Read' && conv.messages.some((m: any) => m.status === 'read')) ||
-                          (statusFilter === 'Failed' && conv.messages.some((m: any) => m.status === 'failed'));
-
-    return matchesSearch && matchesChannel && matchesStatus;
+  const visible = conversations.filter(c => {
+    const q = query.trim().toLowerCase();
+    const matches = !q || c.name.toLowerCase().includes(q) || c.phone.includes(q.replace(/\D/g, '') || '~') ||
+      c.messages.some(m => m.body.toLowerCase().includes(q));
+    if (!matches) return false;
+    if (filter === 'replies') return !!c.lastInbound;
+    if (filter === 'problems') return c.problems > 0;
+    return true;
   });
 
-  const selectedConversation = conversations.find((c: any) => c.patientId === selectedPatientId);
+  const active = conversations.find(c => (c.phone || c.last.id) === selected) || null;
+  const canReply = !!active?.lastInbound && Date.now() - parseISO(active.lastInbound.createdAt).getTime() < REPLY_WINDOW_MS;
 
-  const handleSelectConversation = (patientId: string) => {
-    setSelectedPatientId(patientId);
-    setIsMobileThreadView(true);
-  };
+  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }); }, [selected, active?.messages.length]);
 
-  const handleBackToList = () => {
-    setIsMobileThreadView(false);
-  };
-
-  const handleSendMessage = () => {
-    if (!selectedPatientId || !composeMessage.trim()) return;
-    const newLog = {
-      id: Date.now().toString(),
-      patientName: selectedConversation.patientName,
-      patientId: selectedConversation.patientId,
-      phoneNumber: selectedConversation.phoneNumber,
-      type: selectedConversation.lastMessage.type || 'whatsapp',
-      templateName: 'custom',
-      message: composeMessage,
-      status: 'queued',
-      timestamp: new Date().toISOString(),
-      error: null
+  const stats = useMemo(() => {
+    const out = (rows || []).filter(m => m.direction === 'outbound' && isToday(parseISO(m.createdAt)));
+    const delivered = out.filter(m => m.status === 'delivered' || m.status === 'read').length;
+    return {
+      sentToday: out.filter(m => !['skipped', 'failed'].includes(m.status)).length,
+      delivered,
+      replies: (rows || []).filter(m => m.direction === 'inbound' && isToday(parseISO(m.createdAt))).length,
+      problems: (rows || []).filter(m => m.status === 'failed').length,
     };
-    setLogs([...logs, newLog]);
-    setComposeMessage('');
-    setShowTemplates(false);
-    
-    // Simulate delivery
-    setTimeout(() => {
-      setLogs(currentLogs => currentLogs.map(log => 
-        log.id === newLog.id ? { ...log, status: 'sent', timestamp: new Date().toISOString() } : log
-      ));
-    }, 1000);
-    setTimeout(() => {
-      setLogs(currentLogs => currentLogs.map(log => 
-        log.id === newLog.id ? { ...log, status: 'delivered', timestamp: new Date().toISOString() } : log
-      ));
-    }, 2000);
+  }, [rows]);
+
+  const send = async () => {
+    if (!active || !reply.trim()) return;
+    setSending(true);
+    const res = await sendReply(active.phone, reply.trim());
+    setSending(false);
+    if (res.error || !res.data) {
+      toast({ title: res.error?.message || 'Could not send', variant: 'error' });
+      return;
+    }
+    if (res.data.message) setRows(r => [res.data!.message!, ...(r || [])]);
+    setReply('');
   };
 
-  const formatRelativeTime = (isoString: string) => {
-    const d = new Date(isoString);
-    if (isSameDay(d, now)) {
-      return format(d, 'h:mm a');
-    }
-    return format(d, 'MMM d');
-  };
+  const isStaffAdmin = user?.role === 'super_admin' || user?.role === 'admin';
 
   return (
-    <div className="h-full flex bg-white rounded-panel shadow-panel border border-line overflow-hidden">
-      
-      {/* LEFT PANEL */}
-      <div className={`w-full md:w-[35%] flex-shrink-0 flex flex-col border-r border-[#E5EEEC] bg-white transition-transform ${isMobileThreadView ? 'hidden md:flex' : 'flex'}`}>
-        
-        {/* Left Panel Header */}
-        <div className="p-4 border-b border-line shrink-0">
-          <h1 className="text-[22px] font-semibold leading-tight text-text-main mb-4">Messages</h1>
-          
-          <div className="relative w-full mb-3">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <input 
-              type="text" 
-              placeholder="Search patients or messages..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-base border border-line rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none transition-all"
-            />
+    <div className="h-full flex flex-col gap-4">
+      <PageHeader
+        className="flex-none mb-0"
+        title="Messages"
+        description="WhatsApp reminders, confirmations and patient replies in one place."
+        actions={
+          <>
+            <Button variant="outline" onClick={load} loading={refreshing}><RefreshCw className="w-4 h-4" /> Refresh</Button>
+            {isStaffAdmin && (
+              <Button asChild variant="ghost"><Link to="/settings?tab=whatsapp"><Settings2 className="w-4 h-4" /> Templates</Link></Button>
+            )}
+          </>
+        }
+      />
+
+      {status && !status.live && (
+        <div className="flex-none flex items-start gap-2 rounded-control border border-warning/20 bg-warning/[0.06] px-3 py-2 text-[13px]">
+          <AlertCircle className="w-4 h-4 text-warning flex-none mt-0.5" />
+          <span>{status.detail}</span>
+        </div>
+      )}
+
+      <div className="flex-none grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Sent today', value: stats.sentToday },
+          { label: 'Delivered today', value: stats.delivered },
+          { label: 'Replies today', value: stats.replies },
+          { label: 'Failed', value: stats.problems, tone: stats.problems ? 'text-error' : '' },
+        ].map(s => (
+          <div key={s.label} className="rounded-panel border border-line bg-surface px-4 py-3 shadow-panel">
+            <div className="text-[12px] text-text-muted">{s.label}</div>
+            <div className={`text-xl font-semibold tabular-nums ${s.tone || ''}`}>{rows ? s.value : '–'}</div>
           </div>
-          
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-              {['All', 'WhatsApp', 'SMS'].map(filter => (
-                <button
-                  key={filter}
-                  onClick={() => setChannelFilter(filter)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${channelFilter === filter ? 'bg-accent text-white' : 'bg-surface text-text-muted hover:bg-text-muted/10'}`}
-                >
-                  {filter}
+        ))}
+      </div>
+
+      <div className="flex-1 min-h-[480px] bg-surface rounded-panel border border-line shadow-panel flex overflow-hidden">
+        {/* Conversation list */}
+        <aside className={`w-full md:w-80 lg:w-96 flex-none border-r border-line flex flex-col ${active ? 'hidden md:flex' : 'flex'}`}>
+          <div className="p-3 border-b border-line space-y-2">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name, number or message" className="pl-9" aria-label="Search messages" />
+            </div>
+            <div className="flex gap-1" role="tablist">
+              {([['all', 'All'], ['replies', 'Replies'], ['problems', 'Not delivered']] as [Filter, string][]).map(([k, label]) => (
+                <button key={k} role="tab" aria-selected={filter === k} onClick={() => setFilter(k)}
+                  className={`px-3 h-8 rounded-full text-[12px] font-medium transition-colors ${filter === k ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-hover'}`}>
+                  {label}
                 </button>
               ))}
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-surface border border-line rounded-lg px-2 py-1 text-xs text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none min-w-[130px]"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Read">Read</option>
-              <option value="Unread">Unread</option>
-              <option value="Failed">Failed</option>
-            </select>
           </div>
-        </div>
-        
-        {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((conv: any) => (
-            <div 
-              key={conv.patientId}
-              onClick={() => handleSelectConversation(conv.patientId)}
-              className={`flex items-start gap-3 p-4 border-b border-line cursor-pointer transition-colors relative ${selectedPatientId === conv.patientId ? 'bg-[#EAF7F5]' : 'hover:bg-gray-50'}`}
-            >
-              {selectedPatientId === conv.patientId && (
-                <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent"></div>
-              )}
-              
-              <div className="relative">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                  {getInitials(conv.patientName)}
-                </div>
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-0.5">
-                  <div className="flex items-center gap-1.5 truncate">
-                    {conv.hasUnread && <div className="w-2 h-2 rounded-full bg-accent shrink-0"></div>}
-                    <h3 className={`text-sm truncate ${conv.hasUnread ? 'font-bold text-text-main' : 'font-medium text-text-main'}`}>
-                      {conv.patientName}
-                    </h3>
+          <div className="flex-1 overflow-y-auto">
+            {rows === null ? (
+              <div className="p-3 space-y-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>
+            ) : visible.length === 0 ? (
+              <EmptyState icon={MessageSquare} title={conversations.length ? 'No matches' : 'No messages yet'}
+                description={conversations.length ? 'Try a different search or filter.' : 'Booking confirmations and reminders will appear here as they go out.'} />
+            ) : visible.map(c => {
+              const key = c.phone || c.last.id;
+              return (
+                <button key={key} onClick={() => setSelected(key)}
+                  className={`w-full text-left px-3 py-3 flex gap-3 border-b border-line/60 transition-colors ${selected === key ? 'bg-primary/[0.05]' : 'hover:bg-surface-hover'}`}>
+                  <Initials name={c.name} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium truncate">{c.name}</span>
+                      <span className="text-[11px] text-text-muted flex-none">{shortTime(c.last.createdAt)}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[13px] text-text-muted">
+                      {c.last.direction === 'outbound' && <StatusTick m={c.last} />}
+                      <span className="truncate">{c.last.body}</span>
+                    </div>
                   </div>
-                  <span className="text-xs text-text-muted shrink-0 ml-2">
-                    {formatRelativeTime(conv.lastMessage.timestamp)}
-                  </span>
-                </div>
-                
-                <p className="text-xs text-text-muted truncate mb-1.5">{conv.phoneNumber}</p>
-                
-                <div className="flex justify-between items-end gap-2">
-                  <p className={`text-sm truncate ${conv.hasUnread ? 'font-medium text-text-main' : 'text-text-muted'}`}>
-                    {conv.lastMessage.message}
-                  </p>
-                  <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${
-                     conv.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
-                     'bg-gray-100 text-gray-700'
-                   }`}>
-                     {conv.lastMessage.type === 'whatsapp' ? 'WA' : 'SMS'}
-                  </span>
-                </div>
-              </div>
+                  {c.problems > 0 && <span className="self-center w-2 h-2 rounded-full bg-error flex-none" aria-label="Has undelivered messages" />}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* Thread */}
+        <section className={`flex-1 min-w-0 flex-col ${active ? 'flex' : 'hidden md:flex'}`}>
+          {!active ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState icon={MessageSquare} title="Pick a conversation" description="See every reminder, confirmation and reply for a patient." />
             </div>
-          ))}
-          {filteredConversations.length === 0 && (
-            <div className="p-8 text-center">
-               <p className="text-sm text-text-muted">No conversations found.</p>
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {/* RIGHT PANEL */}
-      <div className={`w-full md:w-[65%] flex-col bg-base ${(!isMobileThreadView && !selectedPatientId) ? 'hidden md:flex' : (isMobileThreadView ? 'flex' : 'hidden md:flex')}`}>
-        {selectedConversation ? (
-          <>
-            {/* Thread Header */}
-            <div className="h-16 border-b border-line bg-white flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-panel z-10">
-              <div className="flex items-center gap-3">
-                <button onClick={handleBackToList} className="md:hidden p-1.5 mr-1 text-text-muted hover:bg-gray-100 rounded-full">
+          ) : (
+            <>
+              <header className="h-14 flex-none border-b border-line px-3 flex items-center gap-3">
+                <button className="md:hidden p-2 -ml-1 rounded-control hover:bg-surface-hover" onClick={() => setSelected(null)} aria-label="Back to conversations">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                  {getInitials(selectedConversation.patientName)}
+                <Initials name={active.name} />
+                <div className="flex-1 min-w-0">
+                  {active.patientId ? (
+                    <Link to={`/patients/${active.patientId}`} className="text-sm font-semibold hover:text-primary truncate block">{active.name}</Link>
+                  ) : <span className="text-sm font-semibold">{active.name}</span>}
+                  <div className="text-[12px] text-text-muted">{formatPhone(active.phone)}</div>
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-text-main">{selectedConversation.patientName}</h2>
-                    <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${
-                       selectedConversation.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
-                       'bg-gray-100 text-gray-700'
-                     }`}>
-                       {selectedConversation.lastMessage.type === 'whatsapp' ? 'WA' : 'SMS'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-text-muted">{selectedConversation.phoneNumber}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <button className="p-2 text-text-muted hover:bg-gray-100 rounded-full transition-colors" title="Patient Info">
-                  <Info className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            
-            {/* Thread Messages */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-4">
-              {selectedConversation.messages.map((msg: any, index: number, arr: any[]) => {
-                const prevMsg = arr[index - 1];
-                const showDate = !prevMsg || !isSameDay(new Date(msg.timestamp), new Date(prevMsg.timestamp));
-                // Assuming all messages are outbound for now based on mock data
-                const isOutbound = true; 
-                
-                return (
-                  <React.Fragment key={msg.id}>
-                    {showDate && (
-                      <div className="flex justify-center my-4">
-                        <div className="bg-white/60 backdrop-blur-sm shadow-panel border border-black/5 rounded-full px-3 py-1 text-xs text-text-muted font-medium">
-                          {isSameDay(new Date(msg.timestamp), now) ? 'Today' : format(new Date(msg.timestamp), 'MMMM d, yyyy')}
+                {active.phone && (
+                  <a href={`tel:+${active.phone}`} className="p-2 rounded-control text-text-muted hover:text-primary hover:bg-surface-hover" aria-label={`Call ${active.name}`}>
+                    <Phone className="w-4 h-4" />
+                  </a>
+                )}
+              </header>
+
+              <div className="flex-1 overflow-y-auto bg-[#EFEAE2] dark:bg-[#0B141A] px-3 sm:px-6 py-4 space-y-2">
+                {active.messages.map((m, i) => {
+                  const showDay = i === 0 || dayLabel(active.messages[i - 1].createdAt) !== dayLabel(m.createdAt);
+                  const mine = m.direction === 'outbound';
+                  const problem = m.status === 'failed' || m.status === 'skipped';
+                  return (
+                    <React.Fragment key={m.id}>
+                      {showDay && (
+                        <div className="text-center my-3">
+                          <span className="text-[11px] px-2.5 py-1 rounded-md bg-surface/90 text-text-muted shadow-sm">{dayLabel(m.createdAt)}</span>
+                        </div>
+                      )}
+                      <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] sm:max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                          mine ? 'bg-[#D9FDD3] dark:bg-[#005C4B] text-[#111B21] dark:text-[#E9EDEF] rounded-tr-none'
+                               : 'bg-white dark:bg-[#202C33] text-[#111B21] dark:text-[#E9EDEF] rounded-tl-none'
+                        } ${problem ? 'opacity-80 ring-1 ring-error/30' : ''}`}>
+                          {mine && m.kind !== 'text' && (
+                            <div className="text-[11px] font-semibold text-[#008069] dark:text-[#53BDEB] mb-0.5">{MESSAGE_KIND_LABELS[m.kind] || m.kind}</div>
+                          )}
+                          <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                          <div className="flex items-center justify-end gap-1 mt-1 text-[11px] opacity-60">
+                            {format(parseISO(m.createdAt), 'h:mm a')}
+                            {mine && <StatusTick m={m} />}
+                          </div>
+                          {problem && m.error && <div className="mt-1 text-[12px] text-error">{m.status === 'skipped' ? 'Not sent: ' : 'Failed: '}{m.error}</div>}
                         </div>
                       </div>
-                    )}
-                    
-                    <div className={`flex w-full ${isOutbound ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`relative max-w-[85%] sm:max-w-[75%] rounded-xl px-3 py-2 shadow-panel text-[15px] leading-snug ${isOutbound ? 'bg-[#DCF8C6] text-[#111B21] rounded-br-sm' : 'bg-white text-text-main rounded-bl-sm border border-black/5'}`}>
-                         <p className="whitespace-pre-wrap pb-3.5 pr-2">{msg.message}</p>
-                         
-                         <div className="absolute bottom-1 right-2 flex items-center gap-1 text-[11px] text-black/40 font-medium">
-                           <span>{format(new Date(msg.timestamp), 'h:mm a')}</span>
-                           {isOutbound && getStatusIcon(msg.status)}
-                         </div>
-                      </div>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Composer Bar */}
-            <div ref={composerRef} className="border-t border-[#E5EEEC] bg-white p-[10px] px-3 shrink-0 flex flex-col gap-2 relative z-20">
-              <div className="flex items-center justify-between">
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowTemplates(!showTemplates)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-text-muted hover:bg-gray-100 hover:text-text-main transition-colors"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    Template
-                  </button>
-
-                  {showTemplates && (
-                    <div className="absolute bottom-full left-0 mb-2 w-72 max-h-60 overflow-y-auto bg-white rounded-xl shadow-lg border border-black/5 py-1 z-50">
-                      {templates.map(tpl => (
-                        <button
-                          key={tpl.id}
-                          className="w-full text-left px-4 py-2.5 hover:bg-[#EAF7F5] transition-colors group flex flex-col gap-0.5"
-                          onClick={() => {
-                            setComposeMessage(tpl.text);
-                            setShowTemplates(false);
-                          }}
-                        >
-                          <span className="text-sm font-medium text-text-main group-hover:text-accent">{tpl.name}</span>
-                          <span className="text-[11px] text-text-muted line-clamp-1">{tpl.text}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <span className={`px-2 py-0.5 rounded text-[11px] font-bold shrink-0 ${
-                   selectedConversation.lastMessage.type === 'whatsapp' ? 'bg-[#25D366]/10 text-[#25D366]' : 
-                   'bg-gray-100 text-gray-700'
-                 }`}>
-                   {selectedConversation.lastMessage.type === 'whatsapp' ? 'WhatsApp' : 'SMS'}
-                </span>
+                    </React.Fragment>
+                  );
+                })}
+                <div ref={endRef} />
               </div>
-              
-              <div className="flex items-end gap-2 relative">
-                <textarea 
-                  value={composeMessage}
-                  onChange={(e) => setComposeMessage(e.target.value)}
-                  placeholder="Type a message or select a template..."
-                  className="flex-1 bg-white border border-line rounded-xl px-4 py-2.5 text-sm text-text-main focus:ring-2 focus:ring-accent/20 focus:border-accent outline-none resize-none min-h-[44px] max-h-[100px]"
-                  rows={composeMessage.split('\n').length > 3 ? 4 : (composeMessage.split('\n').length || 1)}
-                  style={{ overflowY: composeMessage.split('\n').length > 4 ? 'auto' : 'hidden' }}
-                />
-                
-                {composeMessage && (
-                   <div className="absolute bottom-3 right-16 text-[11px] text-text-muted pointer-events-none bg-white px-1">
-                     {composeMessage.length} / 1024
-                   </div>
+
+              <footer className="flex-none border-t border-line p-3">
+                {canReply ? (
+                  <form className="flex gap-2" onSubmit={e => { e.preventDefault(); send(); }}>
+                    <Input value={reply} onChange={e => setReply(e.target.value)} placeholder="Type a reply" maxLength={1000} aria-label="Reply" />
+                    <Button type="submit" disabled={!reply.trim()} loading={sending} aria-label="Send reply"><Send className="w-4 h-4" /></Button>
+                  </form>
+                ) : (
+                  <p className="text-[12px] text-text-muted text-center">
+                    WhatsApp allows free replies only within 24 hours of the patient's last message. Reminders and invoices are sent from the calendar and billing.
+                  </p>
                 )}
-                
-                <button
-                  disabled={!composeMessage.trim()}
-                  onClick={handleSendMessage}
-                  className="w-11 h-11 shrink-0 rounded-full bg-primary text-white flex items-center justify-center hover:bg-accent disabled:opacity-50 disabled:hover:bg-primary transition-colors"
-                >
-                  <Send className="w-5 h-5 -ml-0.5" />
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center h-full">
-            <div className="w-16 h-16 rounded-full bg-surface border border-line flex items-center justify-center mb-4">
-              <MessageSquare className="w-8 h-8 text-text-muted/40" />
-            </div>
-            <h3 className="text-lg font-medium text-text-main">Your Messages</h3>
-            <p className="text-sm text-text-muted mt-2 max-w-sm">Select a conversation from the list to view the full message thread.</p>
-          </div>
-        )}
+              </footer>
+            </>
+          )}
+        </section>
       </div>
-
-      
-
     </div>
   );
 }

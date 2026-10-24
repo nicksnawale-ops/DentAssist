@@ -249,7 +249,7 @@ export async function getMyAppointments(): Promise<ApiResponse<Appointment[]>> {
  * Books an appointment. The backend rejects double-booking a dentist with
  * error code APPOINTMENT_CONFLICT; pass allowOverlap=true to book anyway.
  */
-export async function createAppointment(data: Partial<Appointment> & { allowOverlap?: boolean; waitlistEntryId?: string }): Promise<ApiResponse<Appointment>> {
+export async function createAppointment(data: Partial<Appointment> & { allowOverlap?: boolean; waitlistEntryId?: string; sendWhatsapp?: boolean }): Promise<ApiResponse<Appointment>> {
   if (!USE_MOCK_API) {
     const { id, createdAt, updatedAt, ...payload } = data;
     return http.post('/appointments', payload);

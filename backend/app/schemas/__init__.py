@@ -314,6 +314,8 @@ class AppointmentCreate(AppointmentBase):
     allow_overlap: bool = False
     # Booking someone from the waitlist marks their entry as scheduled.
     waitlist_entry_id: str | None = None
+    # Send the patient a WhatsApp booking confirmation (if they've opted in).
+    send_whatsapp: bool = False
 
 
 class AppointmentUpdate(AppointmentBase):

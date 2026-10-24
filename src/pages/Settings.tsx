@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
@@ -16,6 +17,7 @@ import { currencyConfig, setCurrency, useCurrency, CurrencyCode } from '../utils
 
 export function Settings() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
   const { currencyCode } = useCurrency();
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(currencyCode);
@@ -51,6 +53,7 @@ export function Settings() {
   };
 
   if (!user) return null;
+  const initialTab = searchParams.get('tab') || 'profile';
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -59,7 +62,7 @@ export function Settings() {
         <p className="text-sm text-text-muted mt-1">Manage your account preferences and application settings.</p>
       </div>
 
-      <Tabs.Root defaultValue="profile" className="flex flex-col md:flex-row gap-6">
+      <Tabs.Root defaultValue={initialTab} className="flex flex-col md:flex-row gap-6">
         <Tabs.List className="flex flex-row md:flex-col gap-2 min-w-[200px] border-b md:border-b-0 md:border-r border-line overflow-x-auto md:overflow-visible pb-4 md:pb-0 md:pr-4">
           <Tabs.Trigger 
             value="profile"
