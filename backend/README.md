@@ -214,6 +214,23 @@ shows a period of your choice against the period just before it:
 
 Weekly points for periods up to two months, monthly beyond that. Export to CSV from the page.
 
+## X-rays and documents
+
+Files are stored on disk under `UPLOAD_DIR` (`/data/uploads`, a Docker volume, in `docker-compose.yml`).
+**Back this folder up together with the database.**
+
+- Accepted: JPEG, PNG, WebP, PDF and DICOM, up to `MAX_UPLOAD_MB` (25 MB). The type is checked from the
+  file's content, not its name. Images get a thumbnail (Pillow).
+- Files are never public. The app gets 15-minute signed links (HMAC with `JWT_SECRET_KEY`), so images
+  work in `<img>` tags without exposing the login token.
+- Tag X-rays with teeth (FDI) and the view (IOPA, bitewing, OPG, CBCT, ceph). Tagged images show in the
+  dental chart's tooth panel.
+- The viewer has zoom and pan, brightness, contrast and invert for X-rays, marks (circle, arrow, label),
+  and before/after comparison of two images with synced zoom.
+- Staff choose what patients see in the portal. Patients can upload insurance papers and outside reports,
+  and remove only their own uploads. Front desk can't remove X-rays, photos or consent forms.
+- Removing a document hides it from the record; the file and the audit entry are kept.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

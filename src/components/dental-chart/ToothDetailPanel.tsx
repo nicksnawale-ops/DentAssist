@@ -4,6 +4,8 @@ import { X, Plus } from 'lucide-react';
 import { ToothRecord, ToothConditionType } from '../../types';
 import { getToothNumber } from './utils';
 import { Button } from '../ui/Button';
+import { getDocuments, PatientDoc } from '../../api/documentsService';
+import { DocumentViewer } from '../documents/DocumentViewer';
 
 interface ToothDetailPanelProps {
   fdi: string;
@@ -14,6 +16,8 @@ interface ToothDetailPanelProps {
   /** Resolves true when saved. */
   onSave: (fdi: string, data: { conditions: ToothConditionType[]; notes: string }) => Promise<boolean> | void;
   onAddToPlan?: () => void;
+  /** Shows X-rays and photos tagged with this tooth. */
+  patientId?: string;
 }
 
 const ALL_CONDITIONS: ToothConditionType[] = [
@@ -25,7 +29,13 @@ const when = (d: string) => {
   return isValid(parsed) ? format(parsed, 'd MMM yyyy') : d;
 };
 
-export function ToothDetailPanel({ fdi, numberingSystem, record, readOnly = false, onClose, onSave, onAddToPlan }: ToothDetailPanelProps) {
+export function ToothDetailPanel({ fdi, numberingSystem, record, readOnly = false, onClose, onSave, onAddToPlan, patientId }: ToothDetailPanelProps) {
+  const [images, setImages] = useState<PatientDoc[]>([]);
+  const [viewing, setViewing] = useState<PatientDoc | null>(null);
+  useEffect(() => {
+    if (!patientId) return;
+    getDocuments(patientId, { tooth: fdi }).then(r => setImages((r.data || []).filter(d => d.isImage)));
+  }, [patientId, fdi]);
   const [conditions, setConditions] = useState<ToothConditionType[]>([]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -101,6 +111,20 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, readOnly = fals
           )}
         </section>
 
+        {images.length > 0 && (
+          <section>
+            <h4 className="text-[13px] font-medium text-text-muted mb-2">Images of this tooth</h4>
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {images.map(d => (
+                <button key={d.id} onClick={() => setViewing(d)} className="flex-none w-20 text-left">
+                  <img src={d.thumbnailUrl || d.fileUrl} alt={d.title} className="w-20 h-16 rounded-control object-cover bg-gray-900" />
+                  <span className="block text-[10px] text-text-muted truncate">{d.xrayKind || d.type} {d.takenAt ? when(d.takenAt) : ''}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section>
           <h4 className="text-[13px] font-medium text-text-muted mb-2">History</h4>
           {record?.history?.length ? (
@@ -118,6 +142,8 @@ export function ToothDetailPanel({ fdi, numberingSystem, record, readOnly = fals
           )}
         </section>
       </div>
+
+      {viewing && <DocumentViewer doc={viewing} images={images} onClose={() => setViewing(null)} onChanged={() => {}} onDeleted={() => { setViewing(null); setImages(i => i.filter(x => x.id !== viewing.id)); }} />}
 
       {!readOnly && (
         <div className="p-4 border-t border-line flex flex-col gap-2 shrink-0">

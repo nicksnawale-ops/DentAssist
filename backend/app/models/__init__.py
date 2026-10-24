@@ -650,3 +650,38 @@ class LabOrderUpdate(Base):
     note: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     updated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+
+class PatientDocument(TimestampMixin, Base):
+    """An X-ray, photo, report or other file in a patient's record."""
+
+    __tablename__ = "patient_documents"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"), index=True)
+    # X-Ray | Intraoral Photo | Lab Report | Consent Form | Insurance Document | Prescription | Other
+    type: Mapped[str] = mapped_column(String(30), default="Other", nullable=False, index=True)
+    xray_kind: Mapped[str | None] = mapped_column(String(30))  # IOPA | Bitewing | OPG | CBCT | Cephalometric
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    storage_key: Mapped[str] = mapped_column(String(300), nullable=False)
+    thumbnail_key: Mapped[str | None] = mapped_column(String(300))
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    teeth: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    taken_at: Mapped[date | None] = mapped_column(Date, index=True)
+    # [{id, kind: arrow|circle|line|text, x, y, x2?, y2?, r?, text?, color, by, at}] in 0..1 image coordinates
+    annotations: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    shared_with_patient: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    treatment_plan_id: Mapped[str | None] = mapped_column(ForeignKey("treatment_plans.id", ondelete="SET NULL"))
+    clinical_note_id: Mapped[str | None] = mapped_column(ForeignKey("clinical_notes.id", ondelete="SET NULL"))
+    uploaded_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    uploaded_by_patient: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    deleted_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

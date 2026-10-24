@@ -62,7 +62,7 @@ export function PatientRecordsView() {
              <TreatmentPlansTab patientId={user.patientId || user.id} readOnly />
           </Tabs.Content>
           <Tabs.Content value="documents" className="outline-none h-full">
-            <DocumentsTab patientId={user.id} />
+            <DocumentsTab patientId={user.patientId || user.id} />
           </Tabs.Content>
           <Tabs.Content value="prescriptions" className="outline-none h-full">
             <PrescriptionsTab patientId={user.patientId || user.id} />

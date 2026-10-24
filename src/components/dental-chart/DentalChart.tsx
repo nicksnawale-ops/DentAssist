@@ -152,6 +152,7 @@ export function DentalChart({ patientId, initialAge, readOnly = false, onAddToPl
             onClose={() => setSelectedTooth(null)}
             onSave={handleSaveTooth}
             onAddToPlan={canEdit && onAddToPlan ? () => onAddToPlan(selectedTooth) : undefined}
+            patientId={patientId}
           />
         </div>
       )}
