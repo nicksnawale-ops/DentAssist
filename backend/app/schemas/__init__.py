@@ -470,6 +470,8 @@ class InvoiceCreate(CamelModel):
     patient_id: str
     clinic_id: str | None = None
     treatment_plan_id: str | None = None
+    # Credited dentist; defaults to the patient's most recent dentist at this clinic.
+    dentist_id: str | None = None
     line_items: list[InvoiceLineIn] = Field(min_length=1)
     discount: float = Field(default=0, ge=0)
     discount_type: Literal["flat", "percentage"] = "flat"

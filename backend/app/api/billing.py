@@ -260,6 +260,7 @@ def create_invoice(body: InvoiceCreate, db: DbSession, user: User = BillingStaff
         patient_id=patient.id,
         clinic_id=clinic_id,
         treatment_plan_id=body.treatment_plan_id,
+        dentist_id=body.dentist_id or svc.default_dentist(db, patient.id, clinic_id, body.treatment_plan_id),
         due_date=as_utc(body.due_date),
         notes=body.notes,
         created_by_id=user.id,

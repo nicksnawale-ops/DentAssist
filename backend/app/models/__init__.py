@@ -209,6 +209,8 @@ class Invoice(TimestampMixin, Base):
     patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True)
     clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
     treatment_plan_id: Mapped[str | None] = mapped_column(String(64))
+    # The dentist the work is credited to (for revenue per dentist)
+    dentist_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
     # [{id, procedureId, procedureName, toothNumber, quantity, unitCost, total, taxable}]
     line_items: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
