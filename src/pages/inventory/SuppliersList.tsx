@@ -1,72 +1,111 @@
-import React, { useState } from 'react';
-import { mockSuppliers } from '../../data/mockSuppliers';
-import { Search, Plus, Phone, Mail, MapPin } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { FlaskConical, Mail, Pencil, Phone, Plus, Truck } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Input } from '../../components/ui/Input';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { Modal, Field, textareaClass } from '../../components/ui/Modal';
+import { toast } from '../../components/ui/useToast';
+import { useCurrency } from '../../utils/currencyConfig';
+import { getSuppliers, saveSupplier, Supplier } from '../../api/inventoryService';
 
+const pct = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(v * 100)}%`);
+
+/** Suppliers and dental labs, with each lab's track record. */
 export function SuppliersList() {
-  const [search, setSearch] = useState('');
+  const [rows, setRows] = useState<Supplier[] | null>(null);
+  const [editing, setEditing] = useState<Partial<Supplier> | null>(null);
+  const { formatCurrency } = useCurrency();
 
-  const filteredSuppliers = mockSuppliers.filter(supplier => 
-    supplier.name.toLowerCase().includes(search.toLowerCase()) ||
-    supplier.contactPerson.toLowerCase().includes(search.toLowerCase())
+  const load = () => getSuppliers().then(r => setRows(r.data || []));
+  useEffect(() => { load(); }, []);
+
+  const labs = (rows || []).filter(s => s.isLab);
+  const suppliers = (rows || []).filter(s => !s.isLab);
+
+  const card = (s: Supplier) => (
+    <div key={s.id} className="rounded-control border border-line p-4 space-y-2">
+      <div className="flex items-start gap-2">
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-none ${s.isLab ? 'bg-accent/10 text-accent' : 'bg-primary/[0.07] text-primary'}`}>
+          {s.isLab ? <FlaskConical className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold">{s.name}</div>
+          <div className="text-[12px] text-text-muted">{s.contactPerson}{s.isLab && s.turnaroundDays ? ` · usually ${s.turnaroundDays} days` : ''}</div>
+        </div>
+        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`}><Pencil className="w-4 h-4" /></Button>
+      </div>
+      <div className="flex flex-wrap gap-1">{s.itemsSupplied.map(i => <Badge key={i} variant="outline">{i}</Badge>)}</div>
+      <div className="flex flex-wrap gap-3 text-[13px]">
+        {s.phone && <a href={`tel:${s.phone.replace(/\s/g, '')}`} className="inline-flex items-center gap-1 text-primary"><Phone className="w-3.5 h-3.5" /> {s.phone}</a>}
+        {s.email && <a href={`mailto:${s.email}`} className="inline-flex items-center gap-1 text-primary truncate"><Mail className="w-3.5 h-3.5" /> {s.email}</a>}
+      </div>
+      {s.isLab && s.performance && s.performance.orders > 0 && (
+        <dl className="grid grid-cols-4 gap-2 pt-2 border-t border-line text-center">
+          <div><dt className="text-[11px] text-text-muted">Cases (1 yr)</dt><dd className="text-sm font-semibold">{s.performance.orders}</dd></div>
+          <div><dt className="text-[11px] text-text-muted">Avg days</dt><dd className="text-sm font-semibold">{s.performance.averageTurnaroundDays ?? '—'}</dd></div>
+          <div><dt className="text-[11px] text-text-muted">On time</dt><dd className={`text-sm font-semibold ${(s.performance.onTimeRate ?? 1) < 0.8 ? 'text-warning' : ''}`}>{pct(s.performance.onTimeRate)}</dd></div>
+          <div><dt className="text-[11px] text-text-muted">Remakes</dt><dd className={`text-sm font-semibold ${(s.performance.remakeRate ?? 0) > 0.1 ? 'text-error' : ''}`}>{pct(s.performance.remakeRate)}</dd></div>
+          <div className="col-span-4 text-[12px] text-text-muted">{formatCurrency(s.performance.spend)} spent{s.performance.openOverdue ? ` · ${s.performance.openOverdue} overdue now` : ''}</div>
+        </dl>
+      )}
+    </div>
   );
 
+  if (!rows) return <Skeleton className="h-48 w-full" />;
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search suppliers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
-          />
-        </div>
-        
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" /> Add Supplier
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredSuppliers.map(supplier => (
-          <div key={supplier.id} className="bg-surface rounded-xl border border-line p-6 shadow-panel hover:border-primary/30 transition-colors">
-            <h3 className="text-xl font-bold text-text-main mb-1">{supplier.name}</h3>
-            <p className="text-sm font-medium text-text-muted mb-4">{supplier.contactPerson}</p>
-
-            <div className="space-y-2 mb-6">
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="w-4 h-4 text-text-muted" />
-                <span className="text-text-main">{supplier.phone}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-4 h-4 text-text-muted" />
-                <span className="text-text-main">{supplier.email}</span>
-              </div>
-              <div className="flex items-start gap-3 text-sm">
-                <MapPin className="w-4 h-4 text-text-muted shrink-0 mt-0.5" />
-                <span className="text-text-main">{supplier.address}</span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-line">
-              <p className="text-xs font-semibold text-text-muted mb-2">Items Supplied</p>
-              <div className="flex flex-wrap gap-2">
-                {supplier.itemsSupplied.map(cat => (
-                  <span key={cat} className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-medium">
-                    {cat}
-                  </span>
-                ))}
-              </div>
-              {supplier.notes && (
-                <p className="text-xs text-text-muted mt-4 italic">"{supplier.notes}"</p>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <section className="space-y-3">
+        <div className="flex items-center"><h3 className="text-[15px] font-semibold mr-auto">Dental labs</h3>
+          <Button size="sm" variant="outline" onClick={() => setEditing({ isLab: true, isActive: true, itemsSupplied: [] })}><Plus className="w-4 h-4" /> Add lab</Button></div>
+        <div className="grid md:grid-cols-2 gap-3">{labs.map(card)}</div>
+      </section>
+      <section className="space-y-3">
+        <div className="flex items-center"><h3 className="text-[15px] font-semibold mr-auto">Suppliers</h3>
+          <Button size="sm" variant="outline" onClick={() => setEditing({ isLab: false, isActive: true, itemsSupplied: [] })}><Plus className="w-4 h-4" /> Add supplier</Button></div>
+        <div className="grid md:grid-cols-2 gap-3">{suppliers.map(card)}</div>
+      </section>
+      {editing && <SupplierDialog value={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </div>
+  );
+}
+
+function SupplierDialog({ value, onClose, onSaved }: { value: Partial<Supplier>; onClose: () => void; onSaved: () => void }) {
+  const [s, setS] = useState<Partial<Supplier>>(value);
+  const [items, setItems] = useState((value.itemsSupplied || []).join(', '));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof Supplier) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setS(v => ({ ...v, [k]: e.target.type === 'number' ? (e.target.value ? Number(e.target.value) : null) : e.target.value }));
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    const res = await saveSupplier({
+      id: s.id, name: s.name || '', contactPerson: s.contactPerson || '', phone: s.phone || '', email: s.email || '', address: s.address || '',
+      notes: s.notes || null, itemsSupplied: items.split(',').map(i => i.trim()).filter(Boolean), isLab: !!s.isLab,
+      turnaroundDays: s.isLab ? s.turnaroundDays || null : null, isActive: s.isActive ?? true,
+    });
+    setBusy(false);
+    if (res.error) { setError(res.error.message); return; }
+    toast({ title: 'Saved', variant: 'success' });
+    onSaved();
+  };
+
+  return (
+    <Modal title={s.id ? `Edit ${s.name}` : s.isLab ? 'Add lab' : 'Add supplier'} onClose={onClose}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={save} loading={busy} disabled={(s.name || '').length < 2}>Save</Button></>}>
+      <div className="p-5 grid sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2"><Field label="Name"><Input value={s.name || ''} onChange={set('name')} autoFocus /></Field></div>
+        <Field label="Contact person"><Input value={s.contactPerson || ''} onChange={set('contactPerson')} /></Field>
+        <Field label="Phone"><Input value={s.phone || ''} onChange={set('phone')} inputMode="tel" /></Field>
+        <Field label="Email"><Input value={s.email || ''} onChange={set('email')} type="email" /></Field>
+        {s.isLab && <Field label="Usual turnaround (days)"><Input type="number" min={1} max={90} value={s.turnaroundDays ?? ''} onChange={set('turnaroundDays')} /></Field>}
+        <div className="sm:col-span-2"><Field label={s.isLab ? 'Work they do' : 'What they supply'} hint="Separate with commas"><Input value={items} onChange={e => setItems(e.target.value)} /></Field></div>
+        <div className="sm:col-span-2"><Field label="Address"><Input value={s.address || ''} onChange={set('address')} /></Field></div>
+        <div className="sm:col-span-2"><Field label="Notes"><textarea rows={2} value={s.notes || ''} onChange={set('notes')} className={textareaClass} /></Field></div>
+        {error && <p className="sm:col-span-2 text-[13px] text-error">{error}</p>}
+      </div>
+    </Modal>
   );
 }

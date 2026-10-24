@@ -179,6 +179,24 @@ are sealed with a SHA-256 hash, shown as "Unchanged since signing" when viewed. 
 creates a new version; signed forms keep the exact wording the patient saw. Forms can be withdrawn
 with a reason; nothing is deleted.
 
+## Inventory and lab cases
+
+**Stock**: each item has a reorder level, a usual order quantity, a cost, a supplier and an optional
+expiry date. Every change is a recorded movement (used, received, stock count, thrown away) with who
+and why, and stock can never go below zero. When an item drops to its reorder level the front desk
+gets one alert; it re-arms once stock is back up. Dentists can record usage; receiving and counts are
+for the front desk and admins.
+
+**Reordering**: low items that aren't already on an open order are grouped by supplier, and one tap
+creates a draft purchase order with the usual quantities. Orders go Draft → Sent → (Partially)
+Received; receiving books the stock in immediately and can set the new batch's expiry date.
+
+**Lab cases** move through Ordered → In progress → Quality check → Ready for pickup → Arrived at clinic
+→ Fitted, never backwards. The due date defaults to the lab's usual turnaround, late cases are
+flagged, and when work arrives the dentist is notified and the patient gets a WhatsApp message to book
+the fitting (they can reply BOOK). Work that comes back wrong is sent for a **remake**, which links the
+cases. Each lab shows its average turnaround, on-time rate, remake rate and spend over the last year.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

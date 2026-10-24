@@ -19,6 +19,7 @@ import { PatientInvoicesTab } from '../../components/billing/PatientInvoicesTab'
 import { DocumentsTab } from '../../components/documents/DocumentsTab';
 import { PrescriptionsTab } from '../../components/prescriptions/PrescriptionsTab';
 import { ConsentsTab } from '../../components/consents/ConsentsTab';
+import { LabOrdersList } from '../lab/LabOrdersList';
 import { PatientRegistrationForm } from '../../components/patients/PatientRegistrationForm';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { useToast } from '../../components/ui/useToast';
@@ -388,6 +389,10 @@ export function PatientProfile() {
 
           <Tabs.Content value="treatment" className="outline-none">
              <TreatmentPlansTab patientId={patient.id} prefillTooth={planTooth} onPrefillUsed={() => setPlanTooth(null)} />
+             <section className="mt-8">
+               <h3 className="text-[15px] font-semibold mb-3">Lab cases</h3>
+               <LabOrdersList patientId={patient.id} />
+             </section>
           </Tabs.Content>
           
           <Tabs.Content value="dental-chart" className="outline-none">

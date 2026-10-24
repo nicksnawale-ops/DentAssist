@@ -13,6 +13,7 @@ from app.api import (
     clinics,
     consents,
     dashboard,
+    inventory,
     messaging,
     recalls,
     notifications,
@@ -91,7 +92,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents):
+               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents, inventory):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

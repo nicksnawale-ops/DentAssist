@@ -141,6 +141,17 @@ def super_admin_dashboard(db: DbSession, user: User = Depends(require_roles("sup
     }
 
 
+def _low_stock_count(db, user: User) -> int:
+    from app.models import InventoryItem
+
+    query = select(func.count()).select_from(InventoryItem).where(
+        InventoryItem.is_active.is_(True), InventoryItem.current_stock <= InventoryItem.reorder_threshold)
+    allowed = accessible_clinic_ids(user)
+    if allowed is not None:
+        query = query.where(InventoryItem.clinic_id.in_(allowed))
+    return db.scalar(query) or 0
+
+
 @router.get("/dentist")
 def dentist_dashboard(db: DbSession, user: User = Depends(require_roles("dentist", "admin"))):
     tz = _tz(db, user)
@@ -168,7 +179,7 @@ def dentist_dashboard(db: DbSession, user: User = Depends(require_roles("dentist
         "patientsSeenThisWeek": seen,
         "pendingTreatmentPlans": 0,
         "todayRevenue": sum(_collections(db, _day_bounds(tz)[0], accessible_clinic_ids(user)).values()),
-        "lowInventoryItems": 0,
+        "lowInventoryItems": _low_stock_count(db, user),
         "todaySchedule": [
             {"id": a.id, "patientId": p.id, "time": _clock(a.start_time, tz),
              "patientName": _name(p.first_name, p.last_name), "procedure": a.procedure_type, "status": a.status}
@@ -188,7 +199,7 @@ def receptionist_dashboard(db: DbSession, user: User = Depends(require_roles("re
         pending = pending.where(Patient.clinic_id.in_(allowed))
     return {
         "pendingPayments": db.scalar(pending) or 0,
-        "lowInventoryItems": 0,
+        "lowInventoryItems": _low_stock_count(db, user),
         "queue": [
             {"id": a.id, "patientId": p.id, "patientName": _name(p.first_name, p.last_name),
              "time": _clock(a.start_time, tz), "status": QUEUE_STATUS[a.status]}
