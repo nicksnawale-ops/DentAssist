@@ -1,121 +1,134 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { format, parseISO, isValid } from 'date-fns';
+import { X, Plus } from 'lucide-react';
 import { ToothRecord, ToothConditionType } from '../../types';
 import { getToothNumber } from './utils';
-import { X, Plus, Calendar as CalendarIcon, Save } from 'lucide-react';
 import { Button } from '../ui/Button';
 
 interface ToothDetailPanelProps {
   fdi: string;
   numberingSystem: 'FDI' | 'Universal';
   record?: ToothRecord;
+  readOnly?: boolean;
   onClose: () => void;
-  onSave: (fdi: string, data: Partial<ToothRecord>) => void;
+  /** Resolves true when saved. */
+  onSave: (fdi: string, data: { conditions: ToothConditionType[]; notes: string }) => Promise<boolean> | void;
+  onAddToPlan?: () => void;
 }
 
 const ALL_CONDITIONS: ToothConditionType[] = [
-  'Healthy', 'Cavity', 'Filled', 'Crown', 'Root Canal', 'Missing', 'Implant', 'Extraction Planned'
+  'Healthy', 'Cavity', 'Filled', 'Crown', 'Root Canal', 'Missing', 'Implant', 'Extraction Planned',
 ];
 
-export function ToothDetailPanel({ fdi, numberingSystem, record, onClose, onSave }: ToothDetailPanelProps) {
+const when = (d: string) => {
+  const parsed = parseISO(d);
+  return isValid(parsed) ? format(parsed, 'd MMM yyyy') : d;
+};
+
+export function ToothDetailPanel({ fdi, numberingSystem, record, readOnly = false, onClose, onSave, onAddToPlan }: ToothDetailPanelProps) {
   const [conditions, setConditions] = useState<ToothConditionType[]>([]);
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setConditions(record?.conditions || ['Healthy']);
+    setConditions(record?.conditions?.length ? record.conditions : ['Healthy']);
     setNotes(record?.notes || '');
   }, [record, fdi]);
 
   const num = getToothNumber(fdi, numberingSystem);
+  const dirty = JSON.stringify([...conditions].sort()) !== JSON.stringify([...(record?.conditions?.length ? record.conditions : ['Healthy'])].sort())
+    || notes !== (record?.notes || '');
 
-  const toggleCondition = (cond: ToothConditionType) => {
-    if (cond === 'Healthy') {
-      setConditions(['Healthy']);
-      return;
-    }
-    
-    let newConds = conditions.filter(c => c !== 'Healthy');
-    if (newConds.includes(cond)) {
-      newConds = newConds.filter(c => c !== cond);
-      if (newConds.length === 0) newConds = ['Healthy'];
-    } else {
-      newConds.push(cond);
-    }
-    setConditions(newConds);
+  const toggle = (cond: ToothConditionType) => {
+    if (cond === 'Healthy') return setConditions(['Healthy']);
+    let next = conditions.filter(c => c !== 'Healthy');
+    next = next.includes(cond) ? next.filter(c => c !== cond) : [...next, cond];
+    setConditions(next.length ? next : ['Healthy']);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    await onSave(fdi, { conditions, notes });
+    setSaving(false);
   };
 
   return (
-    <div className="w-full md:w-80 border-l border-line bg-base flex flex-col h-full animate-in slide-in-from-right-4">
-      <div className="flex justify-between items-center p-4 border-b border-line bg-surface">
-        <h3 className="font-bold text-lg text-text-main">Tooth {num}</h3>
-        <button onClick={onClose} className="p-1 text-text-muted hover:bg-text-muted/10 rounded-full">
+    <div className="bg-surface flex flex-col h-full max-h-[80dvh] lg:max-h-none">
+      <div className="flex justify-between items-center px-4 h-14 border-b border-line shrink-0">
+        <h3 className="text-[17px] font-semibold text-text-main">
+          Tooth {num}{numberingSystem === 'Universal' && <span className="ml-1.5 text-sm font-normal text-text-muted">(FDI {fdi})</span>}
+        </h3>
+        <button onClick={onClose} className="p-2 -mr-2 text-text-muted hover:bg-base rounded-control" aria-label="Close">
           <X className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="p-4 flex-1 overflow-y-auto space-y-6">
-        <div>
-          <label className="block text-xs font-bold text-text-muted mb-2">Conditions</label>
+      <div className="p-4 flex-1 overflow-y-auto space-y-5">
+        <section>
+          <h4 className="text-[13px] font-medium text-text-muted mb-2">Condition</h4>
           <div className="flex flex-wrap gap-2">
-            {ALL_CONDITIONS.map(cond => (
-              <button
-                key={cond}
-                onClick={() => toggleCondition(cond)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                  conditions.includes(cond)
-                  ? 'bg-primary text-white border-primary shadow-panel'
-                  : 'bg-surface border-line text-text-main hover:border-text-muted/40'
-                }`}
-              >
-                {cond}
-              </button>
-            ))}
+            {ALL_CONDITIONS.map(cond => {
+              const on = conditions.includes(cond);
+              return (
+                <button
+                  key={cond}
+                  disabled={readOnly}
+                  onClick={() => toggle(cond)}
+                  aria-pressed={on}
+                  className={`px-3 h-8 rounded-full text-[13px] font-medium border transition-colors disabled:cursor-default ${
+                    on ? 'bg-primary text-white border-primary' : 'bg-surface border-line text-text-main hover:border-text-muted/40'
+                  } ${readOnly && !on ? 'opacity-50' : ''}`}
+                >
+                  {cond}
+                </button>
+              );
+            })}
           </div>
-        </div>
+        </section>
 
-        <div>
-          <label className="block text-xs font-bold text-text-muted mb-2">Clinical Notes</label>
-          <textarea 
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full bg-surface border border-line rounded-lg p-3 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none h-24"
-            placeholder="Add clinical observations..."
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-text-muted mb-2">History</label>
-          {record && record.history && record.history.length > 0 ? (
-            <div className="space-y-3 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-text-muted/20 before:to-transparent">
-              {record.history.map((entry, idx) => (
-                <div key={entry.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-primary bg-base shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                     <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                  </div>
-                  <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-1.5rem)] p-3 rounded-lg border border-line bg-surface shadow-panel text-xs">
-                     <div className="flex items-center gap-1 text-text-muted mb-1"><CalendarIcon className="w-3 h-3" /> {entry.date}</div>
-                     <div className="font-bold text-text-main">{entry.action}</div>
-                     <div className="text-text-muted mt-0.5">by {entry.dentist}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        <section>
+          <label htmlFor="tooth-notes" className="block text-[13px] font-medium text-text-muted mb-2">Notes</label>
+          {readOnly ? (
+            <p className="text-sm text-text-main">{notes || 'No notes.'}</p>
           ) : (
-            <p className="text-sm text-text-muted italic">No history for this tooth.</p>
+            <textarea
+              id="tooth-notes"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="w-full bg-surface border border-line rounded-control p-3 text-sm focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/15 resize-none h-20"
+              placeholder="e.g. Distal caries, monitor"
+            />
+          )}
+        </section>
+
+        <section>
+          <h4 className="text-[13px] font-medium text-text-muted mb-2">History</h4>
+          {record?.history?.length ? (
+            <ol className="relative border-l border-line ml-1.5 space-y-3">
+              {record.history.map(entry => (
+                <li key={entry.id} className="pl-4 relative">
+                  <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-accent ring-4 ring-surface" aria-hidden="true" />
+                  <div className="text-sm text-text-main">{entry.action}</div>
+                  <div className="text-xs text-text-muted">{when(entry.date)}, {entry.dentist}</div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-text-muted">Nothing recorded for this tooth yet.</p>
+          )}
+        </section>
+      </div>
+
+      {!readOnly && (
+        <div className="p-4 border-t border-line flex flex-col gap-2 shrink-0">
+          <Button onClick={save} loading={saving} disabled={!dirty} className="w-full">Save tooth {num}</Button>
+          {onAddToPlan && (
+            <Button variant="outline" className="w-full" onClick={onAddToPlan}>
+              <Plus className="w-4 h-4" /> Add treatment for this tooth
+            </Button>
           )}
         </div>
-      </div>
-
-      <div className="p-4 border-t border-line bg-surface flex flex-col gap-3">
-         <Button 
-           onClick={() => onSave(fdi, { conditions, notes })}
-           className="w-full gap-2"
-         >
-           <Save className="w-4 h-4" /> Save Changes
-         </Button>
-         <Button variant="outline" className="w-full gap-2 text-primary border-primary/30 hover:bg-primary/5">
-           <Plus className="w-4 h-4" /> Add to Treatment Plan
-         </Button>
-      </div>
+      )}
     </div>
   );
 }

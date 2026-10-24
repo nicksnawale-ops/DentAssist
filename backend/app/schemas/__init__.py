@@ -613,3 +613,172 @@ class VerifyPaymentIn(CamelModel):
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+
+
+# ---------- Clinical ----------
+
+ToothCondition = Literal["Healthy", "Cavity", "Filled", "Crown", "Root Canal", "Missing", "Implant", "Extraction Planned"]
+PlanStatus = Literal["Draft", "Proposed", "Approved", "In Progress", "Completed"]
+PlanItemStatus = Literal["Pending", "Scheduled", "Completed"]
+
+VALID_FDI = {f"{q}{n}" for q in (1, 2, 3, 4) for n in range(1, 9)} | {f"{q}{n}" for q in (5, 6, 7, 8) for n in range(1, 6)}
+
+
+class ToothUpdate(CamelModel):
+    conditions: list[ToothCondition] = Field(min_length=1)
+    notes: str = Field(default="", max_length=4000)
+    action: str | None = Field(default=None, max_length=300)
+
+
+class ToothHistoryOut(CamelModel):
+    id: str
+    date: datetime
+    action: str
+    dentist: str
+
+
+class ToothRecordOut(CamelModel):
+    id: str
+    patient_id: str
+    tooth_number: str
+    conditions: list[str]
+    notes: str
+    history: list[ToothHistoryOut] = []
+    recorded_by_staff_id: str | None = None
+    recorded_at: datetime
+
+
+class PerioIn(CamelModel):
+    tooth_number: str
+    buccal: list[int] = Field(min_length=3, max_length=3)
+    lingual: list[int] = Field(min_length=3, max_length=3)
+    bleeding_on_probing: bool = False
+
+    @field_validator("buccal", "lingual")
+    @classmethod
+    def _depths(cls, v):
+        if any(d < 0 or d > 15 for d in v):
+            raise ValueError("Pocket depths must be between 0 and 15 mm")
+        return v
+
+
+class PerioExamIn(CamelModel):
+    readings: list[PerioIn] = Field(min_length=1, max_length=52)
+
+
+class PerioOut(CamelModel):
+    id: str
+    patient_id: str
+    tooth_number: str
+    measurement_points: dict
+    bleeding_on_probing: bool
+    recorded_at: datetime
+
+
+class DentalChartOut(CamelModel):
+    records: list[ToothRecordOut]
+    perio: list[PerioOut]
+    as_of: datetime | None = None
+    exam_dates: list[str] = []
+
+
+class PlanItemIn(CamelModel):
+    id: str | None = None
+    procedure_id: str | None = None
+    procedure_name: str | None = Field(default=None, max_length=200)
+    tooth_number: str | None = Field(default=None, max_length=40)
+    cost: float = Field(ge=0)
+    taxable: bool | None = None
+    status: PlanItemStatus = "Pending"
+    linked_appointment_id: str | None = None
+
+
+class PlanIn(CamelModel):
+    name: str = Field(min_length=1, max_length=200)
+    items: list[PlanItemIn] = []
+    discount: float = Field(default=0, ge=0)
+    discount_type: Literal["flat", "percentage"] = "flat"
+    discount_reason: str | None = None
+    notes: str | None = None
+    status: Literal["Draft", "Proposed"] = "Draft"
+
+
+class PlanUpdate(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    items: list[PlanItemIn] | None = None
+    discount: float | None = Field(default=None, ge=0)
+    discount_type: Literal["flat", "percentage"] | None = None
+    discount_reason: str | None = None
+    notes: str | None = None
+    status: PlanStatus | None = None
+
+
+class PlanItemStatusIn(CamelModel):
+    status: PlanItemStatus
+    linked_appointment_id: str | None = None
+
+
+class PlanItemOut(CamelModel):
+    id: str
+    procedure_id: str | None = None
+    procedure_name: str
+    tooth_number: str | None = None
+    cost: float
+    taxable: bool
+    status: str
+    linked_appointment_id: str | None = None
+    completed_at: datetime | None = None
+
+
+class PlanOut(CamelModel):
+    id: str
+    patient_id: str
+    patient_name: str | None = None
+    clinic_id: str
+    name: str
+    status: str
+    discount: float
+    discount_type: str
+    discount_reason: str | None = None
+    tax_percentage: float = 0
+    notes: str | None = None
+    items: list[PlanItemOut]
+    subtotal: float
+    discount_amount: float
+    estimated_tax: float
+    estimated_total: float
+    completed_count: int
+    created_by_staff_id: str | None = None
+    created_by_name: str | None = None
+    created_at: datetime
+    approved_at: datetime | None = None
+    invoice_id: str | None = None
+
+
+class NoteIn(CamelModel):
+    appointment_id: str | None = None
+    subjective: str = Field(default="", max_length=8000)
+    objective: str = Field(default="", max_length=8000)
+    assessment: str = Field(default="", max_length=8000)
+    plan: str = Field(default="", max_length=8000)
+
+    @model_validator(mode="after")
+    def _not_empty(self):
+        if not any(s.strip() for s in (self.subjective, self.objective, self.assessment, self.plan)):
+            raise ValueError("Write something in at least one section")
+        return self
+
+
+class NoteOut(CamelModel):
+    id: str
+    patient_id: str
+    appointment_id: str | None = None
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+    author_staff_id: str | None = None
+    author_name: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    editable: bool = False

@@ -1,349 +1,245 @@
-import React, { useState, useEffect } from 'react';
-import { TreatmentPlan, TreatmentPlanItem, Procedure } from '../../types';
-import { mockProcedureCatalog } from '../../data/mockProcedureCatalog';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Plus, Trash2, FlaskConical, Search } from 'lucide-react';
+import { Procedure, TreatmentPlan, TreatmentPlanItem } from '../../types';
 import { Button } from '../ui/Button';
-import { ArrowLeft, Plus, Save, Printer, CheckCircle, Trash2, Tag, Percent, IndianRupee, FlaskConical } from 'lucide-react';
+import { Card } from '../ui/Card';
 import { CreateLabOrderModal } from '../../pages/lab/CreateLabOrderModal';
-import { useCurrency, formatCurrency } from '../../utils/currencyConfig';
+import { computeTotals, getPaymentConfig, getProcedures } from '../../api/billingService';
+import { createPlan, updatePlan } from '../../api/clinicalService';
+import { useCurrency } from '../../utils/currencyConfig';
+
+type Item = Pick<TreatmentPlanItem, 'procedureId' | 'procedureName' | 'toothNumber' | 'cost' | 'taxable' | 'status'> & { id?: string; key: string; category?: string };
 
 interface TreatmentPlanBuilderProps {
   patientId: string;
   existingPlan: TreatmentPlan | null;
-  onSave: (plan: TreatmentPlan) => void;
+  /** Start a new plan with this tooth filled in on the first line. */
+  prefillTooth?: string;
+  onSaved: (plan: TreatmentPlan) => void;
   onCancel: () => void;
 }
 
-export function TreatmentPlanBuilder({ patientId, existingPlan, onSave, onCancel }: TreatmentPlanBuilderProps) {
-  const { symbol } = useCurrency();
-  const [name, setName] = useState(existingPlan?.name || '');
-  const [status, setStatus] = useState(existingPlan?.status || 'Draft');
+const key = () => Math.random().toString(36).slice(2);
+
+const isLabProcedure = (name: string, category?: string) => {
+  const n = name.toLowerCase();
+  return (['Prosthodontics', 'Orthodontics'].includes(category || '') && !n.includes('consultation'))
+    || n.includes('night guard') || n.includes('veneer') || n.includes('aligner') || n.includes('crown');
+};
+
+export function TreatmentPlanBuilder({ patientId, existingPlan, prefillTooth, onSaved, onCancel }: TreatmentPlanBuilderProps) {
+  const { symbol, formatCurrency } = useCurrency();
+  const [catalog, setCatalog] = useState<Procedure[]>([]);
+  const [taxRate, setTaxRate] = useState(18);
+  const [name, setName] = useState(existingPlan?.name || (prefillTooth ? `Treatment for tooth ${prefillTooth}` : ''));
   const [discount, setDiscount] = useState(existingPlan?.discount || 0);
-  const [discountType, setDiscountType] = useState(existingPlan?.discountType || 'percentage');
+  const [discountType, setDiscountType] = useState<'flat' | 'percentage'>(existingPlan?.discountType || 'percentage');
   const [discountReason, setDiscountReason] = useState(existingPlan?.discountReason || '');
-  const [taxPercentage, setTaxPercentage] = useState(existingPlan?.taxPercentage || 18);
+  const [items, setItems] = useState<Item[]>(
+    existingPlan?.items.map(i => ({ ...i, procedureName: i.procedureName || '', key: key() })) || [],
+  );
+  const [picking, setPicking] = useState(items.length === 0);
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const [saving, setSaving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [labFor, setLabFor] = useState<string[] | null>(null);
 
-  const [labOrderContext, setLabOrderContext] = useState<{patientId: string, toothNumbers: string[]} | null>(null);
+  useEffect(() => {
+    getProcedures().then(r => setCatalog(r.data || []));
+    getPaymentConfig().then(r => r.data && setTaxRate(r.data.defaultGstRate));
+  }, []);
 
-  const isLabProcedure = (proc: Procedure | undefined) => {
-    if (!proc) return false;
-    const lowerName = proc.name.toLowerCase();
-    const cat = proc.category;
-    return (['Prosthodontics', 'Orthodontics'].includes(cat) && !lowerName.includes('consultation')) || 
-           lowerName.includes('night guard') || lowerName.includes('veneer') || lowerName.includes('aligner');
+  const categories = useMemo(() => ['All', ...Array.from(new Set(catalog.map(p => p.category)))], [catalog]);
+  const shown = catalog.filter(p =>
+    (category === 'All' || p.category === category) && p.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const add = (p: Procedure) => {
+    setItems(it => [...it, {
+      key: key(), procedureId: p.id, procedureName: p.name, category: p.category, cost: p.defaultCost,
+      taxable: !!p.gstApplicable, status: 'Pending', toothNumber: prefillTooth && it.length === 0 ? prefillTooth : undefined,
+    }]);
+    setPicking(false);
+    setQuery('');
   };
-  const [items, setItems] = useState<TreatmentPlanItem[]>(existingPlan?.items || []);
+  const update = (k: string, patch: Partial<Item>) => setItems(it => it.map(i => (i.key === k ? { ...i, ...patch } : i)));
 
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  
-  const categories = ['All', ...Array.from(new Set(mockProcedureCatalog.map(p => p.category)))];
-  
-  const filteredProcedures = selectedCategory === 'All' 
-    ? mockProcedureCatalog 
-    : mockProcedureCatalog.filter(p => p.category === selectedCategory);
+  const totals = computeTotals(items.map(i => ({ quantity: 1, unitCost: i.cost, taxable: i.taxable })), discount, discountType, taxRate);
 
-  const handleAddItem = (procedure: Procedure) => {
-    const newItem: TreatmentPlanItem = {
-      id: `tpi-new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      procedureId: procedure.id,
-      cost: procedure.defaultCost,
-      status: 'Pending'
-    };
-    setItems([...items, newItem]);
-    setIsAddingItem(false);
-  };
-
-  const handleRemoveItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const handleUpdateItem = (id: string, field: keyof TreatmentPlanItem, value: any) => {
-    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
-  };
-
-  const handleSave = () => {
-    const plan: TreatmentPlan = {
-      id: existingPlan?.id || `tp-new-${Date.now()}`,
-      patientId,
-      name: name || 'Untitled Plan',
-      status,
+  const save = async (status?: TreatmentPlan['status']) => {
+    setError(null);
+    if (!name.trim()) return setError('Give the plan a short name, e.g. "Upper left restorations".');
+    if (status === 'Proposed' && items.length === 0) return setError('Add at least one procedure.');
+    setSaving(status || 'save');
+    const payload = {
+      name: name.trim(),
+      items: items.map(({ key: _k, category: _c, ...i }) => i),
       discount,
       discountType,
-      discountReason,
-      taxPercentage,
-      items,
-      createdByStaffId: 'current-user',
-      createdAt: existingPlan?.createdAt || new Date().toISOString(),
-      approvedAt: status === 'Approved' && !existingPlan?.approvedAt ? new Date().toISOString() : existingPlan?.approvedAt
+      discountReason: discountReason || undefined,
+      ...(status ? { status } : {}),
     };
-    onSave(plan);
+    const res = existingPlan ? await updatePlan(existingPlan.id, payload) : await createPlan(patientId, payload);
+    setSaving(null);
+    if (res.data) onSaved(res.data);
+    else setError(res.error?.message || 'The plan could not be saved.');
   };
 
-  const getProcedureDetails = (id: string) => mockProcedureCatalog.find(p => p.id === id);
-
-  // Calculations
-  const subtotalGross = items.reduce((sum, item) => sum + Number(item.cost), 0);
-  const discountAmt = discountType === 'percentage' ? (subtotalGross * discount) / 100 : discount;
-  const subtotalNet = subtotalGross - discountAmt;
-  const taxAmt = (subtotalNet * taxPercentage) / 100;
-  const grandTotal = subtotalNet + taxAmt;
-
   return (
-    <div className="space-y-6 animate-in fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
-        <div className="flex items-center gap-4">
-          <button onClick={onCancel} className="p-2 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h3 className="text-lg font-bold text-text-main">{existingPlan ? 'Edit Treatment Plan' : 'New Treatment Plan'}</h3>
-            <div className="flex items-center gap-2 mt-1">
-               <span className="text-xs font-medium text-text-muted">Status:</span>
-               <select 
-                 value={status} 
-                 onChange={e => setStatus(e.target.value as any)}
-                 className={`text-xs font-bold rounded px-2 py-0.5 border outline-none ${
-                   status === 'Draft' ? 'bg-base text-text-muted' :
-                   status === 'Proposed' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                   status === 'Approved' ? 'bg-primary/10 text-primary border-primary/20' :
-                   'bg-surface text-text-main'
-                 }`}
-               >
-                 <option value="Draft">Draft</option>
-                 <option value="Proposed">Proposed</option>
-                 <option value="Approved">Approved</option>
-                 <option value="In Progress">In Progress</option>
-                 <option value="Completed">Completed</option>
-               </select>
-            </div>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {status === 'Proposed' && (
-            <Button variant="outline" className="gap-2 bg-base"><Printer className="w-4 h-4" /> Print Estimate</Button>
-          )}
-          {status === 'Proposed' && (
-            <Button onClick={() => setStatus('Approved')} className="gap-2 bg-teal-600 hover:bg-teal-700 text-white border-transparent"><CheckCircle className="w-4 h-4" /> Patient Approved</Button>
-          )}
-          <Button onClick={handleSave} className="gap-2"><Save className="w-4 h-4" /> Save Plan</Button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <button onClick={onCancel} className="p-2 -ml-2 rounded-control text-text-muted hover:bg-base" aria-label="Back to plans">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h3 className="text-[17px] font-semibold flex-1">{existingPlan ? 'Edit plan' : 'New treatment plan'}</h3>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-base border border-line rounded-xl overflow-hidden shadow-panel">
-            <div className="p-4 border-b border-line bg-surface">
-              <input 
-                type="text" 
-                placeholder="Plan Name (e.g., Phase 1 Restorations)" 
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full text-lg font-bold text-text-main bg-transparent border-none outline-none placeholder:font-normal placeholder:text-text-muted/50"
-              />
-            </div>
-            
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
-                  <tr>
-                    <th className="px-4 py-3 w-8"></th>
-                    <th className="px-4 py-3">Procedure</th>
-                    <th className="px-4 py-3 w-24">Tooth</th>
-                    <th className="px-4 py-3 w-32">Status</th>
-                    <th className="px-4 py-3 w-32 text-right">Cost ({symbol})</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {items.map((item, index) => {
-                    const proc = getProcedureDetails(item.procedureId);
-                    return (
-                      <tr key={item.id} className="hover:bg-surface-hover/50">
-                        <td className="px-4 py-3 text-center">
-                           <button onClick={() => handleRemoveItem(item.id)} className="text-text-muted hover:text-error transition-colors"><Trash2 className="w-4 h-4" /></button>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-text-main">
-                           <div className="flex items-center gap-2">
-                             <span>{proc?.name || 'Unknown Procedure'}</span>
-                             {isLabProcedure(proc) && (
-                               <button 
-                                 title="Create Lab Order"
-                                 onClick={() => setLabOrderContext({ patientId, toothNumbers: item.toothNumber ? item.toothNumber.split(',').map(s=>s.trim()) : [] })}
-                                 className="p-1 rounded bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
-                               >
-                                 <FlaskConical className="w-3.5 h-3.5" />
-                               </button>
-                             )}
-                           </div>
-                           <div className="text-[11px] text-text-muted font-normal mt-0.5">{proc?.category}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                           <input 
-                             type="text" 
-                             placeholder="e.g. 16" 
-                             value={item.toothNumber || ''}
-                             onChange={e => handleUpdateItem(item.id, 'toothNumber', e.target.value)}
-                             className="w-16 bg-surface border border-line rounded px-2 py-1 text-xs text-center focus:outline-none focus:border-primary"
-                           />
-                        </td>
-                        <td className="px-4 py-3">
-                           <select
-                             value={item.status}
-                             onChange={e => handleUpdateItem(item.id, 'status', e.target.value)}
-                             className={`w-full bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none focus:border-primary ${
-                               item.status === 'Completed' ? 'text-teal-600 font-medium' :
-                               item.status === 'Scheduled' ? 'text-amber-600 font-medium' :
-                               'text-text-main'
-                             }`}
-                           >
-                             <option value="Pending">Pending</option>
-                             <option value="Scheduled">Scheduled</option>
-                             <option value="Completed">Completed</option>
-                           </select>
-                           {item.linkedAppointmentId && <div className="text-[11px] text-text-muted mt-1 truncate max-w-[100px]">Appt linked</div>}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                           <input 
-                             type="number" 
-                             value={item.cost}
-                             onChange={e => handleUpdateItem(item.id, 'cost', Number(e.target.value))}
-                             className="w-24 bg-surface border border-line rounded px-2 py-1 text-right text-sm font-medium focus:outline-none focus:border-primary"
-                           />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-text-muted italic">No procedures added yet.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2 overflow-hidden">
+          <div className="p-4 border-b border-line">
+            <label className="sr-only" htmlFor="plan-name">Plan name</label>
+            <input
+              id="plan-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Plan name, e.g. Phase 1: restorations"
+              className="w-full text-[17px] font-semibold bg-transparent outline-none placeholder:font-normal placeholder:text-text-muted/60"
+            />
+          </div>
 
-            {!isAddingItem ? (
-              <div className="p-4 border-t border-line bg-surface">
-                <Button variant="outline" onClick={() => setIsAddingItem(true)} className="w-full gap-2 border-dashed">
-                  <Plus className="w-4 h-4" /> Add Procedure
-                </Button>
+          {items.length > 0 && (
+            <ul className="divide-y divide-line">
+              {items.map(item => (
+                <li key={item.key} className="px-4 py-3 grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_90px_120px_auto] gap-2 sm:gap-3 items-center">
+                  <div className="min-w-0">
+                    <div className="text-[15px] font-medium flex items-center gap-2">
+                      <span className="truncate">{item.procedureName}</span>
+                      {isLabProcedure(item.procedureName || '', item.category) && (
+                        <button
+                          title="Order from lab"
+                          onClick={() => setLabFor(item.toothNumber ? item.toothNumber.split(',').map(s => s.trim()) : [])}
+                          className="p-1 rounded-[6px] text-info hover:bg-info/10"
+                          aria-label="Create a lab order for this item"
+                        >
+                          <FlaskConical className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-xs text-text-muted">{item.taxable ? `GST ${taxRate}% applies` : 'GST exempt'}</div>
+                  </div>
+                  <button onClick={() => setItems(it => it.filter(i => i.key !== item.key))} className="sm:order-last p-2 rounded-control text-text-muted hover:text-error hover:bg-error/5" aria-label={`Remove ${item.procedureName}`}>
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  <label className="flex items-center gap-2 sm:block">
+                    <span className="text-xs text-text-muted sm:sr-only">Tooth</span>
+                    <input
+                      value={item.toothNumber || ''}
+                      onChange={e => update(item.key, { toothNumber: e.target.value })}
+                      placeholder="Tooth"
+                      inputMode="numeric"
+                      className="w-full h-9 px-2 border border-line rounded-control text-sm text-center focus:outline-none focus:border-accent"
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 sm:block">
+                    <span className="text-xs text-text-muted sm:sr-only">Fee ({symbol})</span>
+                    <input
+                      type="number" min={0}
+                      value={item.cost}
+                      onChange={e => update(item.key, { cost: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-full h-9 px-2 border border-line rounded-control text-sm text-right focus:outline-none focus:border-accent"
+                    />
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {picking ? (
+            <div className="p-4 border-t border-line bg-surface-hover">
+              <div className="relative mb-3">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Search procedures"
+                  className="w-full h-10 pl-9 pr-3 bg-surface border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                />
               </div>
-            ) : (
-              <div className="p-4 border-t border-line bg-surface animate-in slide-in-from-top-2">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-bold text-sm text-text-main">Procedure Catalog</h4>
-                  <button onClick={() => setIsAddingItem(false)} className="text-xs font-medium text-text-muted hover:text-text-main">Close</button>
-                </div>
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide">
-                  {categories.map(cat => (
-                    <button 
-                      key={cat} 
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? 'bg-text-main text-base' : 'bg-base border border-line text-text-muted hover:text-text-main'}`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-                  {filteredProcedures.map(proc => (
-                    <button 
-                      key={proc.id} 
-                      onClick={() => handleAddItem(proc)}
-                      className="flex justify-between items-center p-3 rounded-lg border border-line bg-base hover:border-primary/50 text-left transition-colors group"
-                    >
-                      <div>
-                        <div className="font-bold text-sm text-text-main group-hover:text-primary transition-colors">{proc.name}</div>
-                        <div className="text-[11px] text-text-muted mt-0.5">{proc.category} • {proc.defaultDurationMinutes} min</div>
-                      </div>
-                      <div className="font-medium text-sm text-text-main">{formatCurrency(proc.defaultCost)}</div>
-                    </button>
-                  ))}
-                </div>
+              <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide">
+                {categories.map(c => (
+                  <button key={c} onClick={() => setCategory(c)}
+                    className={`shrink-0 h-7 px-2.5 rounded-full text-xs font-medium border ${category === c ? 'bg-primary text-white border-primary' : 'bg-surface border-line text-text-main'}`}>
+                    {c}
+                  </button>
+                ))}
               </div>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+                {shown.map(p => (
+                  <li key={p.id}>
+                    <button onClick={() => add(p)} className="w-full flex justify-between items-center gap-3 p-3 rounded-control border border-line bg-surface hover:border-accent text-left">
+                      <span>
+                        <span className="block text-sm font-medium">{p.name}</span>
+                        <span className="block text-xs text-text-muted">{p.category}, {p.defaultDurationMinutes} min</span>
+                      </span>
+                      <span className="text-sm tabular">{formatCurrency(p.defaultCost)}</span>
+                    </button>
+                  </li>
+                ))}
+                {shown.length === 0 && <li className="text-sm text-text-muted p-2">No procedure matches “{query}”.</li>}
+              </ul>
+              {items.length > 0 && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setPicking(false)}>Done adding</Button>}
+            </div>
+          ) : (
+            <div className="p-4 border-t border-line">
+              <Button variant="outline" className="w-full border-dashed" onClick={() => setPicking(true)}>
+                <Plus className="w-4 h-4" /> Add procedure
+              </Button>
+            </div>
+          )}
+        </Card>
+
+        <Card className="p-5 space-y-3 h-fit lg:sticky lg:top-6">
+          <h4 className="text-[15px] font-semibold">Estimate</h4>
+          <div className="flex justify-between text-sm"><span className="text-text-muted">Procedures</span><span className="tabular">{formatCurrency(totals.subtotal)}</span></div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-sm gap-2">
+              <span className="text-text-muted">Discount</span>
+              <div className="flex">
+                <input type="number" min={0} value={discount} onChange={e => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-20 h-8 px-2 border border-line rounded-l-control text-right text-sm" aria-label="Discount" />
+                <select value={discountType} onChange={e => setDiscountType(e.target.value as 'flat' | 'percentage')}
+                  className="h-8 px-1 border border-l-0 border-line rounded-r-control text-sm bg-base" aria-label="Discount type">
+                  <option value="percentage">%</option>
+                  <option value="flat">{symbol}</option>
+                </select>
+              </div>
+            </div>
+            {discount > 0 && (
+              <input value={discountReason} onChange={e => setDiscountReason(e.target.value)} placeholder="Reason for the discount"
+                className="w-full h-8 px-2 border border-line rounded-control text-sm" />
             )}
           </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-base border border-line rounded-xl p-5 shadow-panel space-y-4 sticky top-6">
-            <h3 className="font-bold text-text-main mb-4 flex items-center gap-2 border-b border-line pb-3"><Tag className="w-4 h-4 text-primary" /> Financial Summary</h3>
-            
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-text-muted font-medium">Subtotal</span>
-              <span className="text-text-main font-bold">{formatCurrency(subtotalGross)}</span>
-            </div>
-            
-            <div className="space-y-2 py-3 border-y border-line border-dashed">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-text-muted font-medium flex items-center gap-1.5"><Percent className="w-3.5 h-3.5" /> Discount</span>
-                <div className="flex items-center gap-2">
-                   <input 
-                     type="number" 
-                     value={discount} 
-                     onChange={e => setDiscount(Number(e.target.value))}
-                     className="w-16 bg-surface border border-line rounded px-2 py-1 text-right text-xs focus:outline-none focus:border-primary"
-                   />
-                   <select 
-                     value={discountType} 
-                     onChange={e => setDiscountType(e.target.value as any)}
-                     className="bg-surface border border-line rounded px-1 py-1 text-xs focus:outline-none"
-                   >
-                     <option value="percentage">%</option>
-                     <option value="flat">{symbol}</option>
-                   </select>
-                </div>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between items-center text-sm">
-                  <input 
-                    type="text" 
-                    placeholder="Reason for discount..." 
-                    value={discountReason}
-                    onChange={e => setDiscountReason(e.target.value)}
-                    className="flex-1 bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none focus:border-primary mr-4"
-                  />
-                  <span className="text-error font-medium">- {formatCurrency(discountAmt)}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-text-muted font-medium">Net Amount</span>
-              <span className="text-text-main font-bold">{formatCurrency(subtotalNet)}</span>
-            </div>
-
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-text-muted font-medium">Tax</span>
-              <div className="flex items-center gap-2">
-                 <select 
-                   value={taxPercentage} 
-                   onChange={e => setTaxPercentage(Number(e.target.value))}
-                   className="bg-surface border border-line rounded px-2 py-1 text-xs focus:outline-none"
-                 >
-                   <option value={0}>0%</option>
-                   <option value={5}>5%</option>
-                   <option value={12}>12%</option>
-                   <option value={18}>18% GST</option>
-                 </select>
-                 <span className="text-text-muted font-medium w-16 text-right">+ {formatCurrency(taxAmt, {maximumFractionDigits: 0})}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center pt-3 border-t border-line">
-              <span className="text-base font-bold text-text-main">Estimated Total</span>
-              <span className="text-2xl font-bold text-primary flex items-center">{formatCurrency(grandTotal, {maximumFractionDigits: 0})}</span>
-            </div>
+          {totals.discountAmount > 0 && <div className="flex justify-between text-sm"><span className="text-text-muted">Less</span><span className="tabular text-success">−{formatCurrency(totals.discountAmount)}</span></div>}
+          {totals.totalTax > 0 && <div className="flex justify-between text-sm"><span className="text-text-muted">GST on cosmetic items</span><span className="tabular">{formatCurrency(totals.totalTax)}</span></div>}
+          <div className="flex justify-between items-baseline pt-3 border-t border-line">
+            <span className="font-semibold">Estimated total</span>
+            <span className="text-xl font-semibold tabular">{formatCurrency(totals.total)}</span>
           </div>
-        </div>
+
+          {error && <p role="alert" className="text-sm text-error">{error}</p>}
+          <div className="flex flex-col gap-2 pt-2">
+            {(!existingPlan || existingPlan.status === 'Draft') && (
+              <Button onClick={() => save('Proposed')} loading={saving === 'Proposed'} disabled={!!saving}>Save and propose to patient</Button>
+            )}
+            <Button variant="outline" onClick={() => save()} loading={saving === 'save'} disabled={!!saving}>
+              {existingPlan ? 'Save changes' : 'Save as draft'}
+            </Button>
+          </div>
+        </Card>
       </div>
-      
-      {labOrderContext && (
-        <CreateLabOrderModal
-          onClose={() => setLabOrderContext(null)}
-          defaultPatientId={labOrderContext.patientId}
-          defaultToothNumbers={labOrderContext.toothNumbers}
-        />
-      )}
+
+      {labFor && <CreateLabOrderModal onClose={() => setLabFor(null)} defaultPatientId={patientId} defaultToothNumbers={labFor} />}
     </div>
   );
 }

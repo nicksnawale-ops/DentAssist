@@ -17,6 +17,8 @@ export interface User {
   role: Role;
   clinicId: string | null;
   clinicIds?: string[]; // For multi-clinic assignments
+  /** For patient logins: their patient record. */
+  patientId?: string | null;
   avatarUrl?: string;
   phone?: string;
   createdAt: string;
@@ -178,11 +180,14 @@ export interface Procedure {
 
 export interface TreatmentPlanItem {
   id: string;
-  procedureId: string;
+  procedureId?: string;
+  procedureName?: string;
   toothNumber?: string;
   cost: number;
+  taxable?: boolean;
   status: 'Pending' | 'Scheduled' | 'Completed';
   linkedAppointmentId?: string;
+  completedAt?: string;
 }
 
 export interface TreatmentPlan {
@@ -198,6 +203,17 @@ export interface TreatmentPlan {
   createdByStaffId: string;
   createdAt: string;
   approvedAt?: string;
+  // Calculated by the server
+  patientName?: string;
+  clinicId?: string;
+  notes?: string;
+  subtotal?: number;
+  discountAmount?: number;
+  estimatedTax?: number;
+  estimatedTotal?: number;
+  completedCount?: number;
+  createdByName?: string;
+  invoiceId?: string;
 }
 
 export interface ClinicalNote {
@@ -210,6 +226,10 @@ export interface ClinicalNote {
   plan: string;
   authorStaffId: string;
   createdAt: string;
+  authorName?: string;
+  updatedAt?: string;
+  /** The author can still edit it (within 24 hours of writing). */
+  editable?: boolean;
 }
 
 export type DocumentType = 'X-Ray' | 'Intraoral Photo' | 'Lab Report' | 'Consent Form' | 'Insurance Document' | 'Other';

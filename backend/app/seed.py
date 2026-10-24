@@ -26,6 +26,12 @@ from app.models import (
     AppSetting,
     Appointment,
     Clinic,
+    ClinicalNote,
+    PerioReading,
+    ToothEvent,
+    ToothRecord,
+    TreatmentPlan,
+    TreatmentPlanItem,
     Installment,
     InsuranceClaim,
     Invoice,
@@ -137,6 +143,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
                          default_duration_minutes=pr["defaultDurationMinutes"], gst_applicable=pr["gstApplicable"]))
     db.flush()
     invoice_count = seed_invoices(db, data, home_clinic, users[0])
+    seed_clinical(db, data, home_clinic)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -237,3 +244,89 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def seed_clinical(db: Session, data: dict, home_clinic) -> None:
+    """A believable dental history for Alice (pat_1) and Charlie (pat_3)."""
+    now = datetime.now(timezone.utc)
+    days = lambda n: now - timedelta(days=n)  # noqa: E731
+    procs = {p["name"]: p for p in data["procedures"]}
+
+    def tooth(patient, number, conditions, notes, events):
+        db.add(ToothRecord(patient_id=patient, tooth_number=number, conditions=conditions, notes=notes,
+                           updated_by_id=events[-1][2], updated_at=events[-1][0]))
+        for when, action, author, conds in events:
+            db.add(ToothEvent(patient_id=patient, tooth_number=number, action=action, conditions=conds, notes=notes,
+                              author_id=author, created_at=when))
+
+    tooth("pat_1", "11", ["Healthy"], "", [(days(540), "Routine examination", "s1", ["Healthy"])])
+    tooth("pat_1", "16", ["Filled"], "Composite, occlusal", [(days(720), "Filling placed", "s1", ["Filled"])])
+    tooth("pat_1", "26", ["Root Canal", "Crown"], "PFM crown, margins sound", [
+        (days(1100), "Root canal treatment completed", "s3", ["Root Canal"]),
+        (days(1070), "Crown seated", "s3", ["Root Canal", "Crown"]),
+    ])
+    tooth("pat_1", "48", ["Extraction Planned"], "Partially impacted, intermittent pain", [
+        (days(240), "Evaluated for extraction", "s1", ["Extraction Planned"]),
+    ])
+    tooth("pat_3", "36", ["Cavity"], "Early occlusal caries, monitor", [(days(60), "Marked Cavity", "s3", ["Cavity"])])
+
+    # Two periodontal exams for Alice: bleeding and deeper pockets a year ago, better now.
+    for when, deep, bleed in ((days(365), 4, True), (days(120), 3, False)):
+        for t in ("16", "11", "26", "36", "31", "46"):
+            db.add(PerioReading(patient_id="pat_1", tooth_number=t,
+                                measurement_points={"buccal": [deep - 1, 2, deep - 1], "lingual": [deep, deep - 1, deep]},
+                                bleeding_on_probing=bleed and t in ("16", "46"), recorded_by_id="s1", recorded_at=when))
+
+    def plan(patient, name, status, items, discount=0, dtype="flat", reason=None, created=30, approved=None, author="s1"):
+        p = TreatmentPlan(patient_id=patient, clinic_id=home_clinic(patient), name=name, status=status,
+                          discount=discount, discount_type=dtype, discount_reason=reason, created_by_id=author,
+                          approved_at=days(approved) if approved is not None else None)
+        p.created_at = days(created)
+        p.items = [
+            TreatmentPlanItem(procedure_id=procs[n]["id"], procedure_name=n, tooth_number=t, cost=procs[n]["defaultCost"],
+                              taxable=procs[n]["gstApplicable"], status=st, sort_order=i,
+                              completed_at=days(5) if st == "Completed" else None)
+            for i, (n, t, st) in enumerate(items)
+        ]
+        db.add(p)
+        return p
+
+    plan("pat_1", "Phase 1: restorative work", "In Progress", [
+        ("Scaling & Polishing", None, "Completed"),
+        ("Composite Filling", "16", "Scheduled"),
+        ("Root Canal Treatment (Posterior)", "26", "Pending"),
+        ("PFM Crown", "26", "Pending"),
+    ], discount=10, dtype="percentage", reason="Long-standing patient", created=40, approved=38)
+    plan("pat_1", "Extraction and implant, lower right", "Proposed", [
+        ("Surgical Extraction", "48", "Pending"),
+        ("Implant Placement", "46", "Pending"),
+        ("Implant Crown", "46", "Pending"),
+    ], created=6)
+    ortho = plan("pat_3", "Orthodontic treatment", "In Progress", [
+        ("Orthodontic Consultation", None, "Completed"),
+        ("Braces (Metal)", None, "Scheduled"),
+    ], created=80, approved=76, author="s3")
+    db.flush()
+    braces_invoice = next((i for i in db.scalars(select(Invoice).where(Invoice.patient_id == "pat_3"))
+                           if any(li["procedureName"] == "Braces (Metal)" for li in i.line_items)), None)
+    if braces_invoice:
+        ortho.invoice_id = braces_invoice.id
+        braces_invoice.treatment_plan_id = ortho.id
+
+    notes = [
+        ("pat_1", "s1", 21, "Sensitivity upper left when drinking cold water. No pain on chewing.",
+         "Existing composite on 26 with marginal leakage. Percussion negative. Cold test positive, lingering.",
+         "Reversible pulpitis, 26, from failing restoration.",
+         "Replace restoration on 26; discussed crown if defect is large. Patient agreed. Review in 2 weeks."),
+        ("pat_1", "s1", 400, "Routine check-up and cleaning. No complaints.",
+         "Fair oral hygiene. Mild calculus lower anterior lingual. No new caries on bitewings.",
+         "Mild gingivitis. Caries-free.",
+         "Scaling and polishing done. Flossing technique shown. Recall in 6 months."),
+        ("pat_3", "s3", 80, "Parent reports crowded lower teeth, wants orthodontic opinion.",
+         "Mixed dentition, Class I molars. Anterior crowding, overjet 4 mm, overbite 3 mm. No active decay.",
+         "Class I malocclusion with anterior crowding.",
+         "Records taken (OPG, ceph, photos). Plan to present fixed metal braces, 18 to 24 months."),
+    ]
+    for patient, author, ago, s_, o, a, p in notes:
+        db.add(ClinicalNote(patient_id=patient, author_id=author, subjective=s_, objective=o, assessment=a, plan=p,
+                            created_at=days(ago), updated_at=days(ago)))

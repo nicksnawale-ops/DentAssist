@@ -16,11 +16,11 @@ export function GraphicalChart({ isPediatric, numberingSystem, records, selected
   const layout = isPediatric ? pediatricTeethFDI : adultTeethFDI;
 
   return (
-    <div className="flex flex-col items-center gap-12 py-6 bg-surface rounded-panel border border-line">
+    <div className="flex flex-col items-center gap-8 sm:gap-12 py-6 bg-surface rounded-panel border border-line">
       {/* Upper Arch */}
-      <div className="w-full max-w-4xl px-4">
+      <div className="w-full max-w-4xl px-2 sm:px-4 overflow-x-auto scrollbar-hide">
         <div className="text-center text-xs font-bold text-text-muted mb-4">Upper Arch</div>
-        <div className="flex justify-center gap-1 md:gap-2">
+        <div className="flex w-max mx-auto gap-1 md:gap-2">
           {layout.upper.map((fdi, index) => (
             <React.Fragment key={fdi}>
                {/* Add a slightly larger gap at the midline */}
@@ -41,8 +41,8 @@ export function GraphicalChart({ isPediatric, numberingSystem, records, selected
       <div className="w-full max-w-lg h-px bg-text-muted/10"></div>
 
       {/* Lower Arch */}
-      <div className="w-full max-w-4xl px-4">
-        <div className="flex justify-center gap-1 md:gap-2 mb-4">
+      <div className="w-full max-w-4xl px-2 sm:px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex w-max mx-auto gap-1 md:gap-2 mb-4">
           {layout.lower.map((fdi, index) => (
             <React.Fragment key={fdi}>
                {index === layout.lower.length / 2 && <div className="w-2 md:w-6" />}
