@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import DbSession, StaffUser, accessible_clinic_ids, ensure_clinic_access, require_roles
 from app.core.errors import conflict, not_found
-from app.models import Clinic, Patient, StaffProfile, User
+from app.models import Clinic, Invoice, Patient, Payment, StaffProfile, User
 from app.schemas import ClinicCreate, ClinicOut, ClinicUpdate, column_values
 from app.services import audit
 
@@ -29,11 +29,24 @@ def _patient_counts(db) -> dict[str, int]:
     return {cid: n for cid, n in rows if cid}
 
 
-def _out(clinic: Clinic, staff: Counter, patients: dict[str, int]) -> ClinicOut:
+def _revenue_this_month(db) -> dict[str, float]:
+    from datetime import datetime, timezone
+
+    start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    rows = db.execute(
+        select(Invoice.clinic_id, func.coalesce(func.sum(Payment.amount), 0))
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .where(Payment.paid_at >= start)
+        .group_by(Invoice.clinic_id)
+    ).all()
+    return {cid: float(total) for cid, total in rows}
+
+
+def _out(clinic: Clinic, staff: Counter, patients: dict[str, int], revenue: dict[str, float] | None = None) -> ClinicOut:
     out = ClinicOut.model_validate(clinic)
     out.active_staff_count = staff.get(clinic.id, 0)
     out.active_patients_count = patients.get(clinic.id, 0)
-    # monthly_revenue stays 0 until the billing module is moved to the backend.
+    out.monthly_revenue = (revenue or {}).get(clinic.id, 0.0)
     return out
 
 
@@ -50,8 +63,8 @@ def list_clinics(user: StaffUser, db: DbSession):
     allowed = accessible_clinic_ids(user)
     if allowed is not None:
         query = query.where(Clinic.id.in_(allowed))
-    staff, patients = _staff_counts(db), _patient_counts(db)
-    return [_out(c, staff, patients) for c in db.scalars(query)]
+    staff, patients, revenue = _staff_counts(db), _patient_counts(db), _revenue_this_month(db)
+    return [_out(c, staff, patients, revenue) for c in db.scalars(query)]
 
 
 @router.post("", response_model=ClinicOut, status_code=201)
@@ -72,7 +85,7 @@ def create_clinic(body: ClinicCreate, db: DbSession, user: User = SuperAdmin):
 def get_clinic(clinic_id: str, user: StaffUser, db: DbSession):
     clinic = _get(db, clinic_id)
     ensure_clinic_access(user, clinic.id)
-    return _out(clinic, _staff_counts(db), _patient_counts(db))
+    return _out(clinic, _staff_counts(db), _patient_counts(db), _revenue_this_month(db))
 
 
 @router.patch("/{clinic_id}", response_model=ClinicOut)

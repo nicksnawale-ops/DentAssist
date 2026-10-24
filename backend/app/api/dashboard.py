@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import CurrentUser, DbSession, accessible_clinic_ids, require_roles
 from app.core.errors import forbidden
-from app.models import Appointment, AuditLog, Clinic, Patient, User
+from app.models import Appointment, AuditLog, Clinic, Invoice, Patient, Payment, User
 from app.schemas import money
 from app.services.scheduling import ACTIVE_STATUSES, as_utc
 
@@ -35,6 +35,28 @@ def _day_bounds(tz: ZoneInfo, days_back: int = 0) -> tuple[datetime, datetime]:
     today = datetime.now(tz).date() - timedelta(days=days_back)
     start = datetime.combine(today, time.min, tzinfo=tz)
     return start.astimezone(timezone.utc), (start + timedelta(days=1)).astimezone(timezone.utc)
+
+
+def _collections(db: Session, since: datetime, clinic_ids: set[str] | None) -> dict[str, float]:
+    """Payments received since a moment, per clinic."""
+    query = (
+        select(Invoice.clinic_id, func.coalesce(func.sum(Payment.amount), 0))
+        .join(Invoice, Invoice.id == Payment.invoice_id)
+        .where(Payment.paid_at >= since)
+        .group_by(Invoice.clinic_id)
+    )
+    if clinic_ids is not None:
+        query = query.where(Invoice.clinic_id.in_(clinic_ids))
+    return {cid: float(total) for cid, total in db.execute(query).all()}
+
+
+def _month_start(tz: ZoneInfo, months_back: int = 0) -> datetime:
+    local = datetime.now(tz)
+    year, month = local.year, local.month - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    return datetime(year, month, 1, tzinfo=tz).astimezone(timezone.utc)
 
 
 def _clock(dt: datetime, tz: ZoneInfo) -> str:
@@ -84,6 +106,14 @@ def super_admin_dashboard(db: DbSession, user: User = Depends(require_roles("sup
         select(AuditLog, User).outerjoin(User, User.id == AuditLog.actor_user_id)
         .order_by(AuditLog.timestamp.desc()).limit(5)
     ).all()
+    this_month = _collections(db, _month_start(tz), None)
+    trend = []
+    for back in range(5, -1, -1):
+        start_m, end_m = _month_start(tz, back), _month_start(tz, back - 1) if back > 0 else None
+        q = select(func.coalesce(func.sum(Payment.amount), 0)).where(Payment.paid_at >= start_m)
+        if end_m:
+            q = q.where(Payment.paid_at < end_m)
+        trend.append({"name": start_m.astimezone(tz).strftime("%b"), "revenue": float(db.scalar(q) or 0)})
     return {
         "totalClinics": sum(1 for c in clinics if c.status == "active"),
         "activePatients": db.scalar(select(func.count()).select_from(Patient)) or 0,
@@ -93,10 +123,11 @@ def super_admin_dashboard(db: DbSession, user: User = Depends(require_roles("sup
                 Appointment.status.not_in(["cancelled", "no_show"]),
             )
         ) or 0,
-        "revenueTrend": [],  # filled in once billing moves to the backend
+        "revenueTrend": trend,
         "topClinics": sorted(
-            [{"id": c.id, "name": c.name, "revenue": 0, "patients": patients_by_clinic.get(c.id, 0)} for c in clinics],
-            key=lambda c: c["patients"], reverse=True,
+            [{"id": c.id, "name": c.name, "revenue": this_month.get(c.id, 0.0), "patients": patients_by_clinic.get(c.id, 0)}
+             for c in clinics],
+            key=lambda c: (c["revenue"], c["patients"]), reverse=True,
         )[:5],
         "recentActivity": [
             {
@@ -136,7 +167,7 @@ def dentist_dashboard(db: DbSession, user: User = Depends(require_roles("dentist
     return {
         "patientsSeenThisWeek": seen,
         "pendingTreatmentPlans": 0,
-        "todayRevenue": 0,
+        "todayRevenue": sum(_collections(db, _day_bounds(tz)[0], accessible_clinic_ids(user)).values()),
         "lowInventoryItems": 0,
         "todaySchedule": [
             {"id": a.id, "patientId": p.id, "time": _clock(a.start_time, tz),

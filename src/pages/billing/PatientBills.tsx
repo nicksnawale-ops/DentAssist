@@ -1,154 +1,111 @@
-import React, { useState } from 'react';
-import { mockInvoices } from '../../data/mockInvoices';
-import { mockPatients } from '../../data/mockPatients';
-import { mockClinics } from '../../data/mockClinics';
-import { useAuth } from '../../context/AuthContext';
-import { Invoice } from '../../types';
+import React, { useCallback, useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Receipt, CreditCard, Clock, CheckCircle } from 'lucide-react';
+import { ChevronRight, Receipt, Smartphone } from 'lucide-react';
+import { Invoice } from '../../types';
+import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { useToast } from '../../components/ui/useToast';
 import { InvoicePreviewModal } from '../../components/billing/InvoicePreviewModal';
-import { CheckoutModal } from '../../components/billing/CheckoutModal';
-import * as Tabs from '@radix-ui/react-tabs';
+import { InvoiceStatusBadge } from '../../components/billing/InvoiceStatusBadge';
+import { getMyInvoices, getPaymentConfig } from '../../api/billingService';
+import { payInvoiceOnline } from '../../lib/razorpay';
 import { formatCurrency } from '../../utils/currencyConfig';
 
+/** Patient portal: my bills, with online payment when the clinic has it switched on. */
 export function PatientBills() {
-  const { user } = useAuth();
-  
-  // For demo, we map the generic 'patient@example.com' user to pat_1 (Alice)
-  const patientId = 'pat_1'; 
-  const patient = mockPatients.find(p => p.id === patientId);
-  const patientInvoices = mockInvoices.filter(inv => inv.patientId === patientId);
+  const { toast } = useToast();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [paying, setPaying] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
-  const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] = useState<Invoice | null>(null);
-  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState<Invoice | null>(null);
+  const load = useCallback(async () => {
+    const res = await getMyInvoices();
+    setInvoices(res.data || []);
+    setError(res.error?.message || null);
+    setLoading(false);
+  }, []);
 
-  const unpaidInvoices = patientInvoices.filter(i => i.status !== 'Paid');
-  const paidInvoices = patientInvoices.filter(i => i.status === 'Paid');
+  useEffect(() => {
+    load();
+    getPaymentConfig().then(r => setOnlineEnabled(!!r.data?.onlinePaymentsEnabled));
+  }, [load]);
 
-  const totalOutstanding = unpaidInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const unpaid = invoices.filter(i => ['Sent', 'Partially Paid', 'Overdue'].includes(i.status) && (i.balanceDue ?? 0) > 0);
+  const others = invoices.filter(i => !unpaid.includes(i));
+  const totalDue = unpaid.reduce((s, i) => s + (i.balanceDue ?? 0), 0);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Paid':
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20"><CheckCircle className="w-3 h-3" /> Paid</span>;
-      case 'Overdue':
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-error/10 text-error border border-error/20"><Clock className="w-3 h-3" /> Overdue</span>;
-      default:
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"><Clock className="w-3 h-3" /> {status}</span>;
+  const pay = async (inv: Invoice) => {
+    setPaying(inv.id);
+    const result = await payInvoiceOnline(inv.id);
+    setPaying(null);
+    if (result.status === 'paid') {
+      toast({ title: 'Payment received. Thank you!', variant: 'success' });
+      load();
+    } else if (result.status === 'failed') {
+      toast({ title: 'Payment not completed', description: result.error.message, variant: 'error' });
     }
   };
 
-  const InvoiceList = ({ invoices }: { invoices: Invoice[] }) => (
-    <div className="space-y-4 mt-6">
-      {invoices.length === 0 ? (
-        <div className="text-center py-12 bg-surface rounded-xl border border-line">
-          <Receipt className="w-12 h-12 text-text-muted/30 mx-auto mb-3" />
-          <p className="text-text-muted font-medium">No invoices found.</p>
+  const row = (inv: Invoice, showPay: boolean) => (
+    <li key={inv.id} className="px-4 sm:px-5 py-4 flex items-center gap-3">
+      <button onClick={() => setOpenId(inv.id)} className="flex-1 min-w-0 text-left">
+        <div className="text-[15px] font-medium text-text-main truncate">{inv.lineItems.map(l => l.procedureName).join(', ')}</div>
+        <div className="mt-0.5 flex items-center gap-2 text-[13px] text-text-muted">
+          <span>{format(parseISO(inv.sentAt || inv.createdAt), 'd MMM yyyy')}</span>
+          <InvoiceStatusBadge status={inv.status} />
         </div>
+      </button>
+      <div className="text-right shrink-0">
+        <div className="text-[15px] font-semibold tabular">{formatCurrency(showPay ? inv.balanceDue ?? 0 : inv.total)}</div>
+        {showPay && <div className="text-xs text-text-muted">due {format(parseISO(inv.dueDate), 'd MMM')}</div>}
+      </div>
+      {showPay && onlineEnabled ? (
+        <Button size="sm" onClick={() => pay(inv)} loading={paying === inv.id}>Pay</Button>
       ) : (
-        invoices.map(invoice => {
-          const clinic = mockClinics.find(c => c.id === invoice.clinicId);
-          return (
-            <div key={invoice.id} className="bg-surface rounded-xl border border-line shadow-panel p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-primary/30 transition-colors">
-              <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${invoice.status === 'Paid' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}>
-                  <Receipt className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="font-bold text-text-main text-lg">{invoice.invoiceNumber}</h3>
-                    {getStatusBadge(invoice.status)}
-                  </div>
-                  <p className="text-sm text-text-muted mb-1">
-                    {format(parseISO(invoice.createdAt), 'MMM d, yyyy')} • {clinic?.name}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    Due: {format(parseISO(invoice.dueDate), 'MMM d, yyyy')}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-3 w-full md:w-auto mt-4 md:mt-0 border-t md:border-t-0 border-line pt-4 md:pt-0">
-                <div className="text-right w-full md:w-auto flex justify-between md:block">
-                  <span className="md:hidden text-text-muted text-sm font-medium">Amount</span>
-                  <p className="text-xl font-bold text-text-main">{formatCurrency(invoice.total)}</p>
-                </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedInvoiceForPreview(invoice)} className="flex-1 md:flex-auto">
-                    View Invoice
-                  </Button>
-                  {invoice.status !== 'Paid' && (
-                    <Button size="sm" onClick={() => setSelectedInvoiceForPayment(invoice)} className="flex-1 md:flex-auto gap-2">
-                      <CreditCard className="w-4 h-4" /> Pay Now
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })
+        <ChevronRight className="w-4 h-4 text-text-muted/60 shrink-0" aria-hidden="true" />
       )}
-    </div>
+    </li>
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Bills</h1>
-        <p className="text-sm text-text-muted mt-2">View your invoice history and manage payments securely.</p>
-      </div>
+    <div className="max-w-3xl mx-auto">
+      <PageHeader title="Bills" description="Your invoices and payments." />
 
-      {totalOutstanding > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-panel p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-primary/80 mb-1">Total Outstanding Balance</p>
-              <h2 className="text-3xl font-bold text-text-main">{formatCurrency(totalOutstanding)}</h2>
-            </div>
-          </div>
-          <p className="text-sm text-text-muted max-w-xs">
-            You have {unpaidInvoices.length} unpaid invoice(s). You can pay securely online using UPI, Credit/Debit Card, or Netbanking.
-          </p>
+      {loading ? <Card className="p-6 text-sm text-text-muted">Loading your bills…</Card> : error ? (
+        <Card className="p-6 text-sm text-error">{error}</Card>
+      ) : invoices.length === 0 ? (
+        <Card><EmptyState icon={Receipt} title="No bills yet" description="Invoices from your clinic will appear here." /></Card>
+      ) : (
+        <div className="space-y-6">
+          {unpaid.length > 0 && (
+            <section>
+              <Card className="p-5 mb-3 bg-ink text-white border-none">
+                <div className="text-sm text-white/65">Total to pay</div>
+                <div className="text-[30px] font-semibold tabular leading-tight">{formatCurrency(totalDue)}</div>
+                {onlineEnabled ? (
+                  <p className="mt-1 text-sm text-white/70 flex items-center gap-1.5"><Smartphone className="w-4 h-4" /> Pay securely by UPI, card or net banking.</p>
+                ) : (
+                  <p className="mt-1 text-sm text-white/70">Please pay at the clinic reception.</p>
+                )}
+              </Card>
+              <Card className="overflow-hidden"><ul className="divide-y divide-line">{unpaid.map(i => row(i, true))}</ul></Card>
+            </section>
+          )}
+          {others.length > 0 && (
+            <section>
+              <h2 className="text-[15px] font-semibold text-text-main mb-2">Paid and past bills</h2>
+              <Card className="overflow-hidden"><ul className="divide-y divide-line">{others.map(i => row(i, false))}</ul></Card>
+            </section>
+          )}
         </div>
       )}
 
-      <Tabs.Root defaultValue="unpaid" className="mt-8">
-        <Tabs.List className="flex border-b border-line overflow-x-auto scrollbar-hide">
-          <Tabs.Trigger value="unpaid" className="whitespace-nowrap shrink-0 px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
-            Unpaid ({unpaidInvoices.length})
-          </Tabs.Trigger>
-          <Tabs.Trigger value="paid" className="whitespace-nowrap shrink-0 px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
-            Paid History
-          </Tabs.Trigger>
-        </Tabs.List>
-        <Tabs.Content value="unpaid" className="outline-none">
-          <InvoiceList invoices={unpaidInvoices} />
-        </Tabs.Content>
-        <Tabs.Content value="paid" className="outline-none">
-          <InvoiceList invoices={paidInvoices} />
-        </Tabs.Content>
-      </Tabs.Root>
-
-      {selectedInvoiceForPreview && (
-        <InvoicePreviewModal 
-          invoice={selectedInvoiceForPreview} 
-          onClose={() => setSelectedInvoiceForPreview(null)} 
-        />
-      )}
-
-      {selectedInvoiceForPayment && (
-        <CheckoutModal
-          invoice={selectedInvoiceForPayment}
-          onClose={() => setSelectedInvoiceForPayment(null)}
-          onSuccess={() => {
-            // Re-fetch or update UI would happen here. For mock, just close it.
-            setSelectedInvoiceForPayment(null);
-          }}
-        />
-      )}
+      {openId && <InvoicePreviewModal invoiceId={openId} onClose={() => setOpenId(null)} onChanged={load} />}
     </div>
   );
 }

@@ -15,14 +15,43 @@ Backend for VisionEdge DentAssist, implementing the first slice of `CONTRACT.md`
 | Waitlist | list, add, update status |
 | Patient portal | own appointments, booking options, self-book, reschedule, cancel, records |
 | Notifications | list, mark read, mark all read |
+| Billing | procedure catalog, invoices (draft → issue → paid/overdue, void), payments, payment plans, insurance claims |
+| Online payments | Razorpay orders, browser verification and signed webhook (UPI, cards, net banking) |
+| Reports | revenue by month/method/clinic, outstanding balances with ageing |
 | Settings | RBAC matrix, platform subscription, audit log |
 
 All JSON is camelCase to match `src/types.ts`. Errors always look like
 `{"message": "...", "code": "SOME_CODE", "fieldErrors": {...}}`.
 
 **Not yet on the backend** (the frontend still uses mock data for these): dental chart, treatment
-plans, clinical notes, documents, billing/invoices/payments, inventory, purchase orders, suppliers,
-lab orders, WhatsApp, Razorpay, reports. Dashboard figures that depend on them return 0 for now.
+plans, clinical notes, documents, inventory, purchase orders, suppliers, lab orders, WhatsApp.
+
+## Billing rules
+
+- Totals are always calculated on the server. Invoice numbers run per year (`INV-2026-0001`) and
+  are allocated under a row lock, so two people saving at once never clash.
+- **GST**: most dental treatment by a clinical establishment is GST-exempt, cosmetic work is not.
+  Each line has a `taxable` flag (pre-set from the procedure catalog: whitening and veneers are
+  taxable in the demo data). Tax is `DEFAULT_GST_RATE` (18%) on taxable lines after the discount,
+  split CGST/SGST, or IGST when `interState` is set. Check the rules with your accountant.
+- Only drafts can have their amounts changed; issued invoices can be voided (admins, and only
+  when no payment is recorded) and re-issued.
+- Status moves Draft → Sent → Partially Paid / Paid, and to Overdue after the due date.
+  A patient's outstanding balance is the sum of their issued, unpaid invoices.
+- Marking an insurance claim **Paid** records the approved amount as an insurance payment.
+
+## Online payments (Razorpay)
+
+1. Create a Razorpay account and copy the API key id and secret into `RAZORPAY_KEY_ID` and
+   `RAZORPAY_KEY_SECRET`.
+2. In Razorpay → Webhooks, add `https://<your-api>/api/v1/webhooks/razorpay/payment-success`
+   for the `payment.captured` event and put its secret in `RAZORPAY_WEBHOOK_SECRET`.
+   (Locally, expose the API with ngrok or Cloudflare Tunnel.)
+3. Staff then see **Collect by UPI / card** on issued invoices, and patients see **Pay** on their bills.
+
+Payments are confirmed twice (signature check after checkout, and the signed webhook) and recorded
+once: each Razorpay payment id can only be stored one time. Without keys, online payment is simply
+hidden and everything else works.
 
 ## Security model
 

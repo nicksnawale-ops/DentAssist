@@ -409,3 +409,207 @@ def column_values(model: BaseModel, exclude: set[str] | None = None) -> dict[str
     """
     exclude = exclude or set()
     return {k: _jsonable(getattr(model, k)) for k in model.model_fields_set if k not in exclude}
+
+
+# ---------- Billing ----------
+
+InvoiceStatus = Literal["Draft", "Sent", "Partially Paid", "Paid", "Overdue", "Void"]
+PaymentMethod = Literal["Cash", "Card", "UPI", "Bank Transfer", "Cheque", "Insurance"]
+ClaimStatus = Literal["Submitted", "Under Review", "Approved", "Rejected", "Paid"]
+
+
+class ProcedureIn(CamelModel):
+    name: str = Field(min_length=1, max_length=200)
+    category: str = "General"
+    default_cost: float = Field(ge=0)
+    default_duration_minutes: int = Field(default=30, ge=5, le=480)
+    gst_applicable: bool = False
+    clinic_id: str | None = None
+    is_active: bool = True
+
+
+class ProcedureUpdate(CamelModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    category: str | None = None
+    default_cost: float | None = Field(default=None, ge=0)
+    default_duration_minutes: int | None = Field(default=None, ge=5, le=480)
+    gst_applicable: bool | None = None
+    is_active: bool | None = None
+
+
+class ProcedureOut(CamelModel):
+    id: str
+    clinic_id: str | None = None
+    name: str
+    category: str
+    default_cost: float
+    default_duration_minutes: int
+    gst_applicable: bool
+    is_active: bool
+
+
+class InvoiceLineIn(CamelModel):
+    id: str | None = None
+    procedure_id: str | None = None
+    procedure_name: str = Field(max_length=200)
+    tooth_number: str | None = None
+    quantity: int = Field(default=1, ge=1, le=1000)
+    unit_cost: float = Field(ge=0)
+    taxable: bool = False
+
+
+class InvoiceCreate(CamelModel):
+    patient_id: str
+    clinic_id: str | None = None
+    treatment_plan_id: str | None = None
+    line_items: list[InvoiceLineIn] = Field(min_length=1)
+    discount: float = Field(default=0, ge=0)
+    discount_type: Literal["flat", "percentage"] = "flat"
+    tax_rate: float | None = Field(default=None, ge=0, le=28)
+    inter_state: bool = False
+    due_date: datetime
+    notes: str | None = None
+    send_now: bool = False
+
+
+class InvoiceUpdate(CamelModel):
+    line_items: list[InvoiceLineIn] | None = Field(default=None, min_length=1)
+    discount: float | None = Field(default=None, ge=0)
+    discount_type: Literal["flat", "percentage"] | None = None
+    tax_rate: float | None = Field(default=None, ge=0, le=28)
+    inter_state: bool | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
+
+
+class VoidRequest(CamelModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class PaymentIn(CamelModel):
+    amount: float = Field(gt=0)
+    method: PaymentMethod
+    reference_number: str | None = Field(default=None, max_length=120)
+    notes: str | None = None
+    paid_at: datetime | None = None
+
+
+class PaymentOut(CamelModel):
+    id: str
+    invoice_id: str
+    amount: float
+    method: str
+    reference_number: str | None = None
+    notes: str | None = None
+    source: str
+    recorded_by_staff_id: str | None = None
+    paid_at: datetime
+
+
+class InstallmentOut(CamelModel):
+    id: str
+    invoice_id: str
+    installment_number: int
+    amount: float
+    due_date: datetime
+    status: str
+
+
+class InstallmentPlanIn(CamelModel):
+    """Either give `count` (+ first due date and interval) or explicit `installments`."""
+    count: int | None = Field(default=None, ge=2, le=36)
+    first_due_date: datetime | None = None
+    interval_months: int = Field(default=1, ge=1, le=12)
+    installments: list[dict] | None = None
+
+
+class ClaimIn(CamelModel):
+    invoice_id: str
+    provider_name: str = Field(min_length=1, max_length=200)
+    policy_number: str | None = None
+    claim_amount: float = Field(gt=0)
+    notes: str | None = None
+
+
+class ClaimUpdate(CamelModel):
+    status: ClaimStatus | None = None
+    approved_amount: float | None = Field(default=None, ge=0)
+    notes: str | None = None
+
+
+class ClaimOut(CamelModel):
+    id: str
+    invoice_id: str
+    invoice_number: str | None = None
+    patient_id: str
+    patient_name: str | None = None
+    provider_name: str
+    policy_number: str | None = None
+    claim_amount: float
+    approved_amount: float | None = None
+    status: str
+    notes: str | None = None
+    submitted_at: datetime
+
+
+class InvoiceOut(CamelModel):
+    id: str
+    invoice_number: str
+    patient_id: str
+    patient_name: str | None = None
+    patient_phone: str | None = None
+    clinic_id: str
+    treatment_plan_id: str | None = None
+    line_items: list[dict]
+    subtotal: float
+    discount: float
+    discount_type: str
+    discount_amount: float
+    tax_rate: float
+    inter_state: bool
+    tax_breakdown: dict
+    total_tax: float
+    total: float
+    amount_paid: float
+    balance_due: float
+    status: InvoiceStatus
+    due_date: datetime
+    notes: str | None = None
+    sent_at: datetime | None = None
+    voided_at: datetime | None = None
+    void_reason: str | None = None
+    created_at: datetime
+    has_installments: bool = False
+
+
+class InvoiceDetailOut(InvoiceOut):
+    payments: list[PaymentOut] = []
+    installments: list[InstallmentOut] = []
+    claims: list[ClaimOut] = []
+
+
+class PaymentConfigOut(CamelModel):
+    online_payments_enabled: bool
+    key_id: str | None = None
+    currency: str
+    default_gst_rate: float
+
+
+class PaymentOrderOut(CamelModel):
+    order_id: str
+    amount: float
+    amount_paise: int
+    currency: str
+    key_id: str
+    invoice_id: str
+    invoice_number: str
+    patient_name: str
+    patient_email: str | None = None
+    patient_phone: str | None = None
+    clinic_name: str
+
+
+class VerifyPaymentIn(CamelModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str

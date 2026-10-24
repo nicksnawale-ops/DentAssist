@@ -11,6 +11,8 @@ Never run this against a database with real patient data.
 import argparse
 import json
 import os
+import random
+from decimal import Decimal
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -20,10 +22,25 @@ from sqlalchemy.orm import Session
 
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import hash_password
-from app.models import AppSetting, Appointment, Clinic, Notification, Patient, StaffProfile, User, WaitlistEntry
+from app.models import (
+    AppSetting,
+    Appointment,
+    Clinic,
+    Installment,
+    InsuranceClaim,
+    Invoice,
+    Notification,
+    Patient,
+    Procedure,
+    StaffProfile,
+    User,
+    WaitlistEntry,
+)
+from app.services import billing
 
 SEED_FILE = Path(__file__).parent / "seed_data" / "demo_seed.json"
 DEFAULT_CLINIC = "c1b48b94-132d-41a4-8f77-e2307fbadd2f"
+WESTSIDE_CLINIC = "dbbd4709-3224-4f01-b541-ef17621436dd"
 
 
 def _dt(value: str | None) -> datetime | None:
@@ -46,15 +63,21 @@ def seed(db: Session, password: str) -> dict[str, int]:
     first_clinic: dict[str, str] = {}
     for a in data["appointments"]:
         first_clinic.setdefault(a["patientId"], a["clinicId"])
+    # Patients with no appointments: pat_9 and above go to Westside so both clinics have records.
+    def home_clinic(pid: str) -> str:
+        if pid in first_clinic:
+            return first_clinic[pid]
+        return WESTSIDE_CLINIC if int(pid.split("_")[1]) >= 9 else DEFAULT_CLINIC
+
     for p in data["patients"]:
         db.add(Patient(
-            id=p["id"], clinic_id=first_clinic.get(p["id"], DEFAULT_CLINIC),
+            id=p["id"], clinic_id=home_clinic(p["id"]),
             first_name=p["firstName"], last_name=p.get("lastName", ""), phone=p["phone"], email=p.get("email"),
             dob=p.get("dob"), gender=p.get("gender"), address=p.get("address"),
             communication_prefs=p.get("communicationPrefs"), emergency_contact=p.get("emergencyContact"),
             medical_history=p.get("medicalHistory"), dental_history=p.get("dentalHistory"),
             insurance=p.get("insurance"), referral_source=p.get("referralSource"), tags=p.get("tags", []),
-            last_visit=p.get("lastVisit"), outstanding_balance=p.get("outstandingBalance", 0),
+            last_visit=p.get("lastVisit"), outstanding_balance=0,  # recalculated from invoices below
             created_at=_dt(p.get("createdAt")) or datetime.now(timezone.utc),
         ))
     db.flush()
@@ -108,9 +131,89 @@ def seed(db: Session, password: str) -> dict[str, int]:
 
     db.add(AppSetting(key="permissions", value=data["permissions"]))
     db.add(AppSetting(key="subscription", value=data["subscription"]))
+
+    for pr in data["procedures"]:
+        db.add(Procedure(id=pr["id"], name=pr["name"], category=pr["category"], default_cost=pr["defaultCost"],
+                         default_duration_minutes=pr["defaultDurationMinutes"], gst_applicable=pr["gstApplicable"]))
+    db.flush()
+    invoice_count = seed_invoices(db, data, home_clinic, users[0])
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
-            "appointments": len(data["appointments"])}
+            "appointments": len(data["appointments"]), "invoices": invoice_count}
+
+
+def seed_invoices(db: Session, data: dict, home_clinic, actor: User) -> int:
+    """Six months of realistic billing so revenue charts and balances have something to show."""
+    rng = random.Random(42)  # same demo data every time
+    procs = data["procedures"]
+    by_clinic: dict[str, list[str]] = {}
+    for p in data["patients"]:
+        by_clinic.setdefault(home_clinic(p["id"]), []).append(p["id"])
+
+    now = datetime.now(timezone.utc)
+    count = 0
+
+    def make(patient_id, clinic_id, created, lines, *, send=True, pay_ratio=1.0, method="UPI", due_days=7):
+        nonlocal count
+        totals = billing.compute_totals(lines, 0, "flat", 18, False)
+        inv = Invoice(invoice_number=billing.next_invoice_number(db, created), patient_id=patient_id,
+                      clinic_id=clinic_id, due_date=created + timedelta(days=due_days), created_by_id=actor.id,
+                      status="Sent" if send else "Draft", sent_at=created if send else None, **totals)
+        inv.created_at = created
+        db.add(inv)
+        db.flush()
+        if pay_ratio > 0:
+            amount = billing.money(inv.total * Decimal(str(pay_ratio)))
+            billing.record_payment(db, inv, amount, method, actor, reference=f"DEMO-{count:04d}",
+                                   paid_at=min(now, created + timedelta(days=rng.randint(0, 4))))
+        else:
+            billing.refresh_invoice(db, inv)
+        count += 1
+        return inv
+
+    def line(pr, tooth=None):
+        return {"procedureId": pr["id"], "procedureName": pr["name"], "toothNumber": tooth, "quantity": 1,
+                "unitCost": pr["defaultCost"], "taxable": pr["gstApplicable"]}
+
+    everyday = [p for p in procs if p["defaultCost"] <= 10000]
+    for months_back in range(5, -1, -1):
+        month_start = (now.replace(day=1) - timedelta(days=30 * months_back)).replace(day=1, hour=10, minute=0,
+                                                                                    second=0, microsecond=0)
+        for clinic_id, patients in by_clinic.items():
+            for _ in range(rng.randint(4, 7) + (5 - months_back)):  # gentle growth month on month
+                created = month_start + timedelta(days=rng.randint(0, 26), hours=rng.randint(0, 7))
+                if created > now:
+                    created = now - timedelta(hours=rng.randint(1, 48))
+                picks = [line(rng.choice(everyday), str(rng.choice([11, 16, 21, 26, 36, 46]))) for _ in range(rng.randint(1, 2))]
+                recent = months_back == 0
+                ratio = rng.choice([1.0, 1.0, 1.0, 0.5, 0.0]) if recent else (1.0 if rng.random() > 0.08 else 0.0)
+                make(rng.choice(patients), clinic_id, created, picks, pay_ratio=ratio,
+                     method=rng.choice(["UPI", "UPI", "UPI", "Cash", "Card"]))
+
+    # An orthodontic case on a 4-part payment plan, first part paid.
+    braces = next(p for p in procs if p["name"] == "Braces (Metal)")
+    ortho = make("pat_3", home_clinic("pat_3"), now - timedelta(days=75), [line(braces)], pay_ratio=0.0, due_days=120)
+    first_due = now - timedelta(days=45)
+    for n in range(4):
+        db.add(Installment(invoice_id=ortho.id, installment_number=n + 1, amount=billing.money(Decimal(ortho.total) / 4),
+                           due_date=first_due + timedelta(days=30 * n)))
+    db.flush()
+    billing.record_payment(db, ortho, billing.money(Decimal(ortho.total) / 4), "Card", actor, reference="DEMO-ORTHO-1",
+                           paid_at=first_due)
+
+    # An invoice partly covered by insurance that is still being processed.
+    rct = next(p for p in procs if p["name"] == "Root Canal Treatment (Posterior)")
+    crown = next(p for p in procs if p["name"] == "PFM Crown")
+    insured = make("pat_2", home_clinic("pat_2"), now - timedelta(days=12), [line(rct, "36"), line(crown, "36")],
+                   pay_ratio=0.0, due_days=30)
+    db.add(InsuranceClaim(invoice_id=insured.id, patient_id="pat_2", provider_name="HDFC Ergo Health",
+                          policy_number="HE-2291-77", claim_amount=billing.money(Decimal(insured.total) * Decimal("0.8")),
+                          status="Under Review", submitted_at=now - timedelta(days=10)))
+
+    # A draft waiting to be sent.
+    whitening = next(p for p in procs if p["name"] == "Teeth Whitening")
+    make("pat_1", home_clinic("pat_1"), now - timedelta(hours=3), [line(whitening)], send=False, pay_ratio=0.0)
+    return count
 
 
 def main() -> None:

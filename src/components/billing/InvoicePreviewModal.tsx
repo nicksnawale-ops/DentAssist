@@ -1,275 +1,381 @@
-import React, { useRef, useState } from 'react';
-import { Invoice } from '../../types';
-import { mockPatients } from '../../data/mockPatients';
-import { mockClinics } from '../../data/mockClinics';
-import { mockPayments } from '../../data/mockPayments';
+import React, { useCallback, useEffect, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { addMonths, format, parseISO } from 'date-fns';
+import { X, Printer, Send, IndianRupee, Smartphone, CalendarClock, ShieldCheck, Ban, CheckCircle2 } from 'lucide-react';
+import { Clinic, InvoiceDetail, PaymentMethod } from '../../types';
 import { Button } from '../ui/Button';
-import { X, Printer, Download, MessageCircle, Building2, CheckCircle2, IndianRupee } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { Skeleton } from '../ui/Skeleton';
 import { useToast } from '../ui/useToast';
-import { RecordPaymentModal } from './RecordPaymentModal';
-import { PaymentReceiptModal } from './PaymentReceiptModal';
+import { InvoiceStatusBadge } from './InvoiceStatusBadge';
+import { useAuth } from '../../context/AuthContext';
+import { getClinicById } from '../../api/apiService';
+import {
+  createClaim, getInvoice, getPaymentConfig, recordPayment, sendInvoice, setInstallments, voidInvoice,
+} from '../../api/billingService';
+import { payInvoiceOnline } from '../../lib/razorpay';
 import { formatCurrency } from '../../utils/currencyConfig';
 
 interface InvoicePreviewModalProps {
-  invoice: Invoice;
+  invoiceId: string;
   onClose: () => void;
+  /** Called after anything that changes the invoice (payment, issue, void...). */
+  onChanged?: () => void;
 }
 
-export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalProps) {
-  const patient = mockPatients.find(p => p.id === invoice.patientId);
-  const clinic = mockClinics.find(c => c.id === invoice.clinicId);
+type Panel = 'payment' | 'plan' | 'claim' | 'void' | null;
+
+const METHODS: PaymentMethod[] = ['UPI', 'Cash', 'Card', 'Bank Transfer', 'Cheque'];
+
+export function InvoicePreviewModal({ invoiceId, onClose, onChanged }: InvoicePreviewModalProps) {
+  const { user } = useAuth();
   const { toast } = useToast();
-  
-  const patientName = patient ? `${patient.firstName} ${patient.lastName}` : '';
-  
-  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
-  const [whatsAppSent, setWhatsAppSent] = useState(false);
-  const [showRecordPayment, setShowRecordPayment] = useState(false);
-  const [previewReceiptFor, setPreviewReceiptFor] = useState<any>(null);
-  
-  const payments = mockPayments.filter(p => p.invoiceId === invoice.id);
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const balance = Math.max(0, invoice.total - totalPaid);
-  
-  const handlePrint = () => {
-    window.print();
+  const isPatient = user?.role === 'patient';
+  const canBill = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'receptionist';
+  const canVoid = user?.role === 'super_admin' || user?.role === 'admin';
+
+  const [inv, setInv] = useState<InvoiceDetail | null>(null);
+  const [clinic, setClinic] = useState<Clinic | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [onlineEnabled, setOnlineEnabled] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
+
+  // Panel form state
+  const [amount, setAmount] = useState(0);
+  const [method, setMethod] = useState<PaymentMethod>('UPI');
+  const [reference, setReference] = useState('');
+  const [planCount, setPlanCount] = useState(3);
+  const [planStart, setPlanStart] = useState(format(addMonths(new Date(), 1), 'yyyy-MM-dd'));
+  const [insurer, setInsurer] = useState('');
+  const [policy, setPolicy] = useState('');
+  const [claimAmount, setClaimAmount] = useState(0);
+  const [voidReason, setVoidReason] = useState('');
+
+  const load = useCallback(async () => {
+    const res = await getInvoice(invoiceId);
+    if (res.data) {
+      setInv(res.data);
+      setAmount(res.data.balanceDue ?? 0);
+      setClaimAmount(res.data.balanceDue ?? res.data.total);
+      if (!isPatient && !clinic) getClinicById(res.data.clinicId).then(r => r.data && setClinic(r.data));
+    } else {
+      setError(res.error?.message || 'This invoice could not be loaded.');
+    }
+  }, [invoiceId, isPatient, clinic]);
+
+  useEffect(() => {
+    load();
+    getPaymentConfig().then(r => setOnlineEnabled(!!r.data?.onlinePaymentsEnabled));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
+
+  const applied = (updated: InvoiceDetail | null, message?: string) => {
+    if (updated) {
+      setInv(updated);
+      setAmount(updated.balanceDue ?? 0);
+      setPanel(null);
+      setPanelError(null);
+      onChanged?.();
+      if (message) toast({ title: message, variant: 'success' });
+    }
   };
 
-  const handleWhatsAppSend = () => {
-    setIsSendingWhatsApp(true);
-    setTimeout(() => {
-      setIsSendingWhatsApp(false);
-      setWhatsAppSent(true);
-      toast({
-        title: "WhatsApp Message Sent",
-        description: `Hi ${patientName}, your invoice #${invoice.invoiceNumber} for ${formatCurrency(invoice.total)} is ready. View/Pay here: https://link.to/pay`,
-      });
-      setTimeout(() => setWhatsAppSent(false), 3000);
-    }, 1500);
+  const run = async (key: string, fn: () => Promise<{ data: InvoiceDetail | null; error: { message: string } | null }>, message: string) => {
+    setBusy(key);
+    setPanelError(null);
+    const res = await fn();
+    setBusy(null);
+    if (res.data) applied(res.data, message);
+    else setPanelError(res.error?.message || 'Something went wrong. Try again.');
   };
 
-  const isPaid = invoice.status === 'Paid' || balance <= 0;
+  const payOnline = async () => {
+    if (!inv) return;
+    setBusy('online');
+    setPanelError(null);
+    const result = await payInvoiceOnline(inv.id);
+    setBusy(null);
+    if (result.status === 'paid') applied(result.invoice, 'Payment received. Thank you!');
+    else if (result.status === 'failed') setPanelError(result.error.message);
+  };
+
+  const balance = inv?.balanceDue ?? 0;
+  const issued = inv && !['Draft', 'Void'].includes(inv.status);
 
   return (
-    <div className="fixed inset-0 z-50 bg-base/90 backdrop-blur-sm flex flex-col p-4 overflow-y-auto print:bg-white print:p-0">
-      
-      {/* Modal Controls (Hidden when printing) */}
-      <div className="flex flex-wrap items-center justify-end gap-2 mb-4 shrink-0 print:hidden sticky top-0 z-50 bg-base/80 p-2 rounded-xl backdrop-blur-md max-w-[21cm] mx-auto w-full border border-line shadow-panel">
-         {balance > 0 && (
-           <Button size="sm" onClick={() => setShowRecordPayment(true)} className="gap-2 shadow-panel flex-1 sm:flex-none">
-             <IndianRupee className="w-4 h-4" /> Record Payment
-           </Button>
-         )}
-         <Button size="sm" variant="outline" onClick={handlePrint} className="bg-surface gap-2 shadow-panel flex-1 sm:flex-none">
-           <Printer className="w-4 h-4" /> Print / PDF
-         </Button>
-         <Button 
-           size="sm"
-           onClick={handleWhatsAppSend} 
-           disabled={isSendingWhatsApp || whatsAppSent}
-           className={`gap-2 shadow-panel flex-1 sm:flex-none ${whatsAppSent ? 'bg-success hover:bg-success text-white' : 'bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent'}`}
-         >
-           {whatsAppSent ? (
-             <><CheckCircle2 className="w-4 h-4" /> Sent</>
-           ) : isSendingWhatsApp ? (
-             <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Sending...</>
-           ) : (
-             <><MessageCircle className="w-4 h-4" /> WhatsApp</>
-           )}
-         </Button>
-         <button onClick={onClose} aria-label="Close" className="p-2 bg-surface border border-line text-text-muted hover:text-text-main rounded-lg shadow-panel transition-colors">
-           <X className="w-5 h-5" />
-         </button>
-      </div>
+    <Dialog.Root open onOpenChange={open => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40 print:hidden" />
+        <Dialog.Content className="fixed z-50 inset-x-0 bottom-0 top-6 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-3xl sm:max-h-[92vh] bg-surface rounded-t-[20px] sm:rounded-panel shadow-float flex flex-col print:static print:translate-x-0 print:translate-y-0 print:max-h-none print:shadow-none print:rounded-none">
+          <div className="flex items-center gap-3 px-5 sm:px-6 h-14 border-b border-line shrink-0 print:hidden">
+            <Dialog.Title className="text-[17px] font-semibold text-text-main flex-1 truncate">
+              {inv ? `Invoice ${inv.invoiceNumber}` : 'Invoice'}
+            </Dialog.Title>
+            {inv && <InvoiceStatusBadge status={inv.status} />}
+            <Dialog.Close className="p-2 -mr-2 rounded-control text-text-muted hover:bg-base" aria-label="Close">
+              <X className="w-5 h-5" />
+            </Dialog.Close>
+          </div>
 
-      {/* Actual Invoice Document */}
-      <div className="bg-white text-gray-900 w-full max-w-[21cm] min-h-[29.7cm] shadow-2xl p-6 sm:p-12 relative flex flex-col mx-auto shrink-0 print:shadow-none print:w-full print:max-w-none print:h-auto print:min-h-0 print:p-0">
-         
-         {/* Status Watermark */}
-         {isPaid && (
-           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] border-4 border-green-500/20 text-green-500/20 text-8xl font-black pointer-events-none select-none z-0">
-             PAID
-           </div>
-         )}
-         
-         {/* Header */}
-         <div className="flex justify-between items-start border-b-2 border-gray-100 pb-8 relative z-10">
-            <div>
-               <div className="flex items-center gap-3 mb-2">
-                 <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-white">
-                   <Building2 className="w-6 h-6" />
-                 </div>
-                 <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{clinic?.name || 'VisionEdge DentAssist Dental'}</h1>
-               </div>
-                <p className="text-sm text-gray-600 mt-2 max-w-xs">
-                  {clinic?.address 
-                    ? (typeof clinic.address === 'string' ? clinic.address : `${clinic.address.street}, ${clinic.address.city}, ${clinic.address.state} ${clinic.address.pincode}`) 
-                    : '123 Dental Street, Healthcare City'}
-                </p>
-               <p className="text-sm text-gray-600">Tel: {clinic?.phone || '+91 98765 43210'}</p>
-               <p className="text-sm text-gray-600 font-medium mt-1">GSTIN: {clinic?.id === 'c1' ? '27AAAAA0000A1Z5' : 'N/A'}</p>
+          {!inv ? (
+            <div className="p-6 space-y-3">
+              {error ? <p className="text-sm text-error">{error}</p> : (<><Skeleton className="h-6 w-1/3" /><Skeleton className="h-40 w-full" /></>)}
             </div>
-            <div className="text-right">
-               <h2 className="text-4xl font-black text-gray-200 mb-4">Invoice</h2>
-               <div className="space-y-1 text-sm">
-                  <div className="flex justify-end gap-4"><span className="text-gray-500 w-24">Invoice No:</span> <span className="font-bold text-gray-900">{invoice.invoiceNumber}</span></div>
-                  <div className="flex justify-end gap-4"><span className="text-gray-500 w-24">Date:</span> <span className="font-medium text-gray-900">{format(parseISO(invoice.createdAt), 'dd MMM yyyy')}</span></div>
-                  <div className="flex justify-end gap-4"><span className="text-gray-500 w-24">Due Date:</span> <span className="font-medium text-gray-900">{format(parseISO(invoice.dueDate), 'dd MMM yyyy')}</span></div>
-               </div>
-            </div>
-         </div>
+          ) : (
+            <>
+              {/* Actions */}
+              <div className="px-5 sm:px-6 py-3 border-b border-line flex flex-wrap gap-2 shrink-0 print:hidden">
+                {canBill && inv.status === 'Draft' && (
+                  <Button size="sm" onClick={() => run('send', () => sendInvoice(inv.id), 'Invoice issued')} loading={busy === 'send'}>
+                    <Send className="w-4 h-4" /> Issue to patient
+                  </Button>
+                )}
+                {issued && balance > 0 && onlineEnabled && (
+                  <Button size="sm" variant={isPatient ? 'default' : 'outline'} onClick={payOnline} loading={busy === 'online'}>
+                    <Smartphone className="w-4 h-4" /> {isPatient ? `Pay ${formatCurrency(balance)}` : 'Collect by UPI / card'}
+                  </Button>
+                )}
+                {canBill && issued && balance > 0 && (
+                  <Button size="sm" variant={panel === 'payment' ? 'default' : 'outline'} onClick={() => setPanel(panel === 'payment' ? null : 'payment')}>
+                    <IndianRupee className="w-4 h-4" /> Record payment
+                  </Button>
+                )}
+                {canBill && issued && balance > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => setPanel(panel === 'plan' ? null : 'plan')}>
+                    <CalendarClock className="w-4 h-4" /> Payment plan
+                  </Button>
+                )}
+                {canBill && issued && (
+                  <Button size="sm" variant="outline" onClick={() => setPanel(panel === 'claim' ? null : 'claim')}>
+                    <ShieldCheck className="w-4 h-4" /> Insurance claim
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                  <Printer className="w-4 h-4" /> Print
+                </Button>
+                {canVoid && inv.status !== 'Void' && (inv.amountPaid ?? 0) === 0 && (
+                  <Button size="sm" variant="ghost" className="text-error hover:bg-error/5" onClick={() => setPanel(panel === 'void' ? null : 'void')}>
+                    <Ban className="w-4 h-4" /> Void
+                  </Button>
+                )}
+              </div>
 
-         {/* Bill To */}
-         <div className="mt-8 mb-8 relative z-10">
-            <h3 className="text-xs font-bold text-gray-400 mb-2">Bill To</h3>
-            <p className="font-bold text-gray-900 text-lg">{patientName}</p>
-            <p className="text-sm text-gray-600 mt-1">{patient?.phone}</p>
-            <p className="text-sm text-gray-600">{patient?.email}</p>
-         </div>
+              <div className="flex-1 overflow-y-auto">
+                {/* Action panels */}
+                {panel && (
+                  <div className="mx-5 sm:mx-6 mt-4 rounded-control border border-line bg-surface-hover p-4 print:hidden">
+                    {panel === 'payment' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <Field label="Amount">
+                          <input type="number" min={1} max={balance} value={amount} onChange={e => setAmount(Number(e.target.value) || 0)} className={inputCls} />
+                        </Field>
+                        <Field label="Method">
+                          <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod)} className={inputCls}>
+                            {METHODS.map(m => <option key={m}>{m}</option>)}
+                          </select>
+                        </Field>
+                        <Field label="Reference (optional)">
+                          <input value={reference} onChange={e => setReference(e.target.value)} placeholder="UPI / card ref" className={inputCls} />
+                        </Field>
+                        <Button onClick={() => run('pay', () => recordPayment(inv.id, { amount, method, referenceNumber: reference || undefined }), `${formatCurrency(amount)} recorded`)} loading={busy === 'pay'} disabled={amount <= 0}>
+                          Save payment
+                        </Button>
+                      </div>
+                    )}
+                    {panel === 'plan' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                        <Field label="Number of payments">
+                          <select value={planCount} onChange={e => setPlanCount(Number(e.target.value))} className={inputCls}>
+                            {[2, 3, 4, 6, 9, 12].map(n => <option key={n} value={n}>{n} monthly payments</option>)}
+                          </select>
+                        </Field>
+                        <Field label="First payment due">
+                          <input type="date" value={planStart} onChange={e => setPlanStart(e.target.value)} className={inputCls} />
+                        </Field>
+                        <Button onClick={() => run('plan', () => setInstallments(inv.id, { count: planCount, firstDueDate: new Date(`${planStart}T23:59:00`).toISOString() }), 'Payment plan saved')} loading={busy === 'plan'}>
+                          Save plan
+                        </Button>
+                        <p className="sm:col-span-3 text-[13px] text-text-muted">About {formatCurrency(Math.round(inv.total / planCount))} each. Payments are applied to the plan in order.</p>
+                      </div>
+                    )}
+                    {panel === 'claim' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <Field label="Insurer">
+                          <input value={insurer} onChange={e => setInsurer(e.target.value)} placeholder="e.g. Star Health" className={inputCls} />
+                        </Field>
+                        <Field label="Policy number">
+                          <input value={policy} onChange={e => setPolicy(e.target.value)} className={inputCls} />
+                        </Field>
+                        <Field label="Claim amount">
+                          <input type="number" min={1} value={claimAmount} onChange={e => setClaimAmount(Number(e.target.value) || 0)} className={inputCls} />
+                        </Field>
+                        <Button
+                          onClick={async () => {
+                            setBusy('claim');
+                            setPanelError(null);
+                            const res = await createClaim({ invoiceId: inv.id, providerName: insurer, policyNumber: policy || undefined, claimAmount });
+                            setBusy(null);
+                            if (res.data) { setPanel(null); load(); onChanged?.(); toast({ title: 'Claim filed', variant: 'success' }); }
+                            else setPanelError(res.error?.message || 'The claim could not be filed.');
+                          }}
+                          loading={busy === 'claim'}
+                          disabled={!insurer.trim() || claimAmount <= 0}
+                        >
+                          File claim
+                        </Button>
+                      </div>
+                    )}
+                    {panel === 'void' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <div className="sm:col-span-3">
+                          <Field label="Why is this invoice being voided?">
+                            <input value={voidReason} onChange={e => setVoidReason(e.target.value)} placeholder="e.g. Raised for the wrong patient" className={inputCls} />
+                          </Field>
+                        </div>
+                        <Button variant="danger" onClick={() => run('void', () => voidInvoice(inv.id, voidReason), 'Invoice voided')} loading={busy === 'void'} disabled={voidReason.trim().length < 3}>
+                          Void invoice
+                        </Button>
+                      </div>
+                    )}
+                    {panelError && <p role="alert" className="mt-3 text-sm text-error">{panelError}</p>}
+                  </div>
+                )}
+                {!panel && panelError && <p role="alert" className="mx-5 sm:mx-6 mt-4 text-sm text-error print:hidden">{panelError}</p>}
 
-         {/* Line Items Table */}
-         <div className="mt-8 flex-1 relative z-10">
-            <table className="w-full text-left">
-               <thead>
-                  <tr className="border-b-2 border-gray-900">
-                     <th className="py-3 text-sm font-bold text-gray-900 w-12">#</th>
-                     <th className="py-3 text-sm font-bold text-gray-900">Description</th>
-                     <th className="py-3 text-sm font-bold text-gray-900 text-right w-24">Qty</th>
-                     <th className="py-3 text-sm font-bold text-gray-900 text-right w-32">Unit Price</th>
-                     <th className="py-3 text-sm font-bold text-gray-900 text-right w-32">Amount</th>
-                  </tr>
-               </thead>
-               <tbody className="divide-y divide-gray-100">
-                  {invoice.lineItems.map((item, index) => (
-                    <tr key={item.id}>
-                       <td className="py-4 text-sm text-gray-600">{index + 1}</td>
-                       <td className="py-4 text-sm text-gray-900 font-medium">
-                         {item.procedureName}
-                         {item.toothNumber && <span className="block text-xs text-gray-500 font-normal mt-0.5">Tooth: {item.toothNumber}</span>}
-                       </td>
-                       <td className="py-4 text-sm text-gray-600 text-right">{item.quantity}</td>
-                       <td className="py-4 text-sm text-gray-600 text-right">{formatCurrency(item.unitCost)}</td>
-                       <td className="py-4 text-sm text-gray-900 font-bold text-right">{formatCurrency(item.total)}</td>
-                    </tr>
-                  ))}
-               </tbody>
-            </table>
-         </div>
+                {/* Printable invoice */}
+                <article className="print-area px-5 sm:px-8 py-6 text-text-main">
+                  <header className="flex flex-col sm:flex-row sm:justify-between gap-4 pb-5 border-b border-line">
+                    <div>
+                      <div className="text-lg font-semibold">{clinic?.name || 'DentAssist clinic'}</div>
+                      {clinic?.address && (
+                        <div className="text-[13px] text-text-muted">
+                          {[clinic.address.street, clinic.address.city, clinic.address.state, clinic.address.pincode].filter(Boolean).join(', ')}
+                        </div>
+                      )}
+                      {clinic?.phone && <div className="text-[13px] text-text-muted">{clinic.phone}</div>}
+                    </div>
+                    <div className="sm:text-right">
+                      <div className="text-lg font-semibold">Invoice {inv.invoiceNumber}</div>
+                      <div className="text-[13px] text-text-muted">Issued {format(parseISO(inv.sentAt || inv.createdAt), 'd MMM yyyy')}</div>
+                      <div className="text-[13px] text-text-muted">Due {format(parseISO(inv.dueDate), 'd MMM yyyy')}</div>
+                    </div>
+                  </header>
 
-         {/* Totals Section */}
-         <div className="mt-8 flex justify-end relative z-10 border-t border-gray-100 pt-8">
-            <div className="w-80 space-y-3">
-               <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(invoice.subtotal)}</span>
-               </div>
-               
-               {invoice.discount > 0 && (
-                 <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Discount {invoice.discountType === 'percentage' && `(${invoice.discount}%)`}</span>
-                    <span className="font-medium text-red-600">-{formatCurrency((invoice.discountType === 'flat' ? invoice.discount : (invoice.subtotal * invoice.discount / 100)))}</span>
-                 </div>
-               )}
+                  <div className="py-4 text-sm">
+                    <div className="text-text-muted text-[13px]">Billed to</div>
+                    <div className="font-medium">{inv.patientName}</div>
+                    {inv.patientPhone && <div className="text-text-muted">{inv.patientPhone}</div>}
+                  </div>
 
-               <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">CGST (9%)</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(invoice.taxBreakdown.cgst, {minimumFractionDigits: 2})}</span>
-               </div>
-               <div className="flex justify-between text-sm pb-3 border-b border-gray-200">
-                  <span className="text-gray-500">SGST (9%)</span>
-                  <span className="font-medium text-gray-900">{formatCurrency(invoice.taxBreakdown.sgst, {minimumFractionDigits: 2})}</span>
-               </div>
+                  <table className="w-full text-sm">
+                    <thead className="text-[13px] text-text-muted border-b border-line">
+                      <tr>
+                        <th className="py-2 text-left font-medium">Treatment</th>
+                        <th className="py-2 text-right font-medium w-14">Qty</th>
+                        <th className="py-2 text-right font-medium w-28">Price</th>
+                        <th className="py-2 text-right font-medium w-28">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {inv.lineItems.map(li => (
+                        <tr key={li.id}>
+                          <td className="py-2.5 pr-2">
+                            {li.procedureName}
+                            {li.toothNumber && <span className="text-text-muted">, tooth {li.toothNumber}</span>}
+                            {li.taxable && <span className="ml-1.5 text-[11px] text-text-muted">(GST)</span>}
+                          </td>
+                          <td className="py-2.5 text-right">{li.quantity}</td>
+                          <td className="py-2.5 text-right">{formatCurrency(li.unitCost)}</td>
+                          <td className="py-2.5 text-right">{formatCurrency(li.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-               <div className="flex justify-between items-center pt-2">
-                  <span className="font-bold text-gray-900 text-lg">Total</span>
-                  <span className="font-black text-gray-900 text-2xl">{formatCurrency(invoice.total, {minimumFractionDigits: 2})}</span>
-               </div>
-               
-               {payments.length > 0 && (
-                 <>
-                   <div className="flex justify-between text-sm text-success pt-2">
-                      <span className="font-semibold">Total Paid</span>
-                      <span className="font-bold">-{formatCurrency(totalPaid, {minimumFractionDigits: 2})}</span>
-                   </div>
-                   <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <span className="font-bold text-gray-900 text-lg">Balance Due</span>
-                      <span className="font-black text-error text-xl">{formatCurrency(balance, {minimumFractionDigits: 2})}</span>
-                   </div>
-                 </>
-               )}
-            </div>
-         </div>
+                  <dl className="mt-4 ml-auto max-w-xs grid grid-cols-2 gap-y-1 text-sm">
+                    <dt className="text-text-muted">Subtotal</dt><dd className="text-right tabular">{formatCurrency(inv.subtotal)}</dd>
+                    {(inv.discountAmount ?? 0) > 0 && (<><dt className="text-text-muted">Discount</dt><dd className="text-right tabular">−{formatCurrency(inv.discountAmount!)}</dd></>)}
+                    {inv.taxBreakdown.cgst > 0 && (<><dt className="text-text-muted">CGST</dt><dd className="text-right tabular">{formatCurrency(inv.taxBreakdown.cgst)}</dd></>)}
+                    {inv.taxBreakdown.sgst > 0 && (<><dt className="text-text-muted">SGST</dt><dd className="text-right tabular">{formatCurrency(inv.taxBreakdown.sgst)}</dd></>)}
+                    {inv.taxBreakdown.igst > 0 && (<><dt className="text-text-muted">IGST</dt><dd className="text-right tabular">{formatCurrency(inv.taxBreakdown.igst)}</dd></>)}
+                    <dt className="font-semibold pt-1 border-t border-line">Total</dt>
+                    <dd className="text-right font-semibold pt-1 border-t border-line tabular">{formatCurrency(inv.total)}</dd>
+                    {(inv.amountPaid ?? 0) > 0 && (<><dt className="text-text-muted">Paid</dt><dd className="text-right tabular">{formatCurrency(inv.amountPaid!)}</dd></>)}
+                    {inv.status !== 'Void' && (<><dt className="font-semibold">Balance due</dt><dd className="text-right font-semibold tabular">{formatCurrency(balance)}</dd></>)}
+                  </dl>
 
-         {/* Payment History */}
-         {payments.length > 0 && (
-           <div className="mt-8 relative z-10 bg-gray-50 rounded-xl p-6 border border-gray-100">
-             <h4 className="text-sm font-bold text-gray-900 mb-4">Payment History</h4>
-             <div className="space-y-3">
-               {payments.map(p => (
-                 <div key={p.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-panel">
-                   <div className="flex items-center gap-3">
-                     <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                       <IndianRupee className="w-4 h-4" />
-                     </div>
-                     <div>
-                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(p.amount)} <span className="text-gray-500 font-normal">via {p.method}</span></p>
-                       <p className="text-xs text-gray-500">{format(parseISO(p.paidAt), 'MMM d, yyyy h:mm a')} {p.referenceNumber && `• Ref: ${p.referenceNumber}`}</p>
-                     </div>
-                   </div>
-                   <Button variant="ghost" size="sm" onClick={() => setPreviewReceiptFor(p)} className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                     View Receipt
-                   </Button>
-                 </div>
-               ))}
-             </div>
-           </div>
-         )}
+                  {inv.notes && <p className="mt-5 text-sm text-text-muted">{inv.notes}</p>}
+                  {inv.status === 'Void' && <p className="mt-5 text-sm text-error">Voided{inv.voidReason ? `: ${inv.voidReason}` : ''}</p>}
 
-         {/* Footer / Notes */}
-         <div className="mt-16 pt-8 border-t-2 border-gray-100 relative z-10 flex justify-between items-end">
-            <div className="max-w-md">
-               <h4 className="text-xs font-bold text-gray-900 mb-2">Payment Instructions</h4>
-               <p className="text-sm text-gray-500 leading-relaxed">
-                 Please make the payment by the due date. You can pay via UPI to <span className="font-semibold text-gray-700">pay@visionedge</span> or transfer to Account No: XXXXXX9999, IFSC: SBIN000XXXX.
-               </p>
-               {invoice.notes && (
-                 <div className="mt-4 pt-4 border-t border-gray-100">
-                   <h4 className="text-xs font-bold text-gray-900 mb-2">Notes</h4>
-                   <p className="text-sm text-gray-600 italic">{invoice.notes}</p>
-                 </div>
-               )}
-            </div>
-            
-            <div className="text-center">
-               <div className="w-40 h-24 border-b border-gray-300 mb-2 flex items-end justify-center">
-                  <span className="text-gray-300 font-medium italic select-none">Authorized Signatory</span>
-               </div>
-               <p className="text-xs text-gray-500 font-medium">For {clinic?.name}</p>
-            </div>
-         </div>
+                  {inv.installments.length > 0 && (
+                    <section className="mt-6">
+                      <h3 className="text-sm font-semibold mb-2">Payment plan</h3>
+                      <ul className="divide-y divide-line border border-line rounded-control">
+                        {inv.installments.map(i => (
+                          <li key={i.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span>Payment {i.installmentNumber}, due {format(parseISO(i.dueDate), 'd MMM yyyy')}</span>
+                            <span className="flex items-center gap-3">
+                              <span className="tabular">{formatCurrency(i.amount)}</span>
+                              <span className={`text-xs font-medium ${i.status === 'Paid' ? 'text-success' : i.status === 'Overdue' ? 'text-error' : 'text-text-muted'}`}>{i.status}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
 
-      </div>
-      
-      {showRecordPayment && (
-        <RecordPaymentModal 
-          invoice={invoice} 
-          onClose={() => setShowRecordPayment(false)} 
-          onPaymentRecorded={(amount, method) => {
-            console.log('Recorded', amount, method);
-            toast({ title: 'Payment Recorded', description: `Successfully recorded ${formatCurrency(amount)} via ${method}.` });
-            setShowRecordPayment(false);
-          }} 
-        />
-      )}
-      
-      {previewReceiptFor && (
-        <PaymentReceiptModal 
-          invoice={invoice} 
-          payment={previewReceiptFor} 
-          onClose={() => setPreviewReceiptFor(null)} 
-        />
-      )}
-    </div>
+                  {inv.payments.length > 0 && (
+                    <section className="mt-6">
+                      <h3 className="text-sm font-semibold mb-2">Payments received</h3>
+                      <ul className="divide-y divide-line border border-line rounded-control">
+                        {inv.payments.map(p => (
+                          <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span className="flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4 text-success" aria-hidden="true" />
+                              {format(parseISO(p.paidAt), 'd MMM yyyy')}, {p.method}
+                              {p.referenceNumber && <span className="text-text-muted">({p.referenceNumber})</span>}
+                            </span>
+                            <span className="tabular">{formatCurrency(p.amount)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  {inv.claims.length > 0 && !isPatient && (
+                    <section className="mt-6 print:hidden">
+                      <h3 className="text-sm font-semibold mb-2">Insurance</h3>
+                      <ul className="divide-y divide-line border border-line rounded-control">
+                        {inv.claims.map(c => (
+                          <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span>{c.providerName}{c.policyNumber ? `, policy ${c.policyNumber}` : ''}</span>
+                            <span className="flex items-center gap-3">
+                              <span className="tabular">{formatCurrency(c.approvedAmount ?? c.claimAmount)}</span>
+                              <span className="text-xs font-medium text-text-muted">{c.status}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                </article>
+              </div>
+            </>
+          )}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
+const inputCls = 'w-full h-10 px-3 bg-surface border border-line rounded-control text-sm focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/15';
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="block text-xs text-text-muted mb-1">{label}</span>
+      {children}
+    </label>
   );
 }

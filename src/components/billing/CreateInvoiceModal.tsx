@@ -1,310 +1,295 @@
-import React, { useState, useEffect } from 'react';
-import { mockPatients } from '../../data/mockPatients';
-import { mockTreatmentPlans } from '../../data/mockTreatmentPlans';
-import { Invoice, InvoiceLineItem, TreatmentPlan } from '../../types';
-import { X, Plus, Trash2, Calendar, FileText, IndianRupee } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { addDays, format } from 'date-fns';
+import { Plus, Trash2, X, Search } from 'lucide-react';
+import { InvoiceDetail, InvoiceLineItem, Patient, Procedure } from '../../types';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
-import { format, addDays } from 'date-fns';
-import { useCurrency } from '../../utils/currencyConfig';
+import { getPatientById, getPatients } from '../../api/apiService';
+import { computeTotals, createInvoice, getPaymentConfig, getProcedures } from '../../api/billingService';
+import { formatCurrency } from '../../utils/currencyConfig';
+
+type Line = Pick<InvoiceLineItem, 'procedureId' | 'procedureName' | 'toothNumber' | 'quantity' | 'unitCost' | 'taxable'> & { key: string };
 
 interface CreateInvoiceModalProps {
   onClose: () => void;
-  onSave: (invoice: Invoice) => void;
+  onCreated: (invoice: InvoiceDetail) => void;
   initialPatientId?: string;
   initialTreatmentPlanId?: string;
+  /** Pre-filled lines, e.g. from an approved treatment plan. */
+  initialLines?: Omit<Line, 'key'>[];
 }
 
-export function CreateInvoiceModal({ onClose, onSave, initialPatientId, initialTreatmentPlanId }: CreateInvoiceModalProps) {
+const blankLine = (): Line => ({ key: Math.random().toString(36).slice(2), procedureName: '', quantity: 1, unitCost: 0, taxable: false });
+
+export function CreateInvoiceModal({ onClose, onCreated, initialPatientId, initialTreatmentPlanId, initialLines }: CreateInvoiceModalProps) {
   const { selectedClinicId } = useAuth();
-  const { formatCurrency, symbol } = useCurrency();
-  const [patientId, setPatientId] = useState(initialPatientId || '');
-  const [treatmentPlanId, setTreatmentPlanId] = useState(initialTreatmentPlanId || '');
-  
-  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([
-    { id: 'new-1', procedureName: '', quantity: 1, unitCost: 0, total: 0 }
-  ]);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [patientResults, setPatientResults] = useState<Patient[]>([]);
+  const [procedures, setProcedures] = useState<Procedure[]>([]);
+  const [taxRate, setTaxRate] = useState(18);
+  const [lines, setLines] = useState<Line[]>(
+    initialLines?.length ? initialLines.map(l => ({ ...l, key: Math.random().toString(36).slice(2) })) : [blankLine()],
+  );
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
+  const [interState, setInterState] = useState(false);
   const [dueDate, setDueDate] = useState(format(addDays(new Date(), 7), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState<'draft' | 'send' | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Auto-fill from treatment plan if selected
   useEffect(() => {
-    if (treatmentPlanId) {
-      const plan = mockTreatmentPlans.find(tp => tp.id === treatmentPlanId);
-      if (plan) {
-        const newLineItems = plan.items.map(item => {
-          const procName = item.procedureId; // In a real app we'd map this from master procedures list
-          return {
-            id: `li-${Date.now()}-${Math.random()}`,
-            procedureName: procName + (item.toothNumber ? ` (Tooth: ${item.toothNumber})` : ''),
-            toothNumber: item.toothNumber,
-            quantity: 1,
-            unitCost: item.cost,
-            total: item.cost
-          };
-        });
-        setLineItems(newLineItems);
-        if (plan.discount > 0) {
-            setDiscount(plan.discount);
-            setDiscountType(plan.discountType);
-        }
-      }
+    getProcedures().then(r => setProcedures(r.data || []));
+    getPaymentConfig().then(r => r.data && setTaxRate(r.data.defaultGstRate));
+    if (initialPatientId) getPatientById(initialPatientId).then(r => r.data && setPatient(r.data));
+  }, [initialPatientId]);
+
+  // Patient search
+  useEffect(() => {
+    if (patient || patientQuery.trim().length < 2) {
+      setPatientResults([]);
+      return;
     }
-  }, [treatmentPlanId]);
+    const t = setTimeout(() => {
+      getPatients({ search: patientQuery.trim() }).then(r => setPatientResults((r.data || []).slice(0, 8)));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [patientQuery, patient]);
 
-  const updateLineItem = (id: string, field: keyof InvoiceLineItem, value: any) => {
-    setLineItems(items => items.map(item => {
-      if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        if (field === 'quantity' || field === 'unitCost') {
-          updatedItem.total = updatedItem.quantity * updatedItem.unitCost;
-        }
-        return updatedItem;
-      }
-      return item;
-    }));
+  const byName = useMemo(() => new Map(procedures.map(p => [p.name.toLowerCase(), p])), [procedures]);
+  const valid = lines.filter(l => l.procedureName.trim());
+  const totals = computeTotals(valid, discount, discountType, taxRate, interState);
+
+  const updateLine = (key: string, patch: Partial<Line>) =>
+    setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
+
+  const onProcedureName = (key: string, name: string) => {
+    const match = byName.get(name.trim().toLowerCase());
+    updateLine(key, match
+      ? { procedureName: match.name, procedureId: match.id, unitCost: match.defaultCost, taxable: !!match.gstApplicable }
+      : { procedureName: name, procedureId: undefined });
   };
 
-  const addLineItem = () => {
-    setLineItems([...lineItems, { id: `new-${Date.now()}`, procedureName: '', quantity: 1, unitCost: 0, total: 0 }]);
-  };
-
-  const removeLineItem = (id: string) => {
-    setLineItems(items => items.filter(i => i.id !== id));
-  };
-
-  const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-  const discountAmount = discountType === 'percentage' ? (subtotal * (discount / 100)) : discount;
-  const taxableAmount = subtotal - discountAmount;
-  
-  // Hardcoding 18% GST for medical/services if applicable (usually healthcare is exempt, but let's assume some taxable procedures for demo)
-  // Let's assume an overall 18% GST (9% CGST, 9% SGST) for the sake of demonstrating itemized taxes.
-  const cgst = taxableAmount * 0.09;
-  const sgst = taxableAmount * 0.09;
-  const totalTax = cgst + sgst;
-  const total = taxableAmount + totalTax;
-
-  const handleSave = () => {
-    const newInvoice: Invoice = {
-      id: `inv_new_${Date.now()}`,
-      patientId,
-      clinicId: selectedClinicId !== 'all' ? selectedClinicId : 'c1',
-      invoiceNumber: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      treatmentPlanId: treatmentPlanId || undefined,
-      lineItems: lineItems.filter(li => li.procedureName.trim() !== ''),
-      subtotal,
+  const save = async (send: boolean) => {
+    setError(null);
+    if (!patient) return setError('Choose the patient this invoice is for.');
+    if (valid.length === 0) return setError('Add at least one treatment or item.');
+    setSaving(send ? 'send' : 'draft');
+    const res = await createInvoice({
+      patientId: patient.id,
+      clinicId: selectedClinicId !== 'all' ? selectedClinicId : undefined,
+      treatmentPlanId: initialTreatmentPlanId,
+      lineItems: valid.map(({ key, ...l }) => ({ ...l, toothNumber: l.toothNumber || undefined })),
       discount,
       discountType,
-      taxBreakdown: { cgst, sgst, igst: 0 },
-      totalTax,
-      total,
-      status: 'Draft',
-      dueDate: new Date(dueDate).toISOString(),
-      notes,
-      createdAt: new Date().toISOString()
-    };
-    onSave(newInvoice);
+      taxRate,
+      interState,
+      dueDate: new Date(`${dueDate}T23:59:00`).toISOString(),
+      notes: notes || undefined,
+      sendNow: send,
+    });
+    setSaving(null);
+    if (!res.data) return setError(res.error?.message || 'The invoice could not be saved.');
+    onCreated(res.data);
   };
 
-  const patientPlans = mockTreatmentPlans.filter(tp => tp.patientId === patientId && tp.status === 'Approved');
+  const hasTaxableLines = valid.some(l => l.taxable);
 
   return (
-    <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-4xl rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-line flex justify-between items-center bg-base">
-          <h3 className="font-bold text-text-main flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary" /> Create Invoice
-          </h3>
-          <button onClick={onClose} className="p-1.5 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Dialog.Root open onOpenChange={open => !open && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />
+        <Dialog.Content className="fixed z-50 inset-x-0 bottom-0 top-6 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-full sm:max-w-3xl sm:max-h-[90vh] bg-surface rounded-t-[20px] sm:rounded-panel shadow-float flex flex-col">
+          <div className="flex items-center justify-between px-5 sm:px-6 h-14 border-b border-line shrink-0">
+            <Dialog.Title className="text-[17px] font-semibold text-text-main">New invoice</Dialog.Title>
+            <Dialog.Close className="p-2 -mr-2 rounded-control text-text-muted hover:bg-base" aria-label="Close">
+              <X className="w-5 h-5" />
+            </Dialog.Close>
+          </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-2">Select Patient</label>
-                <select 
-                  value={patientId} 
-                  onChange={e => { setPatientId(e.target.value); setTreatmentPlanId(''); }}
-                  className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                  disabled={!!initialPatientId}
-                >
-                  <option value="">-- Select Patient --</option>
-                  {mockPatients.map(p => (
-                    <option key={p.id} value={p.id}>{p.firstName} {p.lastName} ({p.phone})</option>
-                  ))}
-                </select>
-              </div>
-              
-              {patientId && patientPlans.length > 0 && (
-                <div>
-                  <label className="block text-xs font-bold text-text-muted mb-2">Generate from Treatment Plan</label>
-                  <select 
-                    value={treatmentPlanId} 
-                    onChange={e => setTreatmentPlanId(e.target.value)}
-                    className="w-full bg-primary/5 border border-primary/30 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-primary font-medium"
-                    disabled={!!initialTreatmentPlanId}
-                  >
-                    <option value="">-- Manual Invoice --</option>
-                    {patientPlans.map(tp => (
-                      <option key={tp.id} value={tp.id}>{tp.name} (Total: {formatCurrency(tp.items.reduce((sum, i) => sum + i.cost, 0))})</option>
-                    ))}
-                  </select>
+          <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-6">
+            {/* Patient */}
+            <section>
+              <label className="block text-sm font-medium text-text-main mb-1.5" htmlFor="inv-patient">Patient</label>
+              {patient ? (
+                <div className="flex items-center justify-between rounded-control border border-line px-3 py-2.5">
+                  <div>
+                    <div className="text-[15px] font-medium text-text-main">{patient.firstName} {patient.lastName}</div>
+                    <div className="text-[13px] text-text-muted">{patient.phone}</div>
+                  </div>
+                  {!initialPatientId && (
+                    <button className="text-sm font-medium text-primary" onClick={() => { setPatient(null); setPatientQuery(''); }}>Change</button>
+                  )}
+                </div>
+              ) : (
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                  <input
+                    id="inv-patient"
+                    autoFocus
+                    value={patientQuery}
+                    onChange={e => setPatientQuery(e.target.value)}
+                    placeholder="Search by name or phone"
+                    className="w-full h-10 pl-9 pr-3 border border-line rounded-control text-sm focus:outline-none focus:border-accent focus:ring-4 focus:ring-accent/15"
+                  />
+                  {patientResults.length > 0 && (
+                    <ul className="absolute z-10 mt-1 w-full bg-surface border border-line rounded-control shadow-float max-h-64 overflow-y-auto">
+                      {patientResults.map(p => (
+                        <li key={p.id}>
+                          <button className="w-full text-left px-3 py-2.5 hover:bg-surface-hover" onClick={() => setPatient(p)}>
+                            <span className="text-sm font-medium text-text-main">{p.firstName} {p.lastName}</span>
+                            <span className="ml-2 text-[13px] text-text-muted">{p.phone}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
-            </div>
+            </section>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-text-muted mb-2">Due Date</label>
-                <div className="relative">
-                  <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                  <input 
-                    type="date" 
-                    value={dueDate}
-                    onChange={e => setDueDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
-                  />
-                </div>
+            {/* Lines */}
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-text-main">Treatments and items</h3>
+                <span className="text-xs text-text-muted">GST is added only to taxable items</span>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <label className="block text-xs font-bold text-text-muted">Line Items</label>
-              <Button size="sm" variant="outline" onClick={addLineItem} className="gap-2">
-                <Plus className="w-4 h-4" /> Add Item
+              <datalist id="procedure-options">
+                {procedures.map(p => <option key={p.id} value={p.name} />)}
+              </datalist>
+              <div className="space-y-3">
+                {lines.map(line => (
+                  <div key={line.key} className="rounded-control border border-line p-3 grid grid-cols-6 sm:grid-cols-12 gap-2 sm:gap-3 items-end">
+                    <div className="col-span-6 sm:col-span-5">
+                      <label className="block text-xs text-text-muted mb-1">Treatment</label>
+                      <input
+                        list="procedure-options"
+                        value={line.procedureName}
+                        onChange={e => onProcedureName(line.key, e.target.value)}
+                        placeholder="Start typing, e.g. Scaling"
+                        className="w-full h-10 px-3 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="col-span-2 sm:col-span-2">
+                      <label className="block text-xs text-text-muted mb-1">Tooth</label>
+                      <input
+                        value={line.toothNumber || ''}
+                        onChange={e => updateLine(line.key, { toothNumber: e.target.value })}
+                        placeholder="—"
+                        inputMode="numeric"
+                        className="w-full h-10 px-3 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="col-span-1 sm:col-span-1">
+                      <label className="block text-xs text-text-muted mb-1">Qty</label>
+                      <input
+                        type="number" min={1}
+                        value={line.quantity}
+                        onChange={e => updateLine(line.key, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                        className="w-full h-10 px-2 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="col-span-3 sm:col-span-2">
+                      <label className="block text-xs text-text-muted mb-1">Price</label>
+                      <input
+                        type="number" min={0} step="1"
+                        value={line.unitCost}
+                        onChange={e => updateLine(line.key, { unitCost: Math.max(0, Number(e.target.value) || 0) })}
+                        className="w-full h-10 px-3 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="col-span-6 sm:col-span-2 flex items-center justify-between sm:justify-end gap-2 h-10">
+                      <label className="flex items-center gap-1.5 text-[13px] text-text-muted cursor-pointer">
+                        <input type="checkbox" checked={!!line.taxable} onChange={e => updateLine(line.key, { taxable: e.target.checked })} className="h-4 w-4 accent-[var(--color-primary)]" />
+                        GST
+                      </label>
+                      <button
+                        onClick={() => setLines(ls => (ls.length > 1 ? ls.filter(l => l.key !== line.key) : [blankLine()]))}
+                        className="p-2 rounded-control text-text-muted hover:text-error hover:bg-error/5"
+                        aria-label="Remove line"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" size="sm" className="mt-2" onClick={() => setLines(ls => [...ls, blankLine()])}>
+                <Plus className="w-4 h-4" /> Add line
               </Button>
-            </div>
-            
-            <div className="border border-line rounded-xl overflow-hidden bg-base">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
-                  <tr>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3 w-24 text-right">Qty</th>
-                    <th className="px-4 py-3 w-32 text-right">Unit Price ({symbol})</th>
-                    <th className="px-4 py-3 w-32 text-right">Total ({symbol})</th>
-                    <th className="px-4 py-3 w-12 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {lineItems.map((item, index) => (
-                    <tr key={item.id}>
-                      <td className="px-4 py-2">
-                        <input 
-                          type="text" 
-                          placeholder="Procedure or item description"
-                          value={item.procedureName}
-                          onChange={(e) => updateLineItem(item.id, 'procedureName', e.target.value)}
-                          className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-2 py-1"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <input 
-                          type="number" 
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(item.id, 'quantity', Number(e.target.value))}
-                          className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <input 
-                          type="number" 
-                          min="0"
-                          value={item.unitCost}
-                          onChange={(e) => updateLineItem(item.id, 'unitCost', Number(e.target.value))}
-                          className="w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-2 py-1 text-right"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium">
-                        {formatCurrency(item.total)}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        <button onClick={() => removeLineItem(item.id)} className="p-1 text-text-muted hover:text-error hover:bg-error/10 rounded transition-colors" disabled={lineItems.length === 1}>
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            </section>
 
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex-1 space-y-4">
+            {/* Terms */}
+            <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-text-muted mb-2">Notes to Patient</label>
-                <textarea 
-                  rows={4}
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Thank you for your visit..."
-                  className="w-full bg-base border border-line rounded-lg p-3 text-sm focus:outline-none focus:border-primary resize-none"
-                />
-              </div>
-            </div>
-            
-            <div className="w-full md:w-80 bg-surface rounded-xl border border-line p-4 space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-text-muted">Subtotal</span>
-                <span className="font-medium text-text-main">{formatCurrency(subtotal)}</span>
-              </div>
-              
-              <div className="flex justify-between items-center text-sm group">
-                <span className="text-text-muted flex items-center gap-2">
-                  Discount
-                  <select 
-                    value={discountType} 
-                    onChange={e => setDiscountType(e.target.value as any)}
-                    className="bg-transparent border border-line rounded px-1 text-xs focus:outline-none"
+                <label className="block text-sm font-medium text-text-main mb-1.5">Discount</label>
+                <div className="flex">
+                  <input
+                    type="number" min={0}
+                    value={discount}
+                    onChange={e => setDiscount(Math.max(0, Number(e.target.value) || 0))}
+                    className="flex-1 min-w-0 h-10 px-3 border border-line rounded-l-control text-sm focus:outline-none focus:border-accent"
+                  />
+                  <select
+                    value={discountType}
+                    onChange={e => setDiscountType(e.target.value as 'flat' | 'percentage')}
+                    className="h-10 px-2 border border-l-0 border-line rounded-r-control text-sm bg-base"
+                    aria-label="Discount type"
                   >
-                    <option value="flat">{symbol}</option>
+                    <option value="flat">₹</option>
                     <option value="percentage">%</option>
                   </select>
-                </span>
-                <div className="flex items-center gap-1">
-                  <input 
-                    type="number" 
-                    value={discount}
-                    onChange={e => setDiscount(Number(e.target.value))}
-                    className="w-16 bg-base border border-line rounded px-2 py-0.5 text-right text-sm focus:outline-none focus:border-primary"
-                  />
-                  <span className="text-error font-medium w-16 text-right">-{formatCurrency(discountAmount)}</span>
                 </div>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-text-main mb-1.5" htmlFor="inv-due">Due date</label>
+                <input
+                  id="inv-due" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+                  className="w-full h-10 px-3 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-main mb-1.5">GST type</label>
+                <select
+                  value={interState ? 'igst' : 'cgst'}
+                  onChange={e => setInterState(e.target.value === 'igst')}
+                  className="w-full h-10 px-3 border border-line rounded-control text-sm bg-surface"
+                >
+                  <option value="cgst">Same state (CGST + SGST)</option>
+                  <option value="igst">Other state (IGST)</option>
+                </select>
+              </div>
+              <div className="sm:col-span-3">
+                <label className="block text-sm font-medium text-text-main mb-1.5" htmlFor="inv-notes">Note on invoice</label>
+                <textarea
+                  id="inv-notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)}
+                  placeholder="Optional, shown to the patient"
+                  className="w-full px-3 py-2 border border-line rounded-control text-sm focus:outline-none focus:border-accent"
+                />
+              </div>
+            </section>
+          </div>
 
-              <div className="flex justify-between text-sm">
-                <span className="text-text-muted">CGST (9%)</span>
-                <span className="font-medium text-text-main">{formatCurrency(cgst, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-text-muted">SGST (9%)</span>
-                <span className="font-medium text-text-main">{formatCurrency(sgst, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-              </div>
-
-              <div className="border-t border-line pt-3 flex justify-between items-center">
-                <span className="font-bold text-text-main">Total</span>
-                <span className="text-xl font-bold text-primary">{formatCurrency(total, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-              </div>
+          {/* Summary + actions */}
+          <div className="border-t border-line px-5 sm:px-6 py-4 shrink-0 bg-surface-hover rounded-b-panel">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm max-w-sm ml-auto">
+              <dt className="text-text-muted">Subtotal</dt><dd className="text-right tabular">{formatCurrency(totals.subtotal)}</dd>
+              {totals.discountAmount > 0 && (<><dt className="text-text-muted">Discount</dt><dd className="text-right tabular">−{formatCurrency(totals.discountAmount)}</dd></>)}
+              {hasTaxableLines && (interState
+                ? (<><dt className="text-text-muted">IGST {taxRate}%</dt><dd className="text-right tabular">{formatCurrency(totals.taxBreakdown.igst)}</dd></>)
+                : (<><dt className="text-text-muted">CGST + SGST {taxRate}%</dt><dd className="text-right tabular">{formatCurrency(totals.totalTax)}</dd></>))}
+              <dt className="font-semibold text-text-main pt-1">Total</dt><dd className="text-right font-semibold text-text-main pt-1 tabular text-base">{formatCurrency(totals.total)}</dd>
+            </dl>
+            {error && <p role="alert" className="mt-3 text-sm text-error">{error}</p>}
+            <div className="mt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button variant="outline" onClick={() => save(false)} loading={saving === 'draft'} disabled={!!saving}>Save as draft</Button>
+              <Button onClick={() => save(true)} loading={saving === 'send'} disabled={!!saving}>Save and issue</Button>
             </div>
           </div>
-        </div>
-
-        <div className="p-4 border-t border-line bg-base flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!patientId || lineItems.every(li => li.procedureName.trim() === '')} className="gap-2">
-            <Plus className="w-4 h-4" /> Generate Invoice
-          </Button>
-        </div>
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
