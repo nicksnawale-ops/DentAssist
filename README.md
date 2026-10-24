@@ -4,16 +4,18 @@ VisionEdge DentAssist is a premium, multi-tenant dental clinic management system
 
 ## Project Status
 
-**Current State**: Fully designed, interactive frontend prototype and comprehensive backend specification.
-- The **frontend** is a fully clickable, responsive prototype built in React + Tailwind CSS. It uses mock data to demonstrate all workflows and states across four user roles (`super_admin`, `dentist`, `receptionist`, `patient`).
-- The **backend** is fully designed and documented. The complete system architecture, database schema, and API contracts are available in `CONTRACT.md` and `ENDPOINTS.md`.
-
-**Next Milestone**: Backend Implementation. The next step is to implement the FastAPI + PostgreSQL backend based on the provided specifications, replacing the frontend mock data with real API calls.
+- **Frontend**: React + Tailwind app for four roles (`super_admin`, `dentist`, `receptionist`, `patient`).
+- **Backend (phase 1, in `/backend`)**: FastAPI + PostgreSQL with JWT login, role-based access and clinic
+  scoping. Live today: authentication, dashboards, clinics, staff, patients, appointments, waitlist,
+  patient portal, notifications, permissions, audit log.
+- **Still on mock data**: dental chart, treatment plans, clinical notes, documents, billing, inventory,
+  suppliers, lab orders, reports and WhatsApp templates. These move to the backend in the next phases,
+  following `CONTRACT.md` and `ENDPOINTS.md`.
 
 ## Tech Stack
 
 ### Frontend (Current)
-- **Framework**: React 18 with Vite
+- **Framework**: React 19 with Vite
 - **Styling**: Tailwind CSS (Utility-first CSS)
 - **Icons**: Lucide React
 - **Routing**: React Router DOM
@@ -36,22 +38,33 @@ The system is designed with strict role-based access control (RBAC):
 3. **Receptionist**: Patient registration, appointment booking, queue management, invoicing, payment collection, and basic inventory tracking.
 4. **Patient**: Self-service portal to book/reschedule appointments, view treatment history, check outstanding balances, and update profile information.
 
-## Getting Started (Frontend)
+## Getting Started
 
-To run the frontend prototype locally:
+### 1. Start the backend
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+```bash
+docker compose up -d --build
+docker compose exec api python -m app.seed   # demo data, first run only
+```
 
-2. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
+No Docker? See [`backend/README.md`](backend/README.md) for a manual setup.
 
-3. **Login:**
-   The application will start on `http://localhost:3000` (or another port if specified by Vite). Use the mock login screen to select a role and explore the interface.
+### 2. Start the frontend
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. The dev server forwards `/api` calls to the backend on port 8000.
+Sign in with a demo account (password `Demo@1234`), e.g. `admin@visionedge.com`,
+`dr.smith@visionedge.com`, `john.reception@visionedge.com` or `patient@example.com`.
+In development builds the login page has one-click buttons for these.
+
+### UI-only demo (no backend)
+
+Create `.env.local` with `VITE_USE_MOCK_API=true` and run `npm run dev`. The app then uses the
+mock data in `src/data/` and the old role picker on the login screen.
 
 ## Backend Implementation Guide
 
@@ -59,4 +72,6 @@ If you are a developer looking to build the backend:
 
 1. Read **`CONTRACT.md`**: Contains the full system architecture, database schema (tables, foreign keys), integration plans (WhatsApp, Razorpay), and deployment notes.
 2. Read **`ENDPOINTS.md`**: A quick-reference table of all REST API endpoints required to power the frontend.
-3. **Replace Mock Data**: Once the backend is running, update the frontend's API service layer to point to `localhost:8000/api/v1/...` instead of returning static arrays from `/src/data/`.
+3. **Replace Mock Data**: add the endpoint in `backend/app/api/`, then switch the matching function in
+   `src/api/apiService.ts` to call it (each function already has an `if (!USE_MOCK_API)` branch pattern
+   to follow). Pages that still import from `src/data/` directly need to load through `apiService` first.

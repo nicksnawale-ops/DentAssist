@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { mockUsers, mockClinics } from '../../data/mockData';
-import { mockAppointments } from '../../data/mockAppointments';
 import { Appointment } from '../../types';
+import { BookingOption, cancelMyAppointment, getBookingOptions, getMyAppointments } from '../../api/apiService';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Calendar as CalendarIcon, Clock, MapPin, User as UserIcon } from 'lucide-react';
@@ -13,23 +12,49 @@ import { generateICS } from '../../utils/icsGenerator';
 export function PatientAppointmentsList() {
   const { user } = useAuth();
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [rescheduling, setRescheduling] = useState<Appointment | null>(null);
+  const [userAppointments, setUserAppointments] = useState<Appointment[]>([]);
+  const [clinics, setClinics] = useState<BookingOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const [apptRes, optRes] = await Promise.all([getMyAppointments(), getBookingOptions()]);
+    setUserAppointments([...(apptRes.data || [])]
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+    setClinics(optRes.data || []);
+    setError(apptRes.error?.message || null);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   if (!user) return null;
 
-  // Find all appointments for this user
-  const userAppointments = mockAppointments.filter(a => a.patientId === user.id)
-    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  const clinicFor = (appt: Appointment) => clinics.find(c => c.id === appt.clinicId);
+  const dentistName = (appt: Appointment) =>
+    clinics.flatMap(c => c.dentists).find(d => d.id === appt.dentistId)?.name || 'Your dentist';
 
-  const upcoming = userAppointments.filter(a => isAfter(parseISO(a.startTime), new Date()));
-  const past = userAppointments.filter(a => !isAfter(parseISO(a.startTime), new Date())).reverse();
+  const handleCancel = async (appt: Appointment) => {
+    if (!window.confirm(`Cancel your appointment on ${format(parseISO(appt.startTime), 'EEE d MMM, h:mm a')}?`)) return;
+    const res = await cancelMyAppointment(appt.id);
+    if (res.error) {
+      setError(res.error.message);
+      return;
+    }
+    load();
+  };
+
+  const isActive = (a: Appointment) => a.status === 'scheduled' || a.status === 'confirmed';
+  const upcoming = userAppointments.filter(a => isActive(a) && isAfter(parseISO(a.startTime), new Date()));
+  const past = userAppointments.filter(a => !upcoming.includes(a)).reverse();
 
   const handleDownloadICS = (appt: Appointment) => {
-    const dentist = mockUsers.find(u => u.id === appt.dentistId);
-    const clinic = mockClinics.find(c => c.id === appt.clinicId);
-    
+    const clinic = clinicFor(appt);
+
     const icsContent = generateICS({
       title: 'Dental Appointment',
-      description: `Appointment with Dr. ${dentist?.lastName}`,
+      description: `Appointment with ${dentistName(appt)}`,
       location: clinic?.name || 'Clinic',
       startDate: parseISO(appt.startTime),
       endDate: parseISO(appt.endTime)
@@ -45,9 +70,8 @@ export function PatientAppointmentsList() {
   };
 
   const renderAppointmentCard = (appt: Appointment, isUpcoming: boolean) => {
-    const dentist = mockUsers.find(u => u.id === appt.dentistId);
-    const clinic = mockClinics.find(c => c.id === appt.clinicId);
-    
+    const clinic = clinicFor(appt);
+
     return (
       <Card key={appt.id} className="mb-4 shadow-sm border-text-muted/10">
         <CardContent className="p-6">
@@ -65,20 +89,23 @@ export function PatientAppointmentsList() {
                 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-sm text-text-muted">
-                    <UserIcon className="w-4 h-4" /> Dr. {dentist?.firstName} {dentist?.lastName}
+                    <UserIcon className="w-4 h-4" /> {dentistName(appt)}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-text-muted">
-                    <MapPin className="w-4 h-4" /> {clinic?.name}
+                    <MapPin className="w-4 h-4" /> {clinic?.name || 'Clinic'}
                   </div>
+                  {!isUpcoming && appt.status !== 'completed' && (
+                    <div className="text-xs font-medium uppercase tracking-wider text-text-muted">{appt.status.replace('_', ' ')}</div>
+                  )}
                 </div>
               </div>
             </div>
             
             {isUpcoming && (
               <div className="flex flex-row md:flex-col gap-2 shrink-0">
-                <Button variant="outline" size="sm" onClick={() => setIsBookingModalOpen(true)}>Reschedule</Button>
+                <Button variant="outline" size="sm" onClick={() => setRescheduling(appt)}>Reschedule</Button>
                 <Button size="sm" onClick={() => handleDownloadICS(appt)}>Add to Calendar</Button>
-                <Button variant="outline" className="text-error border-error/20 hover:bg-error/5" size="sm" onClick={() => alert('Appointment cancelled.')}>Cancel</Button>
+                <Button variant="outline" className="text-error border-error/20 hover:bg-error/5" size="sm" onClick={() => handleCancel(appt)}>Cancel</Button>
               </div>
             )}
           </div>
@@ -99,6 +126,11 @@ export function PatientAppointmentsList() {
         </Button>
       </div>
 
+      {error && (
+        <div role="alert" className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">{error}</div>
+      )}
+      {loading && <p className="text-sm text-text-muted">Loading your appointments…</p>}
+
       <div>
         <h2 className="text-xl font-semibold text-text-main mb-4 border-b border-text-muted/10 pb-2">Upcoming</h2>
         {upcoming.length > 0 ? (
@@ -118,7 +150,14 @@ export function PatientAppointmentsList() {
       </div>
 
       {isBookingModalOpen && (
-        <PatientBookingModal onClose={() => setIsBookingModalOpen(false)} />
+        <PatientBookingModal onClose={() => setIsBookingModalOpen(false)} onBooked={() => load()} />
+      )}
+      {rescheduling && (
+        <PatientBookingModal
+          rescheduleAppointment={rescheduling}
+          onClose={() => setRescheduling(null)}
+          onBooked={() => load()}
+        />
       )}
     </div>
   );

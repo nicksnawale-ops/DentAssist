@@ -51,6 +51,13 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
   const [hasCheckedConflict, setHasCheckedConflict] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // When "All clinics" is selected, book at the chosen dentist's (first) clinic.
+  const selectedDentist = dentists.find(d => d.id === dentistId);
+  const effectiveClinicId = clinicId && clinicId !== 'all'
+    ? clinicId
+    : (selectedDentist?.clinicIds?.[0] || selectedDentist?.clinicId || '');
   
   useEffect(() => {
     if (isOpen) {
@@ -62,6 +69,7 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
       if (initialDentistId) setDentistId(initialDentistId);
       setConflictWarning(null);
       setHasCheckedConflict(false);
+      setSubmitError(null);
     }
   }, [isOpen, clinicId, initialDate, initialDentistId]);
 
@@ -89,75 +97,106 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
     }
   }, [date, startTime, duration, dentistId, appointments, patients]);
 
+  /** Creates the new patient (if any) and returns its id, or null with submitError set. */
+  const resolvePatientId = async (): Promise<string | null> => {
+    if (!isNewPatient) return patientId || null;
+    const res = await createPatient({ ...newPatientData, clinicId: effectiveClinicId || undefined });
+    if (res.data) {
+      setPatientId(res.data.id);
+      setIsNewPatient(false);
+      return res.data.id;
+    }
+    setSubmitError(res.error?.code === 'DUPLICATE_PATIENT'
+      ? 'A patient with this phone number already exists. Switch to "Existing" and select them.'
+      : res.error?.message || 'Could not create the patient.');
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
+    if (!effectiveClinicId) {
+      setSubmitError('Select a clinic (top bar) or a dentist assigned to a clinic before booking.');
+      return;
+    }
     setIsLoading(true);
     try {
-      let finalPatientId = patientId;
-      
-      if (isNewPatient) {
-        const res = await createPatient(newPatientData);
-        if (res.data) finalPatientId = res.data.id;
+      const finalPatientId = await resolvePatientId();
+      if (!finalPatientId) {
+        if (!isNewPatient) setSubmitError('Select or create a patient.');
+        return;
       }
-      
-      if (!finalPatientId) throw new Error("Select or create a patient");
 
       // Generate recurrences
       const occurrences = isRecurring ? recurrenceCount : 1;
-      let currDate = new Date(`${date}T${startTime}`);
-      
+      const currDate = new Date(`${date}T${startTime}`);
+      const failures: string[] = [];
+      let booked = 0;
+
       for (let i = 0; i < occurrences; i++) {
-        const startIso = currDate.toISOString();
-        const endIso = addMinutes(currDate, duration).toISOString();
-        
-        await createAppointment({
+        const res = await createAppointment({
           patientId: finalPatientId,
           dentistId,
-          clinicId,
-          startTime: startIso,
-          endTime: endIso,
+          clinicId: effectiveClinicId,
+          startTime: currDate.toISOString(),
+          endTime: addMinutes(currDate, duration).toISOString(),
           procedureType,
           notes,
-          status: 'scheduled'
+          status: 'scheduled',
+          // The overlap warning is shown above the form; submitting anyway is an explicit override.
+          allowOverlap: !!conflictWarning && i === 0,
         });
-        
+        if (res.data) booked++;
+        else failures.push(`${format(currDate, 'dd MMM yyyy HH:mm')}: ${res.error?.message || 'failed'}`);
+
         if (isRecurring) {
           if (recurrenceFreq === 'weekly') currDate.setDate(currDate.getDate() + 7);
           else if (recurrenceFreq === 'biweekly') currDate.setDate(currDate.getDate() + 14);
           else if (recurrenceFreq === 'monthly') currDate.setMonth(currDate.getMonth() + 1);
         }
       }
-      
+
+      if (failures.length) {
+        setSubmitError(`${booked} of ${occurrences} booked. Not booked — ${failures.join('; ')}`);
+        if (booked > 0) onSuccess();
+        return;
+      }
       onSuccess();
       onClose();
-    } catch (err) {
-      console.error(err);
-      alert("Error creating appointment");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleWaitlist = async () => {
-    if (!patientId && !isNewPatient) return alert("Select a patient to waitlist");
-    setIsLoading(true);
-    let finalPatientId = patientId;
-    if (isNewPatient) {
-        const res = await createPatient(newPatientData);
-        if (res.data) finalPatientId = res.data.id;
+    setSubmitError(null);
+    if (!patientId && !isNewPatient) {
+      setSubmitError('Select a patient to add to the waitlist.');
+      return;
     }
-    
-    await addToWaitlist({
-      patientId: finalPatientId,
-      preferredDentistId: dentistId,
-      preferredDateRange: `Preferred: ${date}`,
-      clinicId
-    });
-    
-    alert("Added to waitlist");
-    setIsLoading(false);
-    onClose();
-    onSuccess();
+    if (!effectiveClinicId) {
+      setSubmitError('Select a clinic before adding to the waitlist.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const finalPatientId = await resolvePatientId();
+      if (!finalPatientId) return;
+      const res = await addToWaitlist({
+        patientId: finalPatientId,
+        preferredDentistId: dentistId || undefined,
+        preferredDateRange: `Preferred: ${date}`,
+        clinicId: effectiveClinicId,
+      });
+      if (!res.data) {
+        setSubmitError(res.error?.message || 'Could not add to the waitlist.');
+        return;
+      }
+      onClose();
+      onSuccess();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -176,6 +215,12 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {submitError && (
+              <div role="alert" className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{submitError}</span>
+              </div>
+            )}
             
             {/* Patient Section */}
             <div className="bg-base p-4 rounded-xl border border-text-muted/5 space-y-4">

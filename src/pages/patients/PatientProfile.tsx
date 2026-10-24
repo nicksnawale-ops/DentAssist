@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { mockPatients } from '../../data/mockPatients';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -10,8 +9,8 @@ import {
   FileText, Wallet, Package, MessageSquare, Clock, User, ClipboardList, Activity,
   AlertTriangle, ChevronDown
 } from 'lucide-react';
-import { AppointmentsList } from '../appointments/AppointmentsList'; // Not exactly reusable directly as it fetches mockAppointments inside, but let's mock it for the profile or build a mini list
-import { mockAppointments } from '../../data/mockAppointments';
+import { getAppointments, getPatientById, getStaff } from '../../api/apiService';
+import { Appointment, Patient, User } from '../../types';
 import { DentalChart } from '../../components/dental-chart/DentalChart';
 import { TreatmentPlansTab } from '../../components/treatment/TreatmentPlansTab';
 import { ClinicalNotesTab } from '../../components/clinical-notes/ClinicalNotesTab';
@@ -20,13 +19,15 @@ import { DocumentsTab } from '../../components/documents/DocumentsTab';
 import { PatientRegistrationForm } from '../../components/patients/PatientRegistrationForm';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { useToast } from '../../components/ui/useToast';
-import { mockStaff } from '../../data/mockStaff';
 import { useAuth } from '../../context/AuthContext';
 
 export function PatientProfile() {
   const { id } = useParams<{ id: string }>();
-  // Use let so we can update the patient locally if needed, though we'll just force a re-render for mock updates.
-  const [patient, setPatient] = useState(mockPatients.find(p => p.id === id));
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+  const [dentists, setDentists] = useState<User[]>([]);
+  const [loadingPatient, setLoadingPatient] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isAlertEnabled, setIsAlertEnabled] = useState(true);
   const [isAlertExpanded, setIsAlertExpanded] = useState(false);
@@ -35,6 +36,43 @@ export function PatientProfile() {
   
   const { selectedClinicId } = useAuth();
   const { toast } = useToast();
+
+  const loadAppointments = React.useCallback(async (patientId: string) => {
+    const res = await getAppointments({ patientId });
+    if (res.data) {
+      setPatientAppointments([...res.data].sort((a, b) => b.startTime.localeCompare(a.startTime)));
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    setLoadingPatient(true);
+    setLoadError(null);
+    Promise.all([getPatientById(id), getStaff()]).then(([patientRes, staffRes]) => {
+      if (cancelled) return;
+      setPatient(patientRes.data);
+      if (patientRes.error && patientRes.error.code !== 'PATIENT_NOT_FOUND') setLoadError(patientRes.error.message);
+      setDentists((staffRes.data || []).filter(s => s.role === 'dentist' || s.role === 'admin'));
+      setLoadingPatient(false);
+    });
+    loadAppointments(id);
+    return () => { cancelled = true; };
+  }, [id, loadAppointments]);
+
+  if (loadingPatient) {
+    return <div className="p-8 text-center text-sm text-text-muted">Loading patient…</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-8 text-center">
+        <h2 className="text-xl font-bold text-text-main">Could not load this patient</h2>
+        <p className="text-sm text-text-muted mt-2">{loadError}</p>
+        <Link to="/patients" className="text-primary mt-4 inline-block hover:underline">Return to directory</Link>
+      </div>
+    );
+  }
 
   if (!patient) {
     return (
@@ -55,7 +93,6 @@ export function PatientProfile() {
     chronicConditions.length > 0 ? `Conditions: ${chronicConditions.join(', ')}` : ''
   ].filter(Boolean).join(' • ');
 
-  const patientAppointments = mockAppointments.filter(a => a.patientId === patient.id);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -393,39 +430,12 @@ export function PatientProfile() {
         onClose={() => setIsEditModalOpen(false)} 
         initialData={patient}
         mode="edit"
-        onSave={(data) => {
-          // Mock save
-          setPatient({
-            ...patient,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            dob: data.dob,
-            gender: data.gender,
-            phone: data.phone,
-            email: data.email,
-            address: data.address,
-            emergencyContact: {
-              name: data.emergencyName,
-              relationship: data.emergencyRel,
-              phone: data.emergencyPhone
-            },
-            communicationPrefs: {
-              whatsappOptIn: data.whatsappOptIn,
-              language: data.language
-            },
-            medicalHistory: {
-               allergies: data.allergies ? data.allergies.split(',').map((a: string) => a.trim()) : [],
-               medications: data.medications ? data.medications.split(',').map((a: string) => a.trim()) : [],
-               chronicConditions: data.chronicConditions,
-               pastSurgeries: data.pastSurgeries,
-               notes: ''
-            }
-          });
+        onSaved={(saved) => {
+          setPatient(saved);
           toast({
             title: "Patient profile updated successfully",
             variant: "success"
           });
-          setIsEditModalOpen(false);
         }}
       />
 
@@ -434,9 +444,10 @@ export function PatientProfile() {
         onClose={() => setIsBookingModalOpen(false)} 
         clinicId={selectedClinicId}
         initialPatientId={patient.id}
-        patients={mockPatients}
-        dentists={mockStaff.filter(s => s.role === 'dentist' || s.role === 'admin')}
+        patients={[patient]}
+        dentists={dentists}
         onSuccess={() => {
+          loadAppointments(patient.id);
           toast({
             title: "Appointment booked successfully",
             variant: "success"

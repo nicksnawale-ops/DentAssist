@@ -63,8 +63,9 @@ export function ClinicProfile() {
   const handleSave = async (updatedClinic: Partial<Clinic>) => {
     if (!id) return;
     try {
-      await updateClinic(id, updatedClinic);
-      setClinic(prev => prev ? { ...prev, ...updatedClinic } as Clinic : null);
+      const res = await updateClinic(id, updatedClinic);
+      if (res.error || !res.data) throw new Error(res.error?.message);
+      setClinic(res.data);
       toast({
         title: "Clinic Updated",
         description: "Changes have been saved successfully.",
@@ -74,7 +75,7 @@ export function ClinicProfile() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to update clinic",
+        description: err instanceof Error && err.message ? err.message : "Failed to update clinic",
         variant: "error"
       });
     }

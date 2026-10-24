@@ -85,7 +85,7 @@ export function SuperAdminDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-muted mb-1">Monthly Revenue</p>
-                <h3 className="text-3xl font-bold text-text-main">{formatCurrency(data.revenueTrend[data.revenueTrend.length - 1].revenue)}</h3>
+                <h3 className="text-3xl font-bold text-text-main">{formatCurrency(data.revenueTrend.length ? data.revenueTrend[data.revenueTrend.length - 1].revenue : 0)}</h3>
               </div>
               <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center text-warning">
                 <Wallet className="w-6 h-6" />

@@ -34,6 +34,7 @@ export function PatientDashboard() {
   }
 
   const handleDownloadICS = () => {
+    if (!data.nextAppointment) return;
     const icsContent = generateICS({
       title: 'Dental Appointment',
       description: `Appointment with ${data.nextAppointment.providerName}`,
@@ -72,6 +73,12 @@ export function PatientDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 pt-6">
+            {!data.nextAppointment ? (
+              <div className="space-y-4">
+                <p className="text-sm text-text-muted">You have no upcoming appointments.</p>
+                <Button onClick={() => setIsBookingModalOpen(true)}>Book an appointment</Button>
+              </div>
+            ) : (
             <div className="space-y-4">
               <div>
                 <h3 className="text-xl font-bold text-text-main mb-1">{data.nextAppointment.date}</h3>
@@ -97,6 +104,7 @@ export function PatientDashboard() {
                 <Button className="flex-1" onClick={handleDownloadICS}>Add to Calendar</Button>
               </div>
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -151,11 +159,15 @@ export function PatientDashboard() {
               </div>
               <div className="flex-1">
                 <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-1">Recent Treatment</p>
+                {!data.recentTreatment ? (
+                  <p className="text-sm text-text-muted">No completed visits yet.</p>
+                ) : (<>
                 <h4 className="font-semibold text-text-main mb-1">{data.recentTreatment.procedure}</h4>
                 <p className="text-xs text-text-muted mb-3">{data.recentTreatment.date}</p>
                 <div className="bg-base rounded-lg p-3 text-sm text-text-main border border-text-muted/10">
-                  <span className="font-medium">Notes:</span> {data.recentTreatment.notes}
+                  <span className="font-medium">Notes:</span> {data.recentTreatment.notes || '—'}
                 </div>
+                </>)}
               </div>
             </CardContent>
           </Card>
@@ -177,7 +189,10 @@ export function PatientDashboard() {
       </div>
       
       {isBookingModalOpen && (
-        <PatientBookingModal onClose={() => setIsBookingModalOpen(false)} />
+        <PatientBookingModal
+          onClose={() => setIsBookingModalOpen(false)}
+          onBooked={() => getDashboardStats('patient').then(res => res.data && setData(res.data))}
+        />
       )}
     </div>
   );

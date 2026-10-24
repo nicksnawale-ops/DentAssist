@@ -1,4 +1,14 @@
-import { ApiResponse, Clinic, User, Notification, Role, Permission, PlatformSubscription, Appointment, Patient } from '../types';
+/**
+ * Data access layer.
+ *
+ * By default every call goes to the FastAPI backend (see /backend). Set
+ * VITE_USE_MOCK_API=true to run on the in-memory mock data instead, e.g. for a
+ * UI-only demo with no server.
+ */
+import {
+  ApiResponse, Clinic, User, Notification, Role, Permission, PlatformSubscription, Appointment, Patient,
+  WaitlistEntry,
+} from '../types';
 import { mockClinics, mockUsers } from '../data/mockData';
 import { mockNotifications } from '../data/mockNotifications';
 import { mockSuperAdminStats, mockDentistStats, mockReceptionistStats, mockPatientStats } from '../data/mockDashboardStats';
@@ -7,13 +17,21 @@ import { mockPermissions } from '../data/mockPermissions';
 import { mockPlatformSubscription } from '../data/mockPlatformSubscription';
 import { mockAppointments } from '../data/mockAppointments';
 import { mockPatients } from '../data/mockPatients';
+import { mockWaitlist } from '../data/mockWaitlist';
 import { apiClient } from './apiClient';
+import { http, USE_MOCK_API } from './http';
+
+export { USE_MOCK_API };
+
+// ---------- Clinics ----------
 
 export async function getClinics(): Promise<ApiResponse<Clinic[]>> {
+  if (!USE_MOCK_API) return http.get('/clinics');
   return apiClient(() => mockClinics);
 }
 
 export async function getClinicById(id: string): Promise<ApiResponse<Clinic>> {
+  if (!USE_MOCK_API) return http.get(`/clinics/${encodeURIComponent(id)}`);
   return apiClient(() => {
     const clinic = mockClinics.find(c => c.id === id);
     if (!clinic) throw new Error("Clinic not found");
@@ -22,6 +40,7 @@ export async function getClinicById(id: string): Promise<ApiResponse<Clinic>> {
 }
 
 export async function createClinic(clinicData: Partial<Clinic>): Promise<ApiResponse<Clinic>> {
+  if (!USE_MOCK_API) return http.post('/clinics', clinicData);
   return apiClient(() => {
     const newClinic = {
       ...clinicData,
@@ -34,6 +53,11 @@ export async function createClinic(clinicData: Partial<Clinic>): Promise<ApiResp
 }
 
 export async function updateClinic(id: string, clinicData: Partial<Clinic>): Promise<ApiResponse<Clinic>> {
+  if (!USE_MOCK_API) {
+    // Read-only aggregate fields are not part of the update payload.
+    const { id: _id, createdAt, activeStaffCount, activePatientsCount, monthlyRevenue, ...payload } = clinicData;
+    return http.patch(`/clinics/${encodeURIComponent(id)}`, payload);
+  }
   return apiClient(() => {
     const index = mockClinics.findIndex(c => c.id === id);
     if (index === -1) throw new Error("Clinic not found");
@@ -44,6 +68,10 @@ export async function updateClinic(id: string, clinicData: Partial<Clinic>): Pro
 }
 
 export async function deleteClinic(id: string): Promise<ApiResponse<boolean>> {
+  if (!USE_MOCK_API) {
+    const res = await http.delete<Clinic>(`/clinics/${encodeURIComponent(id)}`);
+    return { ...res, data: res.error ? null : true };
+  }
   return apiClient(() => {
     const index = mockClinics.findIndex(c => c.id === id);
     if (index === -1) throw new Error("Clinic not found");
@@ -52,7 +80,10 @@ export async function deleteClinic(id: string): Promise<ApiResponse<boolean>> {
   });
 }
 
+// ---------- Users ----------
+
 export async function getUserById(id: string): Promise<ApiResponse<User>> {
+  if (!USE_MOCK_API) return http.get(`/staff/${encodeURIComponent(id)}`);
   return apiClient(() => {
     const user = mockUsers.find(u => u.id === id);
     if (!user) throw new Error("User not found");
@@ -60,11 +91,18 @@ export async function getUserById(id: string): Promise<ApiResponse<User>> {
   }, { errorMessage: "User not found", errorCode: "USER_NOT_FOUND" });
 }
 
+// ---------- Notifications ----------
+
 export async function getNotifications(): Promise<ApiResponse<Notification[]>> {
+  if (!USE_MOCK_API) return http.get('/notifications');
   return apiClient(() => [...mockNotifications]);
 }
 
 export async function markNotificationAsRead(id: string): Promise<ApiResponse<boolean>> {
+  if (!USE_MOCK_API) {
+    const res = await http.patch<Notification>(`/notifications/${encodeURIComponent(id)}/read`);
+    return { ...res, data: res.error ? null : true };
+  }
   return apiClient(() => {
     const index = mockNotifications.findIndex(n => n.id === id);
     if (index !== -1) mockNotifications[index].isRead = true;
@@ -72,7 +110,14 @@ export async function markNotificationAsRead(id: string): Promise<ApiResponse<bo
   });
 }
 
+// ---------- Dashboards ----------
+
 export async function getDashboardStats(role: Role): Promise<ApiResponse<any>> {
+  if (!USE_MOCK_API) {
+    // Clinic admins use the receptionist (front-desk) dashboard.
+    const path = role === 'admin' ? 'receptionist' : role;
+    return http.get(`/dashboard/${path}`);
+  }
   return apiClient(() => {
     switch (role) {
       case 'super_admin': return mockSuperAdminStats;
@@ -84,12 +129,15 @@ export async function getDashboardStats(role: Role): Promise<ApiResponse<any>> {
   });
 }
 
-// Staff Modules
-export async function getStaff(): Promise<ApiResponse<User[]>> {
+// ---------- Staff ----------
+
+export async function getStaff(filters?: { role?: Role; clinicId?: string }): Promise<ApiResponse<User[]>> {
+  if (!USE_MOCK_API) return http.get('/staff', { role: filters?.role, clinic_id: filters?.clinicId });
   return apiClient(() => mockStaff);
 }
 
 export async function getStaffById(id: string): Promise<ApiResponse<User>> {
+  if (!USE_MOCK_API) return http.get(`/staff/${encodeURIComponent(id)}`);
   return apiClient(() => {
     const staff = mockStaff.find(s => s.id === id);
     if (!staff) throw new Error("Staff member not found");
@@ -97,7 +145,12 @@ export async function getStaffById(id: string): Promise<ApiResponse<User>> {
   }, { errorMessage: "Staff member not found", errorCode: "STAFF_NOT_FOUND" });
 }
 
-export async function createStaff(staffData: Partial<User>): Promise<ApiResponse<User>> {
+/** In API mode the response may include `temporaryPassword` (shown once) when no password was supplied. */
+export async function createStaff(staffData: Partial<User> & { password?: string }): Promise<ApiResponse<User & { temporaryPassword?: string }>> {
+  if (!USE_MOCK_API) {
+    const { id, createdAt, ...payload } = staffData;
+    return http.post('/staff', payload);
+  }
   return apiClient(() => {
     const newStaff = {
       ...staffData,
@@ -111,6 +164,10 @@ export async function createStaff(staffData: Partial<User>): Promise<ApiResponse
 }
 
 export async function updateStaff(id: string, staffData: Partial<User>): Promise<ApiResponse<User>> {
+  if (!USE_MOCK_API) {
+    const { id: _id, createdAt, ...payload } = staffData;
+    return http.patch(`/staff/${encodeURIComponent(id)}`, payload);
+  }
   return apiClient(() => {
     const index = mockStaff.findIndex(s => s.id === id);
     if (index === -1) throw new Error("Staff member not found");
@@ -121,27 +178,53 @@ export async function updateStaff(id: string, staffData: Partial<User>): Promise
 }
 
 export async function deleteStaff(id: string): Promise<ApiResponse<boolean>> {
+  if (!USE_MOCK_API) {
+    const res = await http.delete<User>(`/staff/${encodeURIComponent(id)}`);
+    return { ...res, data: res.error ? null : true };
+  }
   return apiClient(() => {
     const index = mockStaff.findIndex(s => s.id === id);
     if (index === -1) throw new Error("Staff not found");
-    // Soft delete logic can reside here
     mockStaff.splice(index, 1);
     return true;
   });
 }
 
-// Permissions Module
+export async function resetStaffPassword(id: string): Promise<ApiResponse<{ temporaryPassword: string }>> {
+  if (!USE_MOCK_API) return http.post(`/staff/${encodeURIComponent(id)}/reset-password`);
+  return apiClient(() => ({ temporaryPassword: 'mock-password' }));
+}
+
+// ---------- Settings ----------
+
 export async function getPermissions(): Promise<ApiResponse<Permission[]>> {
+  if (!USE_MOCK_API) return http.get('/permissions');
   return apiClient(() => mockPermissions);
 }
 
-// Subscription Module
 export async function getPlatformSubscription(): Promise<ApiResponse<PlatformSubscription>> {
+  if (!USE_MOCK_API) return http.get('/platform/subscription');
   return apiClient(() => mockPlatformSubscription);
 }
 
-// Appointments Module
-export async function getAppointments(filters?: { clinicId?: string, dentistId?: string }): Promise<ApiResponse<Appointment[]>> {
+// ---------- Appointments ----------
+
+export interface AppointmentFilters {
+  clinicId?: string;
+  dentistId?: string;
+  patientId?: string;
+  from?: string;
+  to?: string;
+}
+
+export async function getAppointments(filters?: AppointmentFilters): Promise<ApiResponse<Appointment[]>> {
+  if (!USE_MOCK_API) {
+    // Patients use the self-service endpoint, which only ever returns their own appointments.
+    return http.get('/appointments', {
+      clinicId: filters?.clinicId, dentistId: filters?.dentistId, patientId: filters?.patientId,
+      from: filters?.from, to: filters?.to,
+    });
+  }
   return apiClient(() => {
     let result = [...mockAppointments];
     if (filters?.clinicId && filters.clinicId !== 'all') {
@@ -150,23 +233,28 @@ export async function getAppointments(filters?: { clinicId?: string, dentistId?:
     if (filters?.dentistId) {
       result = result.filter(a => a.dentistId === filters.dentistId);
     }
+    if (filters?.patientId) {
+      result = result.filter(a => a.patientId === filters.patientId);
+    }
     return result;
   });
 }
 
-export async function createAppointment(data: Partial<Appointment>): Promise<ApiResponse<Appointment>> {
-  return apiClient(() => {
-    // Conflict checking
-    const hasConflict = mockAppointments.some(a => 
-      a.dentistId === data.dentistId && 
-      data.startTime && data.endTime &&
-      ((new Date(data.startTime) >= new Date(a.startTime) && new Date(data.startTime) < new Date(a.endTime)) ||
-      (new Date(data.endTime) > new Date(a.startTime) && new Date(data.endTime) <= new Date(a.endTime)))
-    );
+export async function getMyAppointments(): Promise<ApiResponse<Appointment[]>> {
+  if (!USE_MOCK_API) return http.get('/patient-portal/appointments');
+  return apiClient(() => mockAppointments.filter(a => a.patientId === 'pat_1'));
+}
 
-    // In a real backend, we'd block this or tag it. The frontend handles the warning and sends a param if overridden.
-    // For mock, we'll just insert it.
-    
+/**
+ * Books an appointment. The backend rejects double-booking a dentist with
+ * error code APPOINTMENT_CONFLICT; pass allowOverlap=true to book anyway.
+ */
+export async function createAppointment(data: Partial<Appointment> & { allowOverlap?: boolean }): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) {
+    const { id, createdAt, updatedAt, ...payload } = data;
+    return http.post('/appointments', payload);
+  }
+  return apiClient(() => {
     const newAppointment = {
       ...data,
       id: `appt_${Date.now()}`,
@@ -178,7 +266,11 @@ export async function createAppointment(data: Partial<Appointment>): Promise<Api
   });
 }
 
-export async function updateAppointment(id: string, data: Partial<Appointment>): Promise<ApiResponse<Appointment>> {
+export async function updateAppointment(id: string, data: Partial<Appointment> & { allowOverlap?: boolean }): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) {
+    const { id: _id, createdAt, updatedAt, ...payload } = data;
+    return http.patch(`/appointments/${encodeURIComponent(id)}`, payload);
+  }
   return apiClient(() => {
     const index = mockAppointments.findIndex(a => a.id === id);
     if (index === -1) throw new Error("Appointment not found");
@@ -189,6 +281,7 @@ export async function updateAppointment(id: string, data: Partial<Appointment>):
 }
 
 export async function cancelAppointment(id: string, reason?: string): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) return http.post(`/appointments/${encodeURIComponent(id)}/cancel`, { reason });
   return apiClient(() => {
     const index = mockAppointments.findIndex(a => a.id === id);
     if (index === -1) throw new Error("Appointment not found");
@@ -199,6 +292,7 @@ export async function cancelAppointment(id: string, reason?: string): Promise<Ap
 }
 
 export async function checkinAppointment(id: string): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) return http.post(`/appointments/${encodeURIComponent(id)}/check-in`);
   return apiClient(() => {
     const index = mockAppointments.findIndex(a => a.id === id);
     if (index === -1) throw new Error("Appointment not found");
@@ -208,12 +302,28 @@ export async function checkinAppointment(id: string): Promise<ApiResponse<Appoin
   });
 }
 
-// Patients Module
-export async function getPatients(): Promise<ApiResponse<Patient[]>> {
+// ---------- Patients ----------
+
+export async function getPatients(params?: { search?: string; clinicId?: string }): Promise<ApiResponse<Patient[]>> {
+  if (!USE_MOCK_API) return http.get('/patients', { search: params?.search, clinicId: params?.clinicId });
   return apiClient(() => mockPatients);
 }
 
-export async function createPatient(data: Partial<Patient>): Promise<ApiResponse<Patient>> {
+export async function getPatientById(id: string): Promise<ApiResponse<Patient>> {
+  if (!USE_MOCK_API) return http.get(`/patients/${encodeURIComponent(id)}`);
+  return apiClient(() => {
+    const patient = mockPatients.find(p => p.id === id);
+    if (!patient) throw new Error("Patient not found");
+    return patient;
+  }, { errorMessage: "Patient not found", errorCode: "PATIENT_NOT_FOUND" });
+}
+
+/** The backend rejects a phone number that already exists (code DUPLICATE_PATIENT) unless allowDuplicate is true. */
+export async function createPatient(data: Partial<Patient> & { clinicId?: string }, allowDuplicate = false): Promise<ApiResponse<Patient>> {
+  if (!USE_MOCK_API) {
+    const { id, createdAt, lastVisit, nextAppointment, outstandingBalance, ...payload } = data;
+    return http.post('/patients', payload, { allowDuplicate: allowDuplicate || undefined });
+  }
   return apiClient(() => {
     const newPatient = {
       ...data,
@@ -224,11 +334,69 @@ export async function createPatient(data: Partial<Patient>): Promise<ApiResponse
   });
 }
 
-// Waitlist Module
-import { mockWaitlist } from '../data/mockWaitlist';
-import { WaitlistEntry } from '../types';
+export async function updatePatient(id: string, data: Partial<Patient>): Promise<ApiResponse<Patient>> {
+  if (!USE_MOCK_API) {
+    const { id: _id, createdAt, lastVisit, nextAppointment, outstandingBalance, ...payload } = data;
+    return http.patch(`/patients/${encodeURIComponent(id)}`, payload);
+  }
+  return apiClient(() => {
+    const index = mockPatients.findIndex(p => p.id === id);
+    if (index === -1) throw new Error("Patient not found");
+    mockPatients[index] = { ...mockPatients[index], ...data };
+    return mockPatients[index];
+  });
+}
+
+export async function checkDuplicatePatient(phone: string, excludeId?: string): Promise<ApiResponse<{ isDuplicate: boolean; matches: Patient[] }>> {
+  if (!USE_MOCK_API) return http.get('/patients/check-duplicate', { phone, excludeId });
+  return apiClient(() => {
+    const key = phone.replace(/\D/g, '').slice(-10);
+    const matches = mockPatients.filter(p => p.id !== excludeId && p.phone.replace(/\D/g, '').slice(-10) === key);
+    return { isDuplicate: matches.length > 0, matches };
+  });
+}
+
+// ---------- Patient portal (logged-in patient) ----------
+
+export interface BookingOption {
+  id: string;
+  name: string;
+  address?: Clinic['address'];
+  phone?: string;
+  operatingHours?: Clinic['operatingHours'];
+  dentists: { id: string; name: string; specializations: string[] }[];
+}
+
+/** Active clinics and the dentists at each, for the patient self-booking flow. */
+export async function getBookingOptions(): Promise<ApiResponse<BookingOption[]>> {
+  if (!USE_MOCK_API) return http.get('/patient-portal/booking-options');
+  return apiClient(() => mockClinics.filter(c => c.status === 'active').map(c => ({
+    id: c.id, name: c.name, address: c.address, phone: c.phone, operatingHours: c.operatingHours,
+    dentists: mockStaff
+      .filter(s => s.role === 'dentist' && (s.clinicId === c.id || s.clinicIds?.includes(c.id)))
+      .map(s => ({ id: s.id, name: `Dr. ${s.firstName} ${s.lastName}`, specializations: s.specializations || [] })),
+  })));
+}
+
+export async function bookMyAppointment(data: { dentistId: string; clinicId: string; startTime: string; endTime: string; procedureType: string; notes?: string }): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) return http.post('/patient-portal/appointments/book', data);
+  return createAppointment({ ...data, patientId: 'pat_1', status: 'scheduled' });
+}
+
+export async function rescheduleMyAppointment(id: string, startTime: string, endTime: string): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) return http.post(`/patient-portal/appointments/${encodeURIComponent(id)}/reschedule`, { startTime, endTime });
+  return updateAppointment(id, { startTime, endTime, status: 'scheduled' });
+}
+
+export async function cancelMyAppointment(id: string, reason?: string): Promise<ApiResponse<Appointment>> {
+  if (!USE_MOCK_API) return http.post(`/patient-portal/appointments/${encodeURIComponent(id)}/cancel`, { reason });
+  return cancelAppointment(id, reason);
+}
+
+// ---------- Waitlist ----------
 
 export async function getWaitlist(clinicId?: string): Promise<ApiResponse<WaitlistEntry[]>> {
+  if (!USE_MOCK_API) return http.get('/waitlist', { clinicId });
   return apiClient(() => {
     let result = [...mockWaitlist];
     if (clinicId && clinicId !== 'all') {
@@ -239,6 +407,10 @@ export async function getWaitlist(clinicId?: string): Promise<ApiResponse<Waitli
 }
 
 export async function addToWaitlist(data: Partial<WaitlistEntry>): Promise<ApiResponse<WaitlistEntry>> {
+  if (!USE_MOCK_API) {
+    const { id, status, createdAt, ...payload } = data;
+    return http.post('/waitlist', payload);
+  }
   return apiClient(() => {
     const entry = {
       ...data,
@@ -250,5 +422,3 @@ export async function addToWaitlist(data: Partial<WaitlistEntry>): Promise<ApiRe
     return entry;
   });
 }
-
-

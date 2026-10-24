@@ -42,7 +42,8 @@ export function ClinicsList() {
 
   const handleSave = async (newClinic: Partial<Clinic>) => {
     try {
-      await createClinic(newClinic);
+      const res = await createClinic(newClinic);
+      if (res.error) throw new Error(res.error.message);
       toast({
         title: "Clinic Created",
         description: `${newClinic.name} has been added successfully.`,
@@ -53,7 +54,7 @@ export function ClinicsList() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to create clinic",
+        description: err instanceof Error && err.message ? err.message : "Failed to create clinic",
         variant: "error"
       });
     }
