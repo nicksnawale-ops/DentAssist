@@ -152,6 +152,33 @@ completed visit the patient is asked for a review on WhatsApp, at most once ever
 Both run in the same background job as reminders (`REMINDERS_ENABLED=true`), or by cron with
 `python -m app.jobs run-recalls`. Automatic recall sending is off until an admin switches it on.
 
+## Prescriptions and consent forms
+
+**Prescriptions** are written by dentists from a starter list of common dental medicines (dentists
+can add their own). Each medicine has a default dose, frequency (1-0-1 style), duration and timing.
+Before issuing, the prescription is checked against the patient's record:
+
+- **Allergies**, including related drugs (a penicillin allergy flags amoxicillin and Augmentin;
+  an ibuprofen allergy flags other NSAIDs)
+- **Conditions and medicines** such as pregnancy, blood thinners, kidney disease, asthma, ulcers
+- **Duplicates** in the same prescription
+
+Warnings must be accepted before the prescription can be issued, and the accepted warnings are kept
+with it. Prescriptions get a number (RX-2026-0001), print on the clinic letterhead with the dentist's
+registration number, can be sent on WhatsApp, and appear in the patient portal. They can't be edited,
+only cancelled with a reason.
+
+**Consent forms** start from editable templates (general treatment, extraction, root canal, implant,
+whitening). Staff prepare one for a patient, then either:
+
+- hand over a tablet or phone to **sign in the clinic** (the staff member is recorded as witness), or
+- **send a link** on WhatsApp; it works once, for 3 days, and a new link cancels the old one.
+
+Patients can also sign pending forms in the portal. The signed text, risks, signature image and time
+are sealed with a SHA-256 hash, shown as "Unchanged since signing" when viewed. Editing a template
+creates a new version; signed forms keep the exact wording the patient saw. Forms can be withdrawn
+with a reason; nothing is deleted.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

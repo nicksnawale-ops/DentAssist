@@ -145,6 +145,11 @@ def seed(db: Session, password: str) -> dict[str, int]:
     invoice_count = seed_invoices(db, data, home_clinic, users[0])
     seed_clinical(db, data, home_clinic)
     seed_history(db)
+    from app.services.consents import seed_templates
+    from app.services.prescriptions import seed_medicines
+
+    seed_medicines(db)
+    seed_templates(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}

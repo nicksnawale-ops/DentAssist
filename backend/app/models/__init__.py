@@ -445,3 +445,92 @@ class Recall(TimestampMixin, Base):
     appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
     booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class Medicine(TimestampMixin, Base):
+    """Medicine catalogue used to write prescriptions quickly."""
+
+    __tablename__ = "medicines"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(150), nullable=False, index=True)  # brand or common name
+    generic_name: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    form: Mapped[str] = mapped_column(String(30), default="Tablet", nullable=False)  # Tablet, Capsule, Syrup, Gel...
+    strength: Mapped[str] = mapped_column(String(50), default="", nullable=False)
+    default_dosage: Mapped[str] = mapped_column(String(50), default="1 tablet", nullable=False)
+    default_frequency: Mapped[str] = mapped_column(String(20), default="1-0-1", nullable=False)  # morning-noon-night
+    default_duration_days: Mapped[int] = mapped_column(Integer, default=5, nullable=False)
+    default_timing: Mapped[str] = mapped_column(String(30), default="After food", nullable=False)
+    default_instructions: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    # Drug class used for allergy checks, e.g. "penicillin", "nsaid"
+    drug_class: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class Prescription(TimestampMixin, Base):
+    __tablename__ = "prescriptions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    number: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)  # RX-2026-0001
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    dentist_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    diagnosis: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    # [{medicineId, name, genericName, form, strength, dosage, frequency, durationDays, timing, instructions}]
+    items: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    advice: Mapped[str | None] = mapped_column(Text)
+    follow_up_date: Mapped[date | None] = mapped_column(Date)
+    # Allergy warnings the dentist saw and accepted when issuing
+    acknowledged_warnings: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(12), default="issued", nullable=False)  # issued | cancelled
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str | None] = mapped_column(String(300))
+
+
+class ConsentTemplate(TimestampMixin, Base):
+    __tablename__ = "consent_templates"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    # Text with placeholders: {patient_name} {procedure} {teeth} {dentist} {clinic} {date}
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    risks: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ConsentForm(TimestampMixin, Base):
+    """A consent prepared for one patient. Once signed, its text and signature never change."""
+
+    __tablename__ = "consent_forms"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    template_id: Mapped[str | None] = mapped_column(ForeignKey("consent_templates.id", ondelete="SET NULL"))
+    template_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)  # rendered text the patient agrees to
+    risks: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    procedure: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    teeth: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    dentist_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    treatment_plan_id: Mapped[str | None] = mapped_column(ForeignKey("treatment_plans.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(12), default="pending", nullable=False, index=True)  # pending|signed|revoked
+    # Remote signing link: only the SHA-256 of the token is stored.
+    sign_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    sign_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    signature: Mapped[str | None] = mapped_column(Text)  # PNG data URL
+    signed_by_name: Mapped[str | None] = mapped_column(String(150))
+    signer_relationship: Mapped[str | None] = mapped_column(String(30))  # Self | Parent | Guardian | Spouse
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    signed_via: Mapped[str | None] = mapped_column(String(20))  # clinic_device | remote_link | patient_portal
+    witness_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    signer_ip: Mapped[str | None] = mapped_column(String(64))
+    signer_user_agent: Mapped[str | None] = mapped_column(String(300))
+    # SHA-256 over the text, signature and signing time: proves nothing changed afterwards
+    content_hash: Mapped[str | None] = mapped_column(String(64))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoke_reason: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
