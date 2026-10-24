@@ -11,7 +11,7 @@ lines in proportion to their value before tax is worked out.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -234,3 +234,20 @@ def record_payment(
     db.add(payment)
     refresh_invoice(db, invoice)
     return payment
+
+
+def default_dentist(db: Session, patient_id: str, clinic_id: str, plan_id: str | None = None) -> str | None:
+    """Who to credit an invoice to: the plan's dentist, else the patient's latest appointment here."""
+    from app.models import Appointment, TreatmentPlan, User
+
+    if plan_id:
+        plan = db.get(TreatmentPlan, plan_id)
+        author = db.get(User, plan.created_by_id) if plan and plan.created_by_id else None
+        if author and author.role == "dentist":
+            return author.id
+    appt = db.scalars(select(Appointment).where(
+        Appointment.patient_id == patient_id, Appointment.clinic_id == clinic_id,
+        Appointment.status.in_(("completed", "in_progress", "confirmed", "scheduled")),
+        Appointment.start_time <= datetime.now(timezone.utc) + timedelta(days=1),
+    ).order_by(Appointment.start_time.desc())).first()
+    return appt.dentist_id if appt else None

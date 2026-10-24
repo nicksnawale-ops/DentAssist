@@ -170,8 +170,10 @@ def seed_invoices(db: Session, data: dict, home_clinic, actor: User) -> int:
     def make(patient_id, clinic_id, created, lines, *, send=True, pay_ratio=1.0, method="UPI", due_days=7):
         nonlocal count
         totals = billing.compute_totals(lines, 0, "flat", 18, False)
+        dentist = ("s3" if count % 3 == 2 else "s1") if clinic_id == DEFAULT_CLINIC else "s3"
         inv = Invoice(invoice_number=billing.next_invoice_number(db, created), patient_id=patient_id,
                       clinic_id=clinic_id, due_date=created + timedelta(days=due_days), created_by_id=actor.id,
+                      dentist_id=dentist,
                       status="Sent" if send else "Draft", sent_at=created if send else None, **totals)
         inv.created_at = created
         db.add(inv)

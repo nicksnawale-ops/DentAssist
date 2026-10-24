@@ -422,6 +422,7 @@ def invoice_plan(plan_id: str, db: DbSession, user: User = Invoicers):
     totals = billing_svc.compute_totals(lines, plan.discount, plan.discount_type, get_settings().default_gst_rate, False)
     inv = Invoice(invoice_number=billing_svc.next_invoice_number(db), patient_id=plan.patient_id, clinic_id=plan.clinic_id,
                   treatment_plan_id=plan.id, due_date=utcnow() + timedelta(days=7), created_by_id=user.id,
+                  dentist_id=billing_svc.default_dentist(db, plan.patient_id, plan.clinic_id, plan.id),
                   notes=f"Treatment plan: {plan.name}", status="Draft", **totals)
     db.add(inv)
     db.flush()

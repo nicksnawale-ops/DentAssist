@@ -51,7 +51,7 @@ const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
 const RECALLS = item('/recalls', 'Recalls', BellRing);
-const REPORTS = item('/reports', 'Reports', BarChart3);
+const REPORTS = item('/reports', 'Analytics', BarChart3);
 const STAFF = item('/staff', 'Staff', Users);
 const CLINICS = item('/clinics', 'Clinics', Building2);
 const SETTINGS = item('/settings', 'Settings', Settings);
@@ -70,7 +70,7 @@ const NAV: Record<Role, NavGroup[]> = {
   ],
   dentist: [
     { items: [DASHBOARD, item('/schedule', 'My schedule', CalendarDays), PATIENTS, item('/treatments', 'Treatment plans', FileText)] },
-    { title: 'Clinic', items: [BILLING, INVENTORY, MESSAGES] },
+    { title: 'Clinic', items: [BILLING, INVENTORY, MESSAGES, item('/reports', 'My performance', BarChart3)] },
     { title: 'Account', items: [SETTINGS] },
   ],
   receptionist: [

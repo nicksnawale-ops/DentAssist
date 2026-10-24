@@ -75,7 +75,7 @@ function AppRoutes() {
           <Route path=":id" element={<RoleRoute allowedRoles={['super_admin', 'admin']}><StaffProfile /></RoleRoute>} />
         </Route>
         
-        <Route path="reports" element={<RoleRoute allowedRoles={['super_admin', 'admin']}><ReportsDashboard /></RoleRoute>} />
+        <Route path="reports" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist']}><ReportsDashboard /></RoleRoute>} />
         
         <Route path="schedule" element={<RoleRoute allowedRoles={['dentist']}><AppointmentsList mySchedule /></RoleRoute>} />
         <Route path="treatments" element={<RoleRoute allowedRoles={['dentist', 'admin', 'super_admin']}><TreatmentPlansPage /></RoleRoute>} />

@@ -197,6 +197,23 @@ flagged, and when work arrives the dentist is notified and the patient gets a Wh
 the fitting (they can reply BOOK). Work that comes back wrong is sent for a **remake**, which links the
 cases. Each lab shows its average turnaround, on-time rate, remake rate and spend over the last year.
 
+## Analytics
+
+*Analytics* (admins and the platform admin; dentists see "My performance" with their own numbers)
+shows a period of your choice against the period just before it:
+
+- **Collected** (payments received), billed, completed visits, new patients, collected per visit
+- **Revenue per dentist**: each invoice is credited to a dentist, by default the treatment plan's
+  dentist or the patient's most recent dentist at that clinic
+- **Chair utilisation**: booked minutes over each dentist's available minutes (clinic hours
+  overlapping their working hours), counted up to today
+- **No-show rate** (no-shows out of completed + no-shows) and cancellation rate, over time
+- **Treatment plan acceptance** (proposed → accepted → completed, with values) and **recall success**
+  (due → contacted → booked)
+- Top treatments, payment methods, review requests and lab spend
+
+Weekly points for periods up to two months, monthly beyond that. Export to CSV from the page.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).
