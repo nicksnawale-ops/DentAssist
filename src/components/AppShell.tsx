@@ -20,6 +20,7 @@ import {
   MessageSquare,
   BellRing,
   Inbox,
+  ShieldCheck,
   BadgeIndianRupee,
   PanelLeftClose,
   PanelLeftOpen,
@@ -54,6 +55,7 @@ const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
 const LEADS = item('/leads', 'Enquiries', Inbox);
+const COMPLIANCE = item('/compliance', 'Compliance', ShieldCheck);
 const RECALLS = item('/recalls', 'Recalls', BellRing);
 const TEAM = item('/team', 'Team & pay', BadgeIndianRupee);
 const REPORTS = item('/reports', 'Analytics', BarChart3);
@@ -65,22 +67,22 @@ const SETTINGS = item('/settings', 'Settings', Settings);
 const NAV: Record<Role, NavGroup[]> = {
   super_admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, COMPLIANCE, MESSAGES, REPORTS] },
     { title: 'Organisation', items: [CLINICS, STAFF, TEAM, SETTINGS] },
   ],
   admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Operations', items: [BILLING, RECALLS, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, COMPLIANCE, MESSAGES, REPORTS] },
     { title: 'Clinic', items: [STAFF, TEAM, SETTINGS] },
   ],
   dentist: [
     { items: [DASHBOARD, item('/schedule', 'My schedule', CalendarDays), PATIENTS, item('/treatments', 'Treatment plans', FileText)] },
-    { title: 'Clinic', items: [BILLING, INVENTORY, MESSAGES, item('/reports', 'My performance', BarChart3)] },
+    { title: 'Clinic', items: [BILLING, INVENTORY, COMPLIANCE, MESSAGES, item('/reports', 'My performance', BarChart3)] },
     { title: 'Account', items: [item('/team', 'My attendance & pay', BadgeIndianRupee), SETTINGS] },
   ],
   receptionist: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY] },
+    { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY, COMPLIANCE] },
     { title: 'Account', items: [item('/team', 'My attendance', BadgeIndianRupee), SETTINGS] },
   ],
   patient: [

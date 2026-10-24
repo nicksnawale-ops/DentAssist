@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 
 from app.core.deps import DbSession, StaffUser, require_roles
@@ -46,8 +46,11 @@ def get_subscription(db: DbSession, user: User = SuperAdmin) -> dict[str, Any]:
 
 
 @router.get("/audit-logs", response_model=list[AuditLogOut])
-def list_audit_logs(db: DbSession, user: User = SuperAdmin, entity_type: str | None = None, limit: int = 100):
+def list_audit_logs(db: DbSession, user: User = SuperAdmin, entity_type: str | None = None, limit: int = 100,
+                    include_views: bool = Query(default=False, alias="includeViews")):
     query = select(AuditLog).order_by(AuditLog.timestamp.desc()).limit(min(max(limit, 1), 500))
+    if not include_views:  # record views are in each patient's access log
+        query = query.where(AuditLog.action.not_like("view%"))
     if entity_type:
         query = query.where(AuditLog.entity_type == entity_type)
     return db.scalars(query).all()

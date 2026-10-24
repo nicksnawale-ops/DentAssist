@@ -158,6 +158,10 @@ def list_documents(patient_id: str, request: Request, db: DbSession, user: Curre
         docs = [d for d in docs if tooth in (d.teeth or [])]
     ids = {d.uploaded_by_id for d in docs if d.uploaded_by_id}
     names = {u.id: f"{u.first_name} {u.last_name}".strip() for u in db.scalars(select(User).where(User.id.in_(ids)))} if ids else {}
+    from app.services.privacy import log_view
+
+    log_view(db, user, patient_id, "documents")
+    db.commit()
     return [_out(db, request, d, names) for d in docs]
 
 

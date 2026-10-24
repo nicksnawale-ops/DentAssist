@@ -21,6 +21,7 @@ from app.api import (
     inventory,
     messaging,
     leads,
+    privacy,
     recalls,
     notifications,
     patient_portal,
@@ -30,6 +31,7 @@ from app.api import (
     scheduling,
     settings as settings_api,
     staff,
+    sterilisation,
     waitlist,
 )
 from app.core.config import get_settings
@@ -56,6 +58,10 @@ def _reminders_once() -> None:
             log.info("Recalls and reviews: %s", recall_counts)
         from app.services.leads import run_follow_up_alerts
 
+        from app.services.sterilisation import expire_packs
+
+        if expire_packs(db):
+            db.commit()
         alerts = run_follow_up_alerts(db)
         if alerts:
             log.info("Enquiry follow-up alerts: %s", alerts)
@@ -104,7 +110,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents, inventory, analytics, documents, ai, payouts, families, checkin, leads):
+               settings_api, billing, clinical, scheduling, messaging, recalls, prescriptions, consents, inventory, analytics, documents, ai, payouts, families, checkin, leads, privacy, sterilisation):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

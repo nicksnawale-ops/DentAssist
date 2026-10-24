@@ -187,6 +187,28 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   }
 }
 
+/** Download a file from an authenticated endpoint (CSV, JSON export). Returns an error message, or null when saved. */
+export async function downloadFile(path: string, query: Query | undefined, fallbackName: string): Promise<string | null> {
+  try {
+    let res = await send('GET', path, { query });
+    if (res.status === 401 && (await refreshTokens())) res = await send('GET', path, { query });
+    if (!res.ok) return (await toError(res)).message;
+    const blob = await res.blob();
+    const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')?.[1] || fallbackName;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return null;
+  } catch {
+    return 'Cannot reach the DentAssist server.';
+  }
+}
+
 /** Absolute URL for an API path the server handed us (e.g. a signed document link). */
 export const apiUrl = (path: string) => (/^https?:/.test(path) ? path : `${API_BASE}${path}`);
 

@@ -43,6 +43,7 @@ import { TeamPage } from './pages/team/TeamPage';
 import { SelfCheckIn } from './pages/public/SelfCheckIn';
 import { Enquire } from './pages/public/Enquire';
 import { LeadsPage } from './pages/leads/LeadsPage';
+import { CompliancePage } from './pages/compliance/CompliancePage';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />
         
         <Route path="team" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><TeamPage /></RoleRoute>} />
+        <Route path="compliance" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'dentist']}><CompliancePage /></RoleRoute>} />
         <Route path="leads" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><LeadsPage /></RoleRoute>} />
         <Route path="recalls" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><RecallsPage /></RoleRoute>} />
         <Route path="communications" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><CommunicationLog /></RoleRoute>} />
