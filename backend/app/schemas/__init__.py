@@ -763,6 +763,7 @@ class PlanOut(CamelModel):
     created_at: datetime
     approved_at: datetime | None = None
     invoice_id: str | None = None
+    patient_explanation: dict | None = None
 
 
 class NoteIn(CamelModel):

@@ -354,6 +354,9 @@ class TreatmentPlan(TimestampMixin, Base):
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id", ondelete="SET NULL"))
+    # Plain-language explanation for the patient: {language, summary, steps[], aftercare, questions[],
+    # generatedBy, editedBy, shared, sharedAt, updatedAt}
+    patient_explanation: Mapped[dict | None] = mapped_column(JSONType)
 
     items: Mapped[list["TreatmentPlanItem"]] = relationship(
         back_populates="plan", cascade="all, delete-orphan", order_by="TreatmentPlanItem.sort_order", lazy="selectin"

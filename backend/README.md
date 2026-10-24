@@ -231,6 +231,28 @@ Files are stored on disk under `UPLOAD_DIR` (`/data/uploads`, a Docker volume, i
   and remove only their own uploads. Front desk can't remove X-rays, photos or consent forms.
 - Removing a document hides it from the record; the file and the audit entry are kept.
 
+## AI assistant
+
+Off by default (`AI_PROVIDER=disabled`). Two things, both producing **drafts a clinician reviews**:
+
+- **Dictate a note**: in Clinical notes, the dentist speaks (or types) a summary of the visit in English,
+  Hindi or Marathi. The browser turns speech into text on the device; the text is sent to Claude and comes
+  back as Subjective / Objective / Assessment / Plan, the teeth mentioned and a "please check" list
+  (for example a medicine without a dose). Nothing is saved until the dentist saves the note.
+- **Explain to patient**: on a treatment plan, write a plain-language explanation in English, Hindi or
+  Marathi (what's wrong, each step, what to expect, aftercare, questions to ask). The dentist edits it and
+  shares it; the patient then sees it on the plan in their portal. It can also be printed.
+
+What is sent: the dictation with the patient's name and phone numbers removed, the plan's procedures and
+teeth, and an age band, sex, allergies, conditions and current medicines. Never names, phone numbers,
+addresses or IDs. Each request is logged in the audit trail (that it happened, not the content), and each
+user is limited to `AI_REQUESTS_PER_HOUR` (60).
+
+To switch it on, set `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY` and optionally `AI_MODEL` (default
+`claude-sonnet-5-5`). Before you do, tell patients that clinical details may be processed by an AI service
+and check your data-processing agreement covers it (India's DPDP Act). `AI_PROVIDER=mock` returns labelled
+demo text so the screens can be tried without a key; don't use it in production.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

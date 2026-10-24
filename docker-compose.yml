@@ -43,6 +43,9 @@ services:
       REMINDERS_ENABLED: ${REMINDERS_ENABLED:-true}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
       UPLOAD_DIR: /data/uploads
+      AI_PROVIDER: ${AI_PROVIDER:-disabled}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-sonnet-5-5}
     volumes:
       - uploads:/data/uploads   # X-rays and documents; back this up with the database
     ports:
