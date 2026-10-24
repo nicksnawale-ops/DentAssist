@@ -152,6 +152,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
     seed_templates(db)
     seed_inventory(db)
     seed_team(db)
+    seed_family(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -500,3 +501,19 @@ def seed_team(db: Session) -> None:
             db.add(AttendanceRecord(staff_id=staff_id, clinic_id=DEFAULT_CLINIC, day=day,
                                     status="present" if roll > 0.15 else "half_day", check_in_at=cin.astimezone(timezone.utc),
                                     check_out_at=cout.astimezone(timezone.utc), late_minutes=late if late > 10 else 0))
+
+
+def seed_family(db: Session) -> None:
+    """Nina and Omar share a phone: put them in one family (Nina is the account holder)."""
+    from app.models import Family, Patient
+
+    fam = Family(id="fam_1", name="Nina's family", head_patient_id="pat_14", clinic_id=WESTSIDE_CLINIC)
+    db.add(fam)
+    db.flush()
+    for pid, rel in (("pat_14", "Self"), ("pat_15", "Spouse")):
+        p = db.get(Patient, pid)
+        if p:
+            p.family_id, p.family_relation = fam.id, rel
+    central = db.get(Clinic, DEFAULT_CLINIC)
+    if central:
+        central.checkin_token = "demo-central-checkin-key"

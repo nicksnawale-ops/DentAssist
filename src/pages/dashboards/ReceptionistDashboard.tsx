@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +12,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { PageHeader, greeting } from '../../components/ui/PageHeader';
 import { StatTile as Stat } from '../../components/ui/StatTile';
 import { BookingLinkCard } from '../../components/scheduling/BookingLinkCard';
+import { CheckInQrCard } from '../../components/family/CheckInQrCard';
+import { markArrived } from '../../api/familyService';
 
 interface QueueItem {
   id: string;
@@ -19,11 +21,12 @@ interface QueueItem {
   patientName: string;
   time: string;
   status: 'waiting' | 'checked-in' | 'in-progress' | 'completed' | string;
+  waitingMinutes?: number | null;
 }
 
 const STATUS: Record<string, { label: string; variant: 'warning' | 'success' | 'secondary' | 'outline' }> = {
-  waiting: { label: 'Waiting', variant: 'warning' },
-  'checked-in': { label: 'Checked in', variant: 'success' },
+  waiting: { label: 'Expected', variant: 'outline' },
+  'checked-in': { label: 'Arrived', variant: 'success' },
   'in-progress': { label: 'In chair', variant: 'secondary' },
   completed: { label: 'Done', variant: 'outline' },
 };
@@ -35,14 +38,26 @@ export function ReceptionistDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!user) return;
+  const load = useCallback(() => {
     getDashboardStats('receptionist').then(res => {
       setData(res.data);
       setError(res.error?.message || null);
       setLoading(false);
     });
-  }, [user]);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    load();
+    const t = window.setInterval(load, 30000); // self check-ins show up without a refresh
+    return () => window.clearInterval(t);
+  }, [user, load]);
+
+  const arrived = async (id: string) => {
+    const res = await markArrived(id);
+    if (res.error) return;
+    load();
+  };
 
   const header = (
     <PageHeader
@@ -138,6 +153,12 @@ export function ReceptionistDashboard() {
                 <>
                   <time className="w-[72px] shrink-0 text-sm font-medium text-text-main">{item.time}</time>
                   <span className="flex-1 min-w-0 text-[15px] text-text-main truncate">{item.patientName}</span>
+                  {item.status === 'checked-in' && item.waitingMinutes != null && (
+                    <span className={`text-[12px] tabular-nums ${item.waitingMinutes >= 20 ? 'text-error font-medium' : 'text-text-muted'}`}>waiting {item.waitingMinutes} min</span>
+                  )}
+                  {item.status === 'waiting' && (
+                    <button onClick={e => { e.preventDefault(); arrived(item.id); }} className="text-[12px] font-medium text-primary hover:underline">Arrived</button>
+                  )}
                   <Badge variant={status.variant}>{status.label}</Badge>
                   <ChevronRight className="w-4 h-4 text-text-muted/60 shrink-0" aria-hidden="true" />
                 </>
@@ -156,6 +177,7 @@ export function ReceptionistDashboard() {
           </ul>
         )}
       </Card>
+      {user?.clinicId && <CheckInQrCard clinicId={user.clinicId} />}
       {user?.clinicId && <BookingLinkCard clinicId={user.clinicId} />}
       </div>
     </div>

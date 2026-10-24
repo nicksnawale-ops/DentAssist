@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import Field
 from sqlalchemy import select
 
@@ -288,10 +288,11 @@ def revoke(consent_id: str, body: RevokeIn, db: DbSession, user: User = Depends(
 # ---------------------------------------------------------------------------
 
 @router.get("/patient-portal/consents", response_model=list[ConsentOut])
-def my_consents(db: DbSession, user: User = Depends(require_roles("patient"))):
+def my_consents(db: DbSession, user: User = Depends(require_roles("patient")),
+                patient_id: str | None = Query(default=None, alias="patientId")):
     if not user.patient_id:
         return []
-    return list_for_patient(user.patient_id, db, user)
+    return list_for_patient(patient_id or user.patient_id, db, user)
 
 
 @router.post("/patient-portal/consents/{consent_id}/sign", response_model=ConsentOut)

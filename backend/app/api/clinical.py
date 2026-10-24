@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.patients import get_patient_for
+from app.api.patients import get_patient_for, portal_patient_ids
 from app.core.config import get_settings
 from app.core.deps import DbSession, accessible_clinic_ids, ensure_clinic_access, require_roles
 from app.core.errors import bad_request, forbidden, not_found
@@ -252,7 +252,7 @@ def _get_plan(db: Session, user: User, plan_id: str) -> TreatmentPlan:
     if not plan:
         raise not_found("Treatment plan")
     if user.role == "patient":
-        if plan.patient_id != user.patient_id or plan.status == "Draft":
+        if plan.patient_id not in portal_patient_ids(db, user) or plan.status == "Draft":
             raise not_found("Treatment plan")
     else:
         allowed = accessible_clinic_ids(user)
@@ -495,10 +495,11 @@ def edit_note(note_id: str, body: NoteIn, db: DbSession, user: User = Clinicians
 # ---------------------------------------------------------------------------
 
 @router.get("/patient-portal/dental-chart", response_model=DentalChartOut)
-def my_chart(db: DbSession, user: User = Depends(require_roles("patient"))):
-    patient = db.get(Patient, user.patient_id) if user.patient_id else None
-    if not patient:
+def my_chart(db: DbSession, user: User = Depends(require_roles("patient")),
+             patient_id: str | None = Query(default=None, alias="patientId")):
+    if not user.patient_id:
         raise forbidden("This login is not linked to a patient record")
+    patient = get_patient_for(db, user, patient_id or user.patient_id)  # a family member, for account holders
     return _chart(db, patient, None)
 
 
@@ -506,7 +507,7 @@ def my_chart(db: DbSession, user: User = Depends(require_roles("patient"))):
 def my_plans(db: DbSession, user: User = Depends(require_roles("patient"))):
     if not user.patient_id:
         raise forbidden("This login is not linked to a patient record")
-    plans = db.scalars(select(TreatmentPlan).where(TreatmentPlan.patient_id == user.patient_id,
+    plans = db.scalars(select(TreatmentPlan).where(TreatmentPlan.patient_id.in_(portal_patient_ids(db, user)),
                                                    TreatmentPlan.status != "Draft")
                        .order_by(TreatmentPlan.created_at.desc())).all()
     return [_plan_out(db, p) for p in plans]

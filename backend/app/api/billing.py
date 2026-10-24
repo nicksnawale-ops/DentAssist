@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.patients import get_patient_for
+from app.api.patients import get_patient_for, portal_patient_ids
 from app.core.config import get_settings
 from app.core.deps import CurrentUser, DbSession, StaffUser, accessible_clinic_ids, ensure_clinic_access, require_roles
 from app.core.errors import AppError, bad_request, forbidden, not_found
@@ -133,7 +133,7 @@ def _get_invoice(db: Session, user: User, invoice_id: str) -> Invoice:
     if not inv:
         raise not_found("Invoice")
     if user.role == "patient":
-        if inv.patient_id != user.patient_id or inv.status == "Draft":
+        if inv.patient_id not in portal_patient_ids(db, user) or inv.status == "Draft":
             raise not_found("Invoice")
     else:
         allowed = accessible_clinic_ids(user)
@@ -675,11 +675,12 @@ def outstanding_report(user: StaffUser, db: DbSession, clinic_id: str | None = Q
 def my_invoices(db: DbSession, user: User = Depends(require_roles("patient"))):
     if not user.patient_id:
         raise forbidden("This login is not linked to a patient record")
+    ids = portal_patient_ids(db, user)  # family account holders see the whole family's bills
     invoices = db.scalars(
-        select(Invoice).where(Invoice.patient_id == user.patient_id, Invoice.status != "Draft")
+        select(Invoice).where(Invoice.patient_id.in_(ids), Invoice.status != "Draft")
         .order_by(Invoice.created_at.desc())
     ).all()
     svc.refresh_overdue(db, list(invoices))
-    patient = db.get(Patient, user.patient_id)
+    patients = {p.id: p for p in db.scalars(select(Patient).where(Patient.id.in_(ids)))}
     flags = _with_installment_flags(db, list(invoices))
-    return [_invoice_out(i, patient, i.id in flags) for i in invoices]
+    return [_invoice_out(i, patients.get(i.patient_id), i.id in flags) for i in invoices]

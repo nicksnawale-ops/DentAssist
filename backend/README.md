@@ -276,6 +276,22 @@ Every change is in the audit log. This is a calculation aid, not tax advice.
 working hours (or clinic hours) with a 10-minute grace. Admins see a month grid for the clinic, mark
 leave, absence or holidays, and correct times; edits are recorded as admin changes.
 
+## Family accounts and QR check-in
+
+**Families**: on a patient's profile, *Add member* links relatives (spouse, child, parent…). One member is
+the account holder. The holder's portal login sees every member's appointments, plans, prescriptions,
+consents and bills, and can book for any of them (*Who is the appointment for?*). Other members still see
+only their own records. Patients who share a mobile number are suggested automatically.
+*Family payment* takes one amount and applies it to the family's oldest unpaid bills first, with a
+receipt per invoice; more than the total due is refused.
+
+**Self check-in**: the receptionist dashboard shows a QR code with a *Print poster* button. Patients scan
+it, enter the mobile number they booked with, pick their appointment (names are masked) and tap
+*I'm here*. This works from 2 hours before the start until the appointment ends. The queue shows them as
+arrived with how long they have waited, and the dentist and front desk get a notification. Without a
+smartphone, the desk taps *Arrived* in the queue. Admins can make a new code if a poster photo was shared
+(old posters stop working). The public endpoints are rate limited and need the clinic's secret key.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

@@ -307,10 +307,11 @@ def send_whatsapp(rx_id: str, db: DbSession, user: StaffUser):
 
 
 @router.get("/patient-portal/prescriptions", response_model=list[PrescriptionOut])
-def my_prescriptions(db: DbSession, user: User = Depends(require_roles("patient"))):
+def my_prescriptions(db: DbSession, user: User = Depends(require_roles("patient")),
+                     patient_id: str | None = Query(default=None, alias="patientId")):
     if not user.patient_id:
         return []
-    return list_for_patient(user.patient_id, db, user)
+    return list_for_patient(patient_id or user.patient_id, db, user)
 
 
 @router.get("/prescriptions", response_model=list[PrescriptionOut])

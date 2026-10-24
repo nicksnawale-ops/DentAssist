@@ -4,6 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { format, addDays, startOfToday, addMinutes } from 'date-fns';
 import { Address, Appointment } from '../../types';
 import { BookingOption, bookMyAppointment, FreeSlot, getAvailability, getBookingOptions, rescheduleMyAppointment } from '../../api/apiService';
+import { useAuth } from '../../context/AuthContext';
+import { FamilyMember, getFamily } from '../../api/familyService';
 
 interface PatientBookingModalProps {
   onClose: () => void;
@@ -45,6 +47,17 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [forPatient, setForPatient] = useState<string>(user?.patientId || '');
+
+  useEffect(() => {
+    if (isReschedule || !user?.patientId) return;
+    getFamily(user.patientId).then(r => {
+      const fam = r.data;
+      if (fam && fam.headPatientId === user.patientId && fam.members.length > 1) setMembers(fam.members);
+    });
+  }, [isReschedule, user?.patientId]);
 
   useEffect(() => {
     getBookingOptions().then(res => {
@@ -95,6 +108,7 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
           startTime: start.toISOString(),
           endTime: end.toISOString(),
           procedureType: reason,
+          patientId: forPatient && forPatient !== user?.patientId ? forPatient : undefined,
         });
     setSubmitting(false);
 
@@ -126,7 +140,20 @@ export function PatientBookingModal({ onClose, onBooked, rescheduleAppointment }
           {/* Step 1: Reason */}
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-text-main mb-3">What is the reason for your visit?</h3>
+              {members.length > 1 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-text-main mb-2">Who is the appointment for?</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {members.map(m => (
+                      <button key={m.patientId} onClick={() => setForPatient(m.patientId)}
+                        className={`h-9 px-3 rounded-full text-[13px] font-medium border ${forPatient === m.patientId ? 'bg-primary text-white border-primary' : 'border-line hover:bg-surface-hover'}`}>
+                        {m.isHead ? 'Me' : m.name.split(' ')[0]}{!m.isHead && m.relation ? ` (${m.relation.toLowerCase()})` : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <h3 className="text-sm font-semibold text-text-main mb-3">What is the reason for {members.length > 1 && forPatient !== user?.patientId ? `${members.find(m => m.patientId === forPatient)?.name.split(' ')[0]}'s` : 'your'} visit?</h3>
               <div className="grid grid-cols-2 gap-3">
                 {REASONS.map(r => (
                   <button

@@ -378,9 +378,9 @@ export async function getBookingOptions(): Promise<ApiResponse<BookingOption[]>>
   })));
 }
 
-export async function bookMyAppointment(data: { dentistId: string; clinicId: string; startTime: string; endTime: string; procedureType: string; notes?: string }): Promise<ApiResponse<Appointment>> {
+export async function bookMyAppointment(data: { dentistId: string; clinicId: string; startTime: string; endTime: string; procedureType: string; notes?: string; patientId?: string }): Promise<ApiResponse<Appointment>> {
   if (!USE_MOCK_API) return http.post('/patient-portal/appointments/book', data);
-  return createAppointment({ ...data, patientId: 'pat_1', status: 'scheduled' });
+  return createAppointment({ ...data, patientId: data.patientId || 'pat_1', status: 'scheduled' });
 }
 
 export async function rescheduleMyAppointment(id: string, startTime: string, endTime: string): Promise<ApiResponse<Appointment>> {

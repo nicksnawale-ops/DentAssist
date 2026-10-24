@@ -40,6 +40,7 @@ import { CommunicationLog } from './pages/communications/CommunicationLog';
 import { RecallsPage } from './pages/recalls/RecallsPage';
 import { SignConsent } from './pages/public/SignConsent';
 import { TeamPage } from './pages/team/TeamPage';
+import { SelfCheckIn } from './pages/public/SelfCheckIn';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -59,6 +60,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/book/:clinicId" element={<BookOnline />} />
       <Route path="/consent/:token" element={<SignConsent />} />
+      <Route path="/checkin/:clinicId" element={<SelfCheckIn />} />
       <Route path="/access-denied" element={<AccessDenied />} />
       
       <Route path="/" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist', 'patient']}><AppShell /></RoleRoute>}>
