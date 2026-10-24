@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import * as Tabs from '@radix-ui/react-tabs';
 import { useAuth } from '../../context/AuthContext';
 import { DentalChart } from '../../components/dental-chart/DentalChart';
 import { TreatmentPlansTab } from '../../components/treatment/TreatmentPlansTab';
 import { DocumentsTab } from '../../components/documents/DocumentsTab';
-import { FileText, Stethoscope, Paperclip } from 'lucide-react';
+import { FileText, Stethoscope, Paperclip, Pill, FileSignature } from 'lucide-react';
+import { PrescriptionsTab } from '../../components/prescriptions/PrescriptionsTab';
+import { ConsentsTab } from '../../components/consents/ConsentsTab';
 
 export function PatientRecordsView() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('chart');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'chart');
 
   if (!user) return null;
 
@@ -42,6 +46,12 @@ export function PatientRecordsView() {
           >
             <Paperclip className="w-4 h-4" /> Documents
           </Tabs.Trigger>
+          <Tabs.Trigger value="prescriptions" className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2">
+            <Pill className="w-4 h-4" /> Prescriptions
+          </Tabs.Trigger>
+          <Tabs.Trigger value="consents" className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2">
+            <FileSignature className="w-4 h-4" /> Consent forms
+          </Tabs.Trigger>
         </Tabs.List>
         
         <div className="p-4 sm:p-6 bg-surface min-h-[400px]">
@@ -53,6 +63,12 @@ export function PatientRecordsView() {
           </Tabs.Content>
           <Tabs.Content value="documents" className="outline-none h-full">
             <DocumentsTab patientId={user.id} />
+          </Tabs.Content>
+          <Tabs.Content value="prescriptions" className="outline-none h-full">
+            <PrescriptionsTab patientId={user.patientId || user.id} />
+          </Tabs.Content>
+          <Tabs.Content value="consents" className="outline-none h-full">
+            <ConsentsTab patientId={user.patientId || user.id} patientName={`${user.firstName} ${user.lastName}`.trim()} />
           </Tabs.Content>
         </div>
       </Tabs.Root>

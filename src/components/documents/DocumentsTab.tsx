@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { PatientDocument, DocumentType } from '../../types';
 import { mockDocuments } from '../../data/mockDocuments';
 import { Button } from '../ui/Button';
-import { Upload, Plus, FileText, Image as ImageIcon, Filter, Check, MoreVertical, Search, FileSignature } from 'lucide-react';
+import { Upload, Plus, FileText, Image as ImageIcon, Filter, Check, MoreVertical, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { DocumentViewer } from './DocumentViewer';
-import { ConsentFormModal } from './ConsentFormModal';
 
 export function DocumentsTab({ patientId }: { patientId: string }) {
   const [documents, setDocuments] = useState<PatientDocument[]>(mockDocuments.filter(d => d.patientId === patientId));
@@ -14,7 +13,6 @@ export function DocumentsTab({ patientId }: { patientId: string }) {
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   
   const [viewingDoc, setViewingDoc] = useState<PatientDocument | null>(null);
-  const [showConsentModal, setShowConsentModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -64,20 +62,14 @@ export function DocumentsTab({ patientId }: { patientId: string }) {
     setSelectedDocs(next);
   };
 
-  const handleSaveConsent = (signedDoc: PatientDocument) => {
-    setDocuments([signedDoc, ...documents]);
-    setShowConsentModal(false);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div>
           <h3 className="text-lg font-bold text-text-main">Documents & X-Rays</h3>
-          <p className="text-sm text-text-muted">Manage patient files, imaging, and consent forms.</p>
+          <p className="text-sm text-text-muted">Patient files and imaging. Consent forms have their own tab.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowConsentModal(true)} className="gap-2 bg-base"><FileSignature className="w-4 h-4" /> Generate Consent</Button>
           <div className="relative">
              <input type="file" id="file-upload" className="hidden" onChange={handleSimulateUpload} accept="image/*,.pdf,.doc,.docx" />
              <label htmlFor="file-upload" className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer shadow-panel">
@@ -233,13 +225,6 @@ export function DocumentsTab({ patientId }: { patientId: string }) {
         />
       )}
 
-      {showConsentModal && (
-        <ConsentFormModal 
-          patientId={patientId}
-          onClose={() => setShowConsentModal(false)}
-          onSave={handleSaveConsent}
-        />
-      )}
     </div>
   );
 }

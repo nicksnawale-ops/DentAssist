@@ -6,11 +6,12 @@ import { Input } from '../components/ui/Input';
 import { FormField } from '../components/ui/FormField';
 import { Button } from '../components/ui/Button';
 import { toast } from '../components/ui/useToast';
-import { User, Bell, Shield, Camera, Lock, CreditCard, Globe } from 'lucide-react';
+import { User, Bell, Shield, Camera, Lock, CreditCard, Globe, FileSignature } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { RolesPermissionsPanel } from './settings/RolesPermissionsPanel';
 import { SubscriptionOverview } from './settings/SubscriptionOverview';
 import { WhatsAppTemplates } from './settings/WhatsAppTemplates';
+import { ConsentTemplatesSettings } from './settings/ConsentTemplatesSettings';
 import { AuditLogTab } from './settings/AuditLogTab';
 import { MessageSquare, FileText } from 'lucide-react';
 import { currencyConfig, setCurrency, useCurrency, CurrencyCode } from '../utils/currencyConfig';
@@ -116,6 +117,14 @@ export function Settings() {
           >
             <MessageSquare className="w-4 h-4" /> WhatsApp Templates
           </Tabs.Trigger>
+          {(user.role === 'super_admin' || user.role === 'admin' || user.role === 'dentist') && (
+            <Tabs.Trigger
+              value="consent_forms"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-base transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary whitespace-nowrap"
+            >
+              <FileSignature className="w-4 h-4" /> Consent forms
+            </Tabs.Trigger>
+          )}
         </Tabs.List>
 
         <div className="flex-1 min-w-0">
@@ -276,6 +285,9 @@ export function Settings() {
           
           <Tabs.Content value="whatsapp" className="outline-none">
              <WhatsAppTemplates />
+          </Tabs.Content>
+          <Tabs.Content value="consent_forms" className="outline-none">
+             <ConsentTemplatesSettings />
           </Tabs.Content>
         </div>
       </Tabs.Root>

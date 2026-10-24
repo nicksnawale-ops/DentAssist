@@ -7,7 +7,8 @@ import { format, parseISO, differenceInYears } from 'date-fns';
 import { 
   ArrowLeft, Phone, Mail, MapPin, AlertCircle, Edit, CalendarDays, 
   FileText, Wallet, Package, MessageSquare, Clock, User, ClipboardList, Activity,
-  AlertTriangle, ChevronDown
+  AlertTriangle, ChevronDown,
+  Pill, FileSignature,
 } from 'lucide-react';
 import { getAppointments, getPatientById, getStaff } from '../../api/apiService';
 import { Appointment, Patient, User as StaffMember } from '../../types';
@@ -16,6 +17,8 @@ import { TreatmentPlansTab } from '../../components/treatment/TreatmentPlansTab'
 import { ClinicalNotesTab } from '../../components/clinical-notes/ClinicalNotesTab';
 import { PatientInvoicesTab } from '../../components/billing/PatientInvoicesTab';
 import { DocumentsTab } from '../../components/documents/DocumentsTab';
+import { PrescriptionsTab } from '../../components/prescriptions/PrescriptionsTab';
+import { ConsentsTab } from '../../components/consents/ConsentsTab';
 import { PatientRegistrationForm } from '../../components/patients/PatientRegistrationForm';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { useToast } from '../../components/ui/useToast';
@@ -236,6 +239,12 @@ export function PatientProfile() {
             <FileText className="w-4 h-4" /> Clinical Notes
           </Tabs.Trigger>
           </>)}
+          <Tabs.Trigger value="prescriptions" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
+            <Pill className="w-4 h-4" /> Prescriptions
+          </Tabs.Trigger>
+          <Tabs.Trigger value="consents" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
+            <FileSignature className="w-4 h-4" /> Consent forms
+          </Tabs.Trigger>
           <Tabs.Trigger value="billing" className="flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary whitespace-nowrap outline-none">
             <Wallet className="w-4 h-4" /> Billing
           </Tabs.Trigger>
@@ -391,6 +400,14 @@ export function PatientProfile() {
           
           <Tabs.Content value="notes" className="outline-none">
              <ClinicalNotesTab patientId={patient.id} />
+          </Tabs.Content>
+
+          <Tabs.Content value="prescriptions" className="outline-none">
+             <PrescriptionsTab patientId={patient.id} allergies={patient.medicalHistory?.allergies || []} />
+          </Tabs.Content>
+
+          <Tabs.Content value="consents" className="outline-none">
+             <ConsentsTab patientId={patient.id} patientName={`${patient.firstName} ${patient.lastName}`.trim()} dentists={dentists.filter(d => d.role === 'dentist')} />
           </Tabs.Content>
 
           <Tabs.Content value="billing" className="outline-none">

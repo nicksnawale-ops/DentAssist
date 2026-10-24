@@ -98,6 +98,19 @@ DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "a quick Google review helps other families find us: {{3}}",
         "params": ["patient_first_name", "clinic_name", "review_link"],
     },
+    "prescription_issued": {
+        "label": "Prescription ready",
+        "metaName": "prescription_issued", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, {{2}} at {{3}} has written your prescription. You can view and download it here: {{4}}",
+        "params": ["patient_first_name", "dentist_name", "clinic_name", "link"],
+    },
+    "consent_request": {
+        "label": "Consent form to sign",
+        "metaName": "consent_request", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, {{2}} has sent you a consent form for {{3}}. Please read it and sign on your phone: {{4}} "
+                "(link valid for 3 days)",
+        "params": ["patient_first_name", "clinic_name", "procedure", "link"],
+    },
 }
 
 for _key, _tpl in DEFAULT_TEMPLATES.items():

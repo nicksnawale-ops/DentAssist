@@ -72,6 +72,8 @@ export const MESSAGE_KIND_LABELS: Record<string, string> = {
   recall_checkup: 'Checkup recall',
   recall_treatment: 'Treatment recall',
   review_request: 'Review request',
+  prescription_issued: 'Prescription',
+  consent_request: 'Consent form',
   reminder_24h: 'Reminder (day before)',
   reminder_2h: 'Reminder (2 hours)',
   booking_confirmation: 'Booking confirmation',
@@ -116,6 +118,12 @@ const MOCK_TEMPLATES: Omit<MessageTemplate, 'translations'>[] = [
   { key: 'review_request', label: 'Google review request', metaName: 'review_request', language: 'en', enabled: true,
     body: 'Hi {{1}}, thank you for visiting {{2}}. If you were happy with your care, a quick Google review helps other families find us: {{3}}',
     params: ['patient_first_name', 'clinic_name', 'review_link'] },
+  { key: 'prescription_issued', label: 'Prescription ready', metaName: 'prescription_issued', language: 'en', enabled: true,
+    body: 'Hi {{1}}, {{2}} at {{3}} has written your prescription. You can view and download it here: {{4}}',
+    params: ['patient_first_name', 'dentist_name', 'clinic_name', 'link'] },
+  { key: 'consent_request', label: 'Consent form to sign', metaName: 'consent_request', language: 'en', enabled: true,
+    body: 'Hi {{1}}, {{2}} has sent you a consent form for {{3}}. Please read it and sign on your phone: {{4}} (link valid for 3 days)',
+    params: ['patient_first_name', 'clinic_name', 'procedure', 'link'] },
 ];
 
 const mockTemplates: MessageTemplate[] = MOCK_TEMPLATES.map(t => ({
@@ -217,7 +225,7 @@ export function previewTemplate(t: Pick<MessageTemplate, 'body' | 'params'>, lan
     patient_first_name: 'Priya', clinic_name: 'VisionEdge Central', date, time: '10:30 AM',
     dentist_name: 'Dr. Sarah Smith', invoice_number: 'INV-2026-0042', amount: '₹4,500', due_date: due,
     link: 'dentassist.app/bills', booking_link: 'dentassist.app/book/central', treatment_name: 'Phase 1: restorative work',
-    review_link: 'g.page/r/visionedge/review',
+    review_link: 'g.page/r/visionedge/review', procedure: 'tooth extraction',
   };
   return t.params.reduce((text, p, i) => text.split(`{{${i + 1}}}`).join(samples[p] ?? p), t.body);
 }

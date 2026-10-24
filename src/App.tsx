@@ -38,6 +38,7 @@ import { PatientProfileSettings } from './pages/patients/PatientProfileSettings'
 // Communications
 import { CommunicationLog } from './pages/communications/CommunicationLog';
 import { RecallsPage } from './pages/recalls/RecallsPage';
+import { SignConsent } from './pages/public/SignConsent';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -56,6 +57,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/book/:clinicId" element={<BookOnline />} />
+      <Route path="/consent/:token" element={<SignConsent />} />
       <Route path="/access-denied" element={<AccessDenied />} />
       
       <Route path="/" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist', 'patient']}><AppShell /></RoleRoute>}>
