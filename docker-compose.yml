@@ -42,8 +42,12 @@ services:
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
       REMINDERS_ENABLED: ${REMINDERS_ENABLED:-true}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads   # X-rays and documents; back this up with the database
     ports:
       - "8000:8000"
 
 volumes:
   pgdata:
+  uploads:

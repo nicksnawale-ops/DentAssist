@@ -1,230 +1,224 @@
-import React, { useState } from 'react';
-import { PatientDocument, DocumentType } from '../../types';
-import { mockDocuments } from '../../data/mockDocuments';
-import { Button } from '../ui/Button';
-import { Upload, Plus, FileText, Image as ImageIcon, Filter, Check, MoreVertical, Search } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { format, parseISO } from 'date-fns';
+import { Columns2, FileText, Image as ImageIcon, Lock, Plus, Search, Upload } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Skeleton } from '../ui/Skeleton';
+import { EmptyState } from '../ui/EmptyState';
+import { Modal, Field, selectClass } from '../ui/Modal';
+import { toast } from '../ui/useToast';
+import { useAuth } from '../../context/AuthContext';
+import {
+  DOCUMENT_TYPES, DocumentType, formatBytes, getDocuments, PATIENT_UPLOAD_TYPES, PatientDoc, uploadDocument, XRAY_KINDS,
+} from '../../api/documentsService';
 import { DocumentViewer } from './DocumentViewer';
 
-export function DocumentsTab({ patientId }: { patientId: string }) {
-  const [documents, setDocuments] = useState<PatientDocument[]>(mockDocuments.filter(d => d.patientId === patientId));
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedType, setSelectedType] = useState<DocumentType | 'All'>('All');
-  const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
-  
-  const [viewingDoc, setViewingDoc] = useState<PatientDocument | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf,.dcm';
+const MAX_MB = 25;
 
-  const documentTypes: (DocumentType | 'All')[] = ['All', 'X-Ray', 'Intraoral Photo', 'Lab Report', 'Consent Form', 'Insurance Document', 'Other'];
+/** A patient's X-rays, photos and reports. Staff upload and annotate; patients see what's shared with them. */
+export function DocumentsTab({ patientId, defaultTooth }: { patientId: string; defaultTooth?: string }) {
+  const { user } = useAuth();
+  const isPatient = user?.role === 'patient';
+  const [docs, setDocs] = useState<PatientDoc[] | null>(null);
+  const [type, setType] = useState<string>('All');
+  const [tooth, setTooth] = useState(defaultTooth || '');
+  const [files, setFiles] = useState<File[] | null>(null);
+  const [viewing, setViewing] = useState<{ doc: PatientDoc; compareWith?: PatientDoc } | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
 
-  const filteredDocs = selectedType === 'All' ? documents : documents.filter(d => d.type === selectedType);
+  const load = useCallback(async () => {
+    const res = await getDocuments(patientId, { type, tooth: tooth.trim() || undefined });
+    setDocs(res.data || []);
+  }, [patientId, type, tooth]);
+  useEffect(() => { const t = setTimeout(load, tooth ? 250 : 0); return () => clearTimeout(t); }, [load, tooth]);
 
-  const handleSimulateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setIsUploading(true);
-      setUploadProgress(0);
-      
-      const file = e.target.files[0];
-      const objectUrl = URL.createObjectURL(file);
-      
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 20;
-        setUploadProgress(progress);
-        if (progress >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            const newDoc: PatientDocument = {
-              id: `doc-new-${Date.now()}`,
-              patientId,
-              type: file.type.startsWith('image/') ? 'Intraoral Photo' : 'Other',
-              fileName: file.name,
-              fileUrl: objectUrl,
-              thumbnailUrl: file.type.startsWith('image/') ? objectUrl : undefined,
-              tags: [],
-              uploadedByStaffId: 'current-user',
-              uploadedAt: new Date().toISOString(),
-              sizeBytes: file.size,
-            };
-            setDocuments([newDoc, ...documents]);
-            setIsUploading(false);
-          }, 300);
-        }
-      }, 200);
+  const pick = (list: FileList | null) => {
+    if (!list?.length) return;
+    const ok = Array.from(list).filter(f => f.size <= MAX_MB * 1024 * 1024);
+    if (ok.length < list.length) toast({ title: `Files over ${MAX_MB} MB were skipped`, variant: 'error' });
+    if (ok.length) setFiles(ok);
+  };
+
+  const toggle = (id: string) => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s.slice(-1), id]));
+  const images = (docs || []).filter(d => d.isImage);
+  const compare = () => {
+    const [a, b] = selected.map(id => images.find(d => d.id === id)).filter(Boolean) as PatientDoc[];
+    if (a && b) {
+      const [older, newer] = [a, b].sort((x, y) => (x.takenAt || x.createdAt).localeCompare(y.takenAt || y.createdAt));
+      setViewing({ doc: older, compareWith: newer });
     }
   };
 
-  const toggleSelection = (id: string) => {
-    const next = new Set(selectedDocs);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedDocs(next);
+  return (
+    <div className="space-y-4"
+      onDragOver={e => { if (!e.dataTransfer.types.includes('Files')) return; e.preventDefault(); setDragging(true); }}
+      onDragLeave={e => { if (e.currentTarget === e.target) setDragging(false); }}
+      onDrop={e => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files); }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div>
+          <h3 className="text-[15px] font-semibold">X-rays & documents</h3>
+          <p className="text-[13px] text-text-muted">{isPatient ? 'Images and reports your clinic has shared with you.' : 'Drop files here or upload. Tag teeth to find them from the dental chart.'}</p>
+        </div>
+        <div className="flex gap-2 ml-auto">
+          {selected.length === 2 && <Button size="sm" variant="outline" onClick={compare}><Columns2 className="w-4 h-4" /> Compare</Button>}
+          <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={e => { pick(e.target.files); e.target.value = ''; }} />
+          <Button size="sm" onClick={() => input.current?.click()}><Upload className="w-4 h-4" /> Upload</Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-1">
+          {['All', 'X-Ray', 'Intraoral Photo', 'Lab Report', 'Insurance Document', 'Other'].map(t => (
+            <button key={t} onClick={() => setType(t)}
+              className={`h-8 px-3 rounded-full text-[12px] font-medium ${type === t ? 'bg-primary text-white' : 'border border-line text-text-muted hover:bg-surface-hover'}`}>
+              {t === 'All' ? 'All' : t === 'Intraoral Photo' ? 'Photos' : t === 'Insurance Document' ? 'Insurance' : t === 'X-Ray' ? 'X-rays' : t === 'Lab Report' ? 'Reports' : t}
+            </button>
+          ))}
+        </div>
+        <div className="relative sm:ml-auto w-36">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
+          <Input value={tooth} onChange={e => setTooth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Tooth no." className="pl-8 h-8 text-[13px]" inputMode="numeric" aria-label="Filter by tooth" />
+        </div>
+      </div>
+      {images.length > 1 && !isPatient && <p className="text-[12px] text-text-muted -mt-2">Tip: tick two images to compare before and after.</p>}
+
+      <div className={`rounded-control transition-colors ${dragging ? 'ring-2 ring-primary ring-offset-2 bg-primary/[0.03]' : ''}`}>
+        {docs === null ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="aspect-[4/3]" />)}</div>
+        ) : docs.length === 0 ? (
+          <EmptyState icon={ImageIcon} title={tooth || type !== 'All' ? 'Nothing matches' : 'No files yet'}
+            description={isPatient ? 'You can add insurance papers or reports from other clinics.' : 'Upload X-rays, intraoral photos and reports. JPEG, PNG, WebP, PDF or DICOM, up to 25 MB.'}
+            actionLabel="Upload" onAction={() => input.current?.click()} />
+        ) : (
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {docs.map(d => (
+              <li key={d.id} className={`group relative rounded-control border bg-surface overflow-hidden ${selected.includes(d.id) ? 'border-primary ring-1 ring-primary' : 'border-line'}`}>
+                <button className="block w-full text-left" onClick={() => setViewing({ doc: d })}>
+                  <div className="aspect-[4/3] bg-gray-900/90 flex items-center justify-center overflow-hidden">
+                    {d.thumbnailUrl ? <img src={d.thumbnailUrl} alt={d.title} loading="lazy" className="w-full h-full object-cover" />
+                      : <FileText className="w-10 h-10 text-white/60" />}
+                  </div>
+                  <div className="p-2.5">
+                    <div className="text-[13px] font-medium truncate">{d.title}</div>
+                    <div className="text-[11px] text-text-muted truncate">
+                      {d.xrayKind || d.type}{d.teeth.length ? ` · ${d.teeth.join(', ')}` : ''} · {d.takenAt ? format(parseISO(d.takenAt), 'd MMM yyyy') : ''}
+                    </div>
+                  </div>
+                </button>
+                <div className="absolute top-2 left-2 flex gap-1">
+                  {!d.sharedWithPatient && !isPatient && <span className="bg-black/60 text-white rounded px-1.5 py-0.5 text-[10px] flex items-center gap-1"><Lock className="w-3 h-3" /> Staff only</span>}
+                  {d.annotations.length > 0 && <span className="bg-black/60 text-white rounded px-1.5 py-0.5 text-[10px]">{d.annotations.length} marks</span>}
+                </div>
+                {d.isImage && !isPatient && (
+                  <label className="absolute top-2 right-2 w-7 h-7 rounded bg-white/90 flex items-center justify-center cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 has-[:checked]:opacity-100">
+                    <input type="checkbox" className="h-4 w-4 rounded border-line text-primary" checked={selected.includes(d.id)} onChange={() => toggle(d.id)} aria-label={`Select ${d.title} to compare`} />
+                  </label>
+                )}
+              </li>
+            ))}
+            {!isPatient && (
+              <li>
+                <button onClick={() => input.current?.click()} className="w-full h-full min-h-[160px] rounded-control border-2 border-dashed border-line text-text-muted hover:border-primary hover:text-primary flex flex-col items-center justify-center gap-1 text-[13px]">
+                  <Plus className="w-5 h-5" /> Add files
+                </button>
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
+      {files && <UploadDialog patientId={patientId} files={files} defaultTooth={tooth} onClose={() => setFiles(null)} onDone={n => { setFiles(null); load(); toast({ title: `${n} ${n === 1 ? 'file' : 'files'} added`, variant: 'success' }); }} />}
+      {viewing && (
+        <DocumentViewer doc={viewing.doc} compareWith={viewing.compareWith} images={images}
+          onClose={() => setViewing(null)} onChanged={() => load()} onDeleted={() => { setViewing(null); load(); }} />
+      )}
+    </div>
+  );
+}
+
+function guessType(f: File): DocumentType {
+  if (f.type === 'application/pdf') return 'Lab Report';
+  if (/x-?ray|opg|iopa|rvg|bitewing|ceph|cbct/i.test(f.name) || /\.dcm$/i.test(f.name)) return 'X-Ray';
+  return f.type.startsWith('image/') ? 'Intraoral Photo' : 'Other';
+}
+
+function UploadDialog({ patientId, files, defaultTooth, onClose, onDone }: { patientId: string; files: File[]; defaultTooth?: string; onClose: () => void; onDone: (n: number) => void }) {
+  const { user } = useAuth();
+  const isPatient = user?.role === 'patient';
+  const allowed: readonly DocumentType[] = isPatient ? PATIENT_UPLOAD_TYPES : DOCUMENT_TYPES;
+  const first = guessType(files[0]);
+  const [type, setType] = useState<DocumentType>(allowed.includes(first) ? first : allowed[0]);
+  const [xrayKind, setXrayKind] = useState('IOPA');
+  const [teeth, setTeeth] = useState(defaultTooth || '');
+  const [takenAt, setTakenAt] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [notes, setNotes] = useState('');
+  const [shared, setShared] = useState(true);
+  const [title, setTitle] = useState(files.length === 1 ? files[0].name.replace(/\.[^.]+$/, '') : '');
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const previews = useState(() => files.map(f => (f.type.startsWith('image/') ? URL.createObjectURL(f) : null)))[0];
+  useEffect(() => () => previews.forEach(u => u && URL.revokeObjectURL(u)), [previews]);
+
+  const submit = async () => {
+    setError(null);
+    let done = 0;
+    const failed: string[] = [];
+    for (const f of files) {
+      setProgress(done);
+      const res = await uploadDocument(patientId, f, {
+        type, title: files.length === 1 ? title.trim() || undefined : undefined, xrayKind: type === 'X-Ray' ? xrayKind : undefined,
+        teeth: teeth.split(/[,\s]+/).filter(Boolean), takenAt, notes: notes.trim() || undefined, sharedWithPatient: shared,
+      });
+      if (res.error) failed.push(`${f.name}: ${res.error.message}`);
+      else done += 1;
+    }
+    setProgress(null);
+    if (failed.length) setError(failed.join('\n'));
+    else onDone(done);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
-        <div>
-          <h3 className="text-lg font-bold text-text-main">Documents & X-Rays</h3>
-          <p className="text-sm text-text-muted">Patient files and imaging. Consent forms have their own tab.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="relative">
-             <input type="file" id="file-upload" className="hidden" onChange={handleSimulateUpload} accept="image/*,.pdf,.doc,.docx" />
-             <label htmlFor="file-upload" className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer shadow-panel">
-               <Upload className="w-4 h-4" /> Upload File
-             </label>
-          </div>
-        </div>
-      </div>
-
-      {isUploading && (
-        <div className="bg-surface border border-primary/30 rounded-xl p-4 animate-in fade-in">
-           <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-bold text-text-main">Uploading...</span>
-              <span className="text-xs font-medium text-text-muted">{uploadProgress}%</span>
-           </div>
-           <div className="w-full bg-text-muted/10 rounded-full h-2 overflow-hidden">
-              <div className="bg-primary h-2 rounded-full transition-all duration-200" style={{ width: `${uploadProgress}%` }}></div>
-           </div>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center">
-         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {documentTypes.map(type => (
-              <button 
-                key={type} 
-                onClick={() => setSelectedType(type)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${selectedType === type ? 'bg-primary text-white border-primary shadow-panel' : 'bg-surface text-text-muted border-line hover:text-text-main'}`}
-              >
-                {type}
-              </button>
-            ))}
-         </div>
-         <div className="flex bg-surface rounded-lg p-1 border border-line shadow-panel ml-4 shrink-0">
-            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-base shadow-panel text-text-main' : 'text-text-muted'}`}>
-              <ImageIcon className="w-4 h-4" />
-            </button>
-            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-base shadow-panel text-text-main' : 'text-text-muted'}`}>
-              <Filter className="w-4 h-4" />
-            </button>
-         </div>
-      </div>
-
-      {selectedDocs.size > 0 && (
-        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center animate-in fade-in slide-in-from-top-2">
-           <span className="text-sm font-medium text-primary">{selectedDocs.size} selected</span>
-           <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="bg-base border-primary/30 text-primary hover:bg-primary/5">Download Zip</Button>
-              <Button variant="outline" size="sm" className="bg-base border-error/30 text-error hover:bg-error/5">Delete</Button>
-           </div>
-        </div>
-      )}
-
-      {filteredDocs.length > 0 ? (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredDocs.map(doc => (
-              <div 
-                key={doc.id} 
-                className={`group relative bg-base border rounded-xl overflow-hidden shadow-panel transition-all hover:border-text-muted/30 cursor-pointer ${selectedDocs.has(doc.id) ? 'border-primary ring-1 ring-primary' : 'border-line'}`}
-                onClick={() => setViewingDoc(doc)}
-              >
-                 <div className="absolute top-2 left-2 z-10" onClick={(e) => { e.stopPropagation(); toggleSelection(doc.id); }}>
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedDocs.has(doc.id) ? 'bg-primary border-primary text-white' : 'bg-base border-text-muted/30 text-transparent group-hover:border-text-muted/50'}`}>
-                      <Check className="w-3.5 h-3.5" />
-                    </div>
-                 </div>
-                 <div className="aspect-square bg-surface border-b border-line relative overflow-hidden flex items-center justify-center">
-                    {doc.thumbnailUrl ? (
-                      <img src={doc.thumbnailUrl} alt={doc.fileName} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                    ) : (
-                      <FileText className="w-12 h-12 text-text-muted/30" />
-                    )}
-                    <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 text-white text-[11px] font-bold rounded backdrop-blur-sm">
-                      {doc.type}
-                    </div>
-                 </div>
-                 <div className="p-3">
-                    <h4 className="font-medium text-sm text-text-main truncate" title={doc.fileName}>{doc.fileName}</h4>
-                    <div className="text-[11px] text-text-muted mt-1">{format(parseISO(doc.uploadedAt), 'MMM d, yyyy')}</div>
-                    {doc.tags && doc.tags.length > 0 && (
-                      <div className="flex gap-1 mt-2 overflow-x-hidden">
-                        {doc.tags.map(tag => (
-                          <span key={tag} className="px-1.5 py-0.5 bg-surface-hover rounded text-[11px] font-medium text-text-muted whitespace-nowrap">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                 </div>
+    <Modal title={`Add ${files.length} ${files.length === 1 ? 'file' : 'files'}`} onClose={onClose}
+      footer={<><Button variant="ghost" onClick={onClose} disabled={progress !== null}>Cancel</Button>
+        <Button onClick={submit} loading={progress !== null}>{progress !== null ? `Uploading ${progress + 1} of ${files.length}` : 'Upload'}</Button></>}>
+      <div className="p-5 space-y-4">
+        <ul className="flex gap-2 overflow-x-auto scrollbar-hide">
+          {files.map((f, i) => (
+            <li key={i} className="flex-none w-24">
+              <div className="w-24 h-20 rounded-control bg-gray-900/90 overflow-hidden flex items-center justify-center">
+                {previews[i] ? <img src={previews[i]!} alt="" className="w-full h-full object-cover" /> : <FileText className="w-7 h-7 text-white/60" />}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-base border border-line rounded-xl overflow-hidden shadow-panel">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-               <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
-                  <tr>
-                     <th className="px-4 py-3 w-8"></th>
-                     <th className="px-4 py-3">File Name</th>
-                     <th className="px-4 py-3">Type</th>
-                     <th className="px-4 py-3">Date</th>
-                     <th className="px-4 py-3">Tags</th>
-                     <th className="px-4 py-3">Size</th>
-                  </tr>
-               </thead>
-               <tbody className="divide-y divide-line">
-                  {filteredDocs.map(doc => (
-                    <tr key={doc.id} className={`hover:bg-surface-hover/50 cursor-pointer ${selectedDocs.has(doc.id) ? 'bg-primary/5' : ''}`} onClick={() => setViewingDoc(doc)}>
-                       <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelection(doc.id); }}>
-                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedDocs.has(doc.id) ? 'bg-primary border-primary text-white' : 'bg-surface border-text-muted/30'}`}>
-                            {selectedDocs.has(doc.id) && <Check className="w-3 h-3" />}
-                          </div>
-                       </td>
-                       <td className="px-4 py-3 font-medium text-text-main flex items-center gap-3">
-                          {doc.thumbnailUrl ? (
-                             <img src={doc.thumbnailUrl} className="w-8 h-8 rounded object-cover border border-line" />
-                          ) : (
-                             <div className="w-8 h-8 rounded bg-surface border border-line flex items-center justify-center"><FileText className="w-4 h-4 text-text-muted" /></div>
-                          )}
-                          <span className="truncate max-w-[200px]">{doc.fileName}</span>
-                       </td>
-                       <td className="px-4 py-3 text-text-muted">{doc.type}</td>
-                       <td className="px-4 py-3 text-text-muted">{format(parseISO(doc.uploadedAt), 'MMM d, yyyy')}</td>
-                       <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            {doc.tags?.slice(0, 2).map(tag => (
-                              <span key={tag} className="px-1.5 py-0.5 bg-surface-hover border border-line rounded text-[11px] font-medium text-text-muted">{tag}</span>
-                            ))}
-                            {(doc.tags?.length || 0) > 2 && <span className="text-[11px] text-text-muted">+{doc.tags!.length - 2}</span>}
-                          </div>
-                       </td>
-                       <td className="px-4 py-3 text-text-muted text-xs">
-                          {doc.sizeBytes ? `${(doc.sizeBytes / 1024 / 1024).toFixed(1)} MB` : '-'}
-                       </td>
-                    </tr>
-                  ))}
-               </tbody>
-            </table>
-          </div>
-        )
-      ) : (
-        <div className="py-16 text-center bg-surface rounded-xl border border-line border-dashed">
-          <ImageIcon className="w-12 h-12 text-text-muted/30 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-text-main">No Documents Found</h3>
-          <p className="text-sm text-text-muted mt-1 max-w-sm mx-auto">Upload X-rays, photos, or consent forms to keep patient records complete.</p>
+              <div className="text-[11px] truncate mt-1">{f.name}</div>
+              <div className="text-[10px] text-text-muted">{formatBytes(f.size)}</div>
+            </li>
+          ))}
+        </ul>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="Type">
+            <select value={type} onChange={e => setType(e.target.value as DocumentType)} className={selectClass}>{allowed.map(t => <option key={t}>{t}</option>)}</select>
+          </Field>
+          {type === 'X-Ray' ? (
+            <Field label="X-ray view">
+              <select value={xrayKind} onChange={e => setXrayKind(e.target.value)} className={selectClass}>{XRAY_KINDS.map(k => <option key={k}>{k}</option>)}</select>
+            </Field>
+          ) : <Field label="Date"><Input type="date" value={takenAt} max={format(new Date(), 'yyyy-MM-dd')} onChange={e => setTakenAt(e.target.value)} /></Field>}
+          {files.length === 1 && <div className="sm:col-span-2"><Field label="Title"><Input value={title} onChange={e => setTitle(e.target.value)} maxLength={200} /></Field></div>}
+          {!isPatient && <Field label="Teeth" hint="FDI numbers, e.g. 36, 37"><Input value={teeth} onChange={e => setTeeth(e.target.value)} /></Field>}
+          {type === 'X-Ray' && <Field label="Taken on"><Input type="date" value={takenAt} max={format(new Date(), 'yyyy-MM-dd')} onChange={e => setTakenAt(e.target.value)} /></Field>}
+          <div className="sm:col-span-2"><Field label="Notes"><Input value={notes} onChange={e => setNotes(e.target.value)} placeholder={isPatient ? 'e.g. Policy renewed in April' : 'e.g. Pre-op, periapical radiolucency'} /></Field></div>
         </div>
-      )}
-
-      {viewingDoc && (
-        <DocumentViewer 
-          document={viewingDoc} 
-          onClose={() => setViewingDoc(null)} 
-          allDocuments={documents}
-        />
-      )}
-
-    </div>
+        {!isPatient && (
+          <label className="inline-flex items-center gap-2 text-[13px] cursor-pointer">
+            <input type="checkbox" className="h-4 w-4 rounded border-line text-primary" checked={shared} onChange={e => setShared(e.target.checked)} />
+            Show to the patient in their portal
+          </label>
+        )}
+        {error && <p className="text-[13px] text-error whitespace-pre-wrap">{error}</p>}
+        <p className="text-[12px] text-text-muted flex items-center gap-1"><Lock className="w-3 h-3" /> JPEG, PNG, WebP, PDF or DICOM, up to {MAX_MB} MB each. Files are checked and stored privately.</p>
+      </div>
+    </Modal>
   );
 }

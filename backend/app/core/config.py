@@ -60,6 +60,10 @@ class Settings(BaseSettings):
             return True
         return self.whatsapp_provider == "meta" and bool(self.whatsapp_access_token and self.whatsapp_phone_number_id)
 
+    # Documents and X-rays. Files are stored on disk under this folder (mount a volume in Docker).
+    upload_dir: str = "./uploads"
+    max_upload_mb: int = 25
+
     # Create tables on startup (handy for local dev; use Alembic migrations in production)
     auto_create_tables: bool = False
 

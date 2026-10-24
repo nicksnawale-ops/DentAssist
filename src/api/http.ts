@@ -133,13 +133,14 @@ function buildUrl(path: string, query?: Query): string {
 
 async function send(method: string, path: string, opts: RequestOptions): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+  if (opts.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   const token = tokenStore.access;
   if (!opts.anonymous && token) headers.Authorization = `Bearer ${token}`;
   return fetch(buildUrl(path, opts.query), {
     method,
     headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: opts.body === undefined ? undefined : isForm ? (opts.body as FormData) : JSON.stringify(opts.body),
   });
 }
 
@@ -186,7 +187,11 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   }
 }
 
+/** Absolute URL for an API path the server handed us (e.g. a signed document link). */
+export const apiUrl = (path: string) => (/^https?:/.test(path) ? path : `${API_BASE}${path}`);
+
 export const http = {
+  upload: <T>(path: string, form: FormData) => request<T>('POST', path, { body: form }),
   get: <T>(path: string, query?: Query) => request<T>('GET', path, { query }),
   post: <T>(path: string, body?: unknown, query?: Query) => request<T>('POST', path, { body: body ?? {}, query }),
   patch: <T>(path: string, body?: unknown, query?: Query) => request<T>('PATCH', path, { body: body ?? {}, query }),
