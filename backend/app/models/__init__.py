@@ -166,3 +166,120 @@ class AppSetting(Base):
     key: Mapped[str] = mapped_column(String(100), primary_key=True)
     value: Mapped[dict | list] = mapped_column(JSONType, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Billing
+# ---------------------------------------------------------------------------
+
+class Procedure(Base):
+    """Procedure catalog used for invoice lines and (later) treatment plans."""
+
+    __tablename__ = "procedures"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="CASCADE"))  # None = all clinics
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[str] = mapped_column(String(100), default="General", nullable=False)
+    default_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    default_duration_minutes: Mapped[int] = mapped_column(Integer, default=30, nullable=False)
+    # Most dental treatment by a clinical establishment is GST-exempt; cosmetic work is taxable.
+    gst_applicable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class InvoiceCounter(Base):
+    """Year-wise running number for invoice numbers (INV-2026-0001)."""
+
+    __tablename__ = "invoice_counters"
+
+    year: Mapped[int] = mapped_column(Integer, primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class Invoice(TimestampMixin, Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    invoice_number: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="RESTRICT"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    treatment_plan_id: Mapped[str | None] = mapped_column(String(64))
+    # [{id, procedureId, procedureName, toothNumber, quantity, unitCost, total, taxable}]
+    line_items: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)  # as entered
+    discount_type: Mapped[str] = mapped_column(String(12), default="flat", nullable=False)  # flat | percentage
+    discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=18, nullable=False)  # GST % on taxable lines
+    inter_state: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # IGST instead of CGST+SGST
+    tax_breakdown: Mapped[dict] = mapped_column(JSONType, default=dict, nullable=False)
+    total_tax: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    amount_paid: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    # Draft | Sent | Partially Paid | Paid | Overdue | Void
+    status: Mapped[str] = mapped_column(String(20), default="Draft", nullable=False, index=True)
+    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    void_reason: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    method: Mapped[str] = mapped_column(String(30), nullable=False)  # Cash | Card | UPI | Bank Transfer | Cheque | Insurance
+    reference_number: Mapped[str | None] = mapped_column(String(120))
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(20), default="manual", nullable=False)  # manual | razorpay | insurance
+    # Razorpay payment id: unique so the webhook and the browser callback can't record a payment twice.
+    gateway_payment_id: Mapped[str | None] = mapped_column(String(100), unique=True)
+    recorded_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    paid_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class Installment(Base):
+    __tablename__ = "installments"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    installment_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    due_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), default="Pending", nullable=False)  # Pending | Paid | Overdue
+
+
+class InsuranceClaim(TimestampMixin, Base):
+    __tablename__ = "insurance_claims"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False)
+    provider_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    policy_number: Mapped[str | None] = mapped_column(String(100))
+    claim_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    approved_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    # Submitted | Under Review | Approved | Rejected | Paid
+    status: Mapped[str] = mapped_column(String(20), default="Submitted", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id", ondelete="SET NULL"))
+
+
+class PaymentOrder(Base):
+    """An online payment attempt (Razorpay order) for an invoice."""
+
+    __tablename__ = "payment_orders"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    gateway_order_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="created", nullable=False)  # created | paid | failed
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

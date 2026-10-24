@@ -119,3 +119,20 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Printing an invoice: show only the document, not the app around it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+  }
+}

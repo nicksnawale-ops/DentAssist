@@ -1,154 +1,125 @@
-import React, { useState } from 'react';
-import { mockInsuranceClaims } from '../../data/mockInsuranceClaims';
-import { mockPatients } from '../../data/mockPatients';
-import { mockInvoices } from '../../data/mockInvoices';
-import { useAuth } from '../../context/AuthContext';
-import { InsuranceClaimStatus } from '../../types';
+import React, { useCallback, useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Search, FileText, CheckCircle, Clock, XCircle, AlertCircle, ShieldPlus } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { InsuranceClaim, InsuranceClaimStatus } from '../../types';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../components/ui/useToast';
+import { InvoicePreviewModal } from '../../components/billing/InvoicePreviewModal';
+import { getClaims, updateClaim } from '../../api/billingService';
 import { formatCurrency } from '../../utils/currencyConfig';
 
+const STATUSES: InsuranceClaimStatus[] = ['Submitted', 'Under Review', 'Approved', 'Rejected', 'Paid'];
+const VARIANT: Record<InsuranceClaimStatus, 'secondary' | 'warning' | 'success' | 'error' | 'outline'> = {
+  Submitted: 'secondary', 'Under Review': 'warning', Approved: 'success', Rejected: 'error', Paid: 'outline',
+};
+
 export function InsuranceClaimsTab() {
-  const { selectedClinicId } = useAuth();
-  
-  // Filter claims based on selected clinic
-  const clinicClaims = mockInsuranceClaims.filter(claim => {
-    const invoice = mockInvoices.find(i => i.id === claim.invoiceId);
-    return selectedClinicId === 'all' || invoice?.clinicId === selectedClinicId;
-  });
+  const { toast } = useToast();
+  const [claims, setClaims] = useState<InsuranceClaim[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'open' | 'all'>('open');
+  const [editing, setEditing] = useState<string | null>(null);
+  const [nextStatus, setNextStatus] = useState<InsuranceClaimStatus>('Approved');
+  const [approved, setApproved] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [openInvoice, setOpenInvoice] = useState<string | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<InsuranceClaimStatus | 'All'>('All');
+  const load = useCallback(async () => {
+    const res = await getClaims(filter === 'open' ? 'Submitted,Under Review,Approved' : undefined);
+    setClaims(res.data || []);
+    setLoading(false);
+  }, [filter]);
 
-  const filteredClaims = clinicClaims.filter(claim => {
-    const patient = mockPatients.find(p => p.id === claim.patientId);
-    const invoice = mockInvoices.find(i => i.id === claim.invoiceId);
-    const patientName = patient ? `${patient.firstName} ${patient.lastName}` : '';
-    
-    const searchMatch = claim.providerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                        (patientName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                        (invoice?.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-                        
-    const statusMatch = statusFilter === 'All' || claim.status === statusFilter;
-    
-    return searchMatch && statusMatch;
-  });
+  useEffect(() => { load(); }, [load]);
 
-  const getStatusBadge = (status: InsuranceClaimStatus) => {
-    const styles = {
-      'Submitted': 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-      'Under Review': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
-      'Approved': 'bg-success/10 text-success border-success/20',
-      'Rejected': 'bg-error/10 text-error border-error/20',
-      'Paid': 'bg-text-main/10 text-text-main border-text-main/20'
-    };
+  const startEdit = (c: InsuranceClaim) => {
+    setEditing(c.id);
+    setNextStatus(c.status === 'Submitted' ? 'Under Review' : c.status === 'Under Review' ? 'Approved' : 'Paid');
+    setApproved(c.approvedAmount ?? c.claimAmount);
+    setError(null);
+  };
 
-    const icons = {
-      'Submitted': FileText,
-      'Under Review': Clock,
-      'Approved': CheckCircle,
-      'Rejected': XCircle,
-      'Paid': CheckCircle
-    };
-
-    const Icon = icons[status];
-    return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${styles[status]}`}>
-        <Icon className="w-3 h-3" />
-        {status}
-      </span>
-    );
+  const save = async (c: InsuranceClaim) => {
+    setSaving(true);
+    const res = await updateClaim(c.id, {
+      status: nextStatus,
+      approvedAmount: nextStatus === 'Approved' || nextStatus === 'Paid' ? approved : undefined,
+    });
+    setSaving(false);
+    if (!res.data) return setError(res.error?.message || 'The claim could not be updated.');
+    setEditing(null);
+    toast({ title: nextStatus === 'Paid' ? 'Insurance payment added to the invoice' : `Claim marked ${nextStatus.toLowerCase()}`, variant: 'success' });
+    load();
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
-        <div className="flex-1 relative max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search provider, patient, or invoice #..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-          />
-        </div>
-        <div className="flex gap-4">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
-          >
-            <option value="All">All Statuses</option>
-            <option value="Submitted">Submitted</option>
-            <option value="Under Review">Under Review</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Paid">Paid</option>
-          </select>
-          <Button className="gap-2">
-            <ShieldPlus className="w-4 h-4" /> New Claim
-          </Button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex gap-1.5">
+        {(['open', 'all'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`h-8 px-3 rounded-full text-[13px] font-medium border ${filter === f ? 'bg-primary text-white border-primary' : 'bg-surface border-line text-text-main'}`}>
+            {f === 'open' ? 'In progress' : 'All claims'}
+          </button>
+        ))}
       </div>
 
-      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
-              <tr>
-                <th className="px-6 py-4">Submitted</th>
-                <th className="px-6 py-4">Patient / Invoice</th>
-                <th className="px-6 py-4">Provider</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Claim Amt</th>
-                <th className="px-6 py-4 text-right">Approved Amt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {filteredClaims.length > 0 ? (
-                filteredClaims.map((claim) => {
-                  const patient = mockPatients.find(p => p.id === claim.patientId);
-                  const invoice = mockInvoices.find(i => i.id === claim.invoiceId);
-                  const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient';
-                  
-                  return (
-                    <tr key={claim.id} className="hover:bg-surface-hover/50 transition-colors">
-                      <td className="px-6 py-4 text-text-muted">
-                        {format(parseISO(claim.submittedAt), 'MMM d, yyyy')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="font-medium text-text-main">{patientName}</p>
-                        <p className="text-xs text-text-muted">{invoice?.invoiceNumber}</p>
-                      </td>
-                      <td className="px-6 py-4 font-medium text-text-main">
-                        {claim.providerName}
-                      </td>
-                      <td className="px-6 py-4">
-                        {getStatusBadge(claim.status)}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-text-main text-right">
-                        {formatCurrency(claim.claimAmount)}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-success text-right">
-                        {claim.approvedAmount ? formatCurrency(claim.approvedAmount) : '-'}
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-text-muted">
-                    <ShieldPlus className="w-12 h-12 text-text-muted/30 mx-auto mb-3" />
-                    <p>No insurance claims found.</p>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Card className="overflow-hidden">
+        {loading ? <p className="p-6 text-sm text-text-muted">Loading claims…</p> : claims.length === 0 ? (
+          <EmptyState icon={ShieldCheck} title="No claims here" description="File a claim from any issued invoice using “Insurance claim”." />
+        ) : (
+          <ul className="divide-y divide-line">
+            {claims.map(c => (
+              <li key={c.id} className="px-4 sm:px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[15px] font-medium text-text-main">{c.patientName || 'Patient'}</div>
+                    <div className="text-[13px] text-text-muted">
+                      {c.providerName}{c.policyNumber ? `, policy ${c.policyNumber}` : ''}, filed {format(parseISO(c.submittedAt), 'd MMM yyyy')}
+                    </div>
+                    <button onClick={() => setOpenInvoice(c.invoiceId)} className="text-[13px] font-medium text-primary hover:underline">
+                      {c.invoiceNumber || 'View invoice'}
+                    </button>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[15px] font-semibold tabular">{formatCurrency(c.approvedAmount ?? c.claimAmount)}</div>
+                    {c.approvedAmount != null && c.approvedAmount !== c.claimAmount && (
+                      <div className="text-xs text-text-muted line-through tabular">{formatCurrency(c.claimAmount)}</div>
+                    )}
+                    <Badge variant={VARIANT[c.status]}>{c.status}</Badge>
+                  </div>
+                </div>
+                {editing === c.id ? (
+                  <div className="mt-3 rounded-control bg-surface-hover border border-line p-3 grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+                    <label className="block">
+                      <span className="block text-xs text-text-muted mb-1">New status</span>
+                      <select value={nextStatus} onChange={e => setNextStatus(e.target.value as InsuranceClaimStatus)} className="w-full h-10 px-3 border border-line rounded-control text-sm bg-surface">
+                        {STATUSES.filter(s => s !== c.status).map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </label>
+                    {(nextStatus === 'Approved' || nextStatus === 'Paid') && (
+                      <label className="block">
+                        <span className="block text-xs text-text-muted mb-1">Approved amount</span>
+                        <input type="number" min={0} max={c.claimAmount} value={approved} onChange={e => setApproved(Number(e.target.value) || 0)} className="w-full h-10 px-3 border border-line rounded-control text-sm" />
+                      </label>
+                    )}
+                    <Button onClick={() => save(c)} loading={saving}>Save</Button>
+                    <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+                    {nextStatus === 'Paid' && <p className="sm:col-span-4 text-[13px] text-text-muted">The approved amount will be recorded as an insurance payment on the invoice.</p>}
+                    {error && <p className="sm:col-span-4 text-sm text-error">{error}</p>}
+                  </div>
+                ) : c.status !== 'Paid' && c.status !== 'Rejected' && (
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => startEdit(c)}>Update status</Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+      {openInvoice && <InvoicePreviewModal invoiceId={openInvoice} onClose={() => setOpenInvoice(null)} onChanged={load} />}
     </div>
   );
 }

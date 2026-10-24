@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     appointments,
     auth,
+    billing,
     clinics,
     dashboard,
     notifications,
@@ -52,7 +53,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api):
+               settings_api, billing):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

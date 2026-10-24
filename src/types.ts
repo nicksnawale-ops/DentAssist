@@ -171,6 +171,9 @@ export interface Procedure {
   category: string;
   defaultCost: number;
   defaultDurationMinutes: number;
+  gstApplicable?: boolean;
+  isActive?: boolean;
+  clinicId?: string | null;
 }
 
 export interface TreatmentPlanItem {
@@ -244,11 +247,14 @@ export interface ConsentForm {
   signedAt?: string;
 }
 
-export type InvoiceStatus = 'Draft' | 'Sent' | 'Partially Paid' | 'Paid' | 'Overdue';
+export type InvoiceStatus = 'Draft' | 'Sent' | 'Partially Paid' | 'Paid' | 'Overdue' | 'Void';
 
 export interface InvoiceLineItem {
   id: string;
+  procedureId?: string;
   procedureName: string;
+  /** GST applies to this line (cosmetic work). Most dental treatment is exempt. */
+  taxable?: boolean;
   toothNumber?: string;
   quantity: number;
   unitCost: number;
@@ -273,6 +279,23 @@ export interface Invoice {
   notes?: string;
   createdAt: string;
   sentAt?: string;
+  // Calculated by the server
+  patientName?: string;
+  patientPhone?: string;
+  discountAmount?: number;
+  taxRate?: number;
+  interState?: boolean;
+  amountPaid?: number;
+  balanceDue?: number;
+  hasInstallments?: boolean;
+  voidedAt?: string;
+  voidReason?: string;
+}
+
+export interface InvoiceDetail extends Invoice {
+  payments: Payment[];
+  installments: InstallmentPlan[];
+  claims: InsuranceClaim[];
 }
 
 export interface InstallmentPlan {
@@ -284,7 +307,7 @@ export interface InstallmentPlan {
   status: 'Pending' | 'Paid' | 'Overdue';
 }
 
-export type PaymentMethod = 'Cash' | 'Card' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Insurance';
+export type PaymentMethod = 'Cash' | 'Card' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Insurance' | 'Online';
 
 export interface Payment {
   id: string;
@@ -293,8 +316,9 @@ export interface Payment {
   method: PaymentMethod;
   referenceNumber?: string;
   notes?: string;
-  recordedByStaffId: string;
+  recordedByStaffId?: string;
   paidAt: string;
+  source?: 'manual' | 'razorpay' | 'insurance';
 }
 
 export type InsuranceClaimStatus = 'Submitted' | 'Under Review' | 'Approved' | 'Rejected' | 'Paid';
@@ -302,7 +326,10 @@ export type InsuranceClaimStatus = 'Submitted' | 'Under Review' | 'Approved' | '
 export interface InsuranceClaim {
   id: string;
   invoiceId: string;
+  invoiceNumber?: string;
   patientId: string;
+  patientName?: string;
+  policyNumber?: string;
   providerName: string;
   claimAmount: number;
   approvedAmount?: number;

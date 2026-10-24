@@ -24,6 +24,20 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed browser origins for the React app
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
+    # Billing
+    default_gst_rate: float = 18.0  # applied only to lines marked taxable (e.g. cosmetic procedures)
+    currency: str = "INR"
+
+    # Razorpay (online UPI/card payments). Leave blank to disable online payments.
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+    razorpay_api_base: str = "https://api.razorpay.com/v1"
+
+    @property
+    def razorpay_enabled(self) -> bool:
+        return bool(self.razorpay_key_id and self.razorpay_key_secret)
+
     # Create tables on startup (handy for local dev; use Alembic migrations in production)
     auto_create_tables: bool = False
 
