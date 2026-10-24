@@ -10,7 +10,7 @@ import {
   AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { getAppointments, getPatientById, getStaff } from '../../api/apiService';
-import { Appointment, Patient, User } from '../../types';
+import { Appointment, Patient, User as StaffMember } from '../../types';
 import { DentalChart } from '../../components/dental-chart/DentalChart';
 import { TreatmentPlansTab } from '../../components/treatment/TreatmentPlansTab';
 import { ClinicalNotesTab } from '../../components/clinical-notes/ClinicalNotesTab';
@@ -25,7 +25,7 @@ export function PatientProfile() {
   const { id } = useParams<{ id: string }>();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
-  const [dentists, setDentists] = useState<User[]>([]);
+  const [dentists, setDentists] = useState<StaffMember[]>([]);
   const [loadingPatient, setLoadingPatient] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
