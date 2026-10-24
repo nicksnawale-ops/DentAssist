@@ -534,3 +534,117 @@ class ConsentForm(TimestampMixin, Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoke_reason: Mapped[str | None] = mapped_column(String(300))
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class Supplier(TimestampMixin, Base):
+    """A supplier of stock, or a dental lab (is_lab)."""
+
+    __tablename__ = "suppliers"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    contact_person: Mapped[str] = mapped_column(String(150), default="", nullable=False)
+    phone: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    email: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    address: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    items_supplied: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    is_lab: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    turnaround_days: Mapped[int | None] = mapped_column(Integer)  # labs: usual working days
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class InventoryItem(TimestampMixin, Base):
+    __tablename__ = "inventory_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    sku: Mapped[str | None] = mapped_column(String(60))
+    category: Mapped[str] = mapped_column(String(30), default="Consumables", nullable=False)
+    unit: Mapped[str] = mapped_column(String(40), default="pieces", nullable=False)
+    current_stock: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reorder_threshold: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reorder_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    supplier_id: Mapped[str | None] = mapped_column(ForeignKey("suppliers.id", ondelete="SET NULL"))
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    batch_number: Mapped[str | None] = mapped_column(String(60))
+    location: Mapped[str | None] = mapped_column(String(100))
+    last_restocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when the item last dropped to its reorder level, so the alert is sent once per dip.
+    low_stock_alerted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    item_id: Mapped[str] = mapped_column(ForeignKey("inventory_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    change: Mapped[int] = mapped_column(Integer, nullable=False)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    type: Mapped[str] = mapped_column(String(12), nullable=False)  # received | usage | adjustment | expired | returned
+    reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    purchase_order_id: Mapped[str | None] = mapped_column(ForeignKey("purchase_orders.id", ondelete="SET NULL"))
+    recorded_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class PurchaseOrder(TimestampMixin, Base):
+    __tablename__ = "purchase_orders"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    po_number: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    supplier_id: Mapped[str] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    # Draft | Sent | Partially Received | Received | Cancelled
+    status: Mapped[str] = mapped_column(String(20), default="Draft", nullable=False, index=True)
+    # [{itemId, name, unit, quantity, unitPrice, receivedQuantity}]
+    items: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    expected_date: Mapped[date | None] = mapped_column(Date)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class LabOrder(TimestampMixin, Base):
+    __tablename__ = "lab_orders"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    order_number: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)  # LAB-2026-0001
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    lab_id: Mapped[str] = mapped_column(ForeignKey("suppliers.id"), nullable=False, index=True)
+    dentist_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    item_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    tooth_numbers: Mapped[list] = mapped_column(JSONType, default=list, nullable=False)
+    shade: Mapped[str] = mapped_column(String(40), default="", nullable=False)
+    material: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    instructions: Mapped[str | None] = mapped_column(Text)
+    # Ordered | In Progress | Quality Check | Ready for Pickup | Delivered to Clinic | Fitted/Completed | Cancelled
+    status: Mapped[str] = mapped_column(String(24), default="Ordered", nullable=False, index=True)
+    order_date: Mapped[date] = mapped_column(Date, nullable=False)
+    expected_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    treatment_plan_item_id: Mapped[str | None] = mapped_column(ForeignKey("treatment_plan_items.id", ondelete="SET NULL"))
+    remake_of_id: Mapped[str | None] = mapped_column(ForeignKey("lab_orders.id", ondelete="SET NULL"))
+    remake_reason: Mapped[str | None] = mapped_column(String(300))
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class LabOrderUpdate(Base):
+    __tablename__ = "lab_order_updates"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    lab_order_id: Mapped[str] = mapped_column(ForeignKey("lab_orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    note: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    updated_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)

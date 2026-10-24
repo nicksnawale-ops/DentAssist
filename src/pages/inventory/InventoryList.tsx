@@ -1,150 +1,123 @@
-import React, { useState } from 'react';
-import { mockInventory } from '../../data/mockInventory';
-import { Search, Plus, Filter, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { format, formatDistanceToNowStrict, parseISO } from 'date-fns';
+import { AlertTriangle, Minus, Package, Plus, Search } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { DataTable } from '../../components/ui/DataTable';
-import { InventoryItem } from '../../types';
+import { Badge } from '../../components/ui/Badge';
+import { Input } from '../../components/ui/Input';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { toast } from '../../components/ui/useToast';
+import { useAuth } from '../../context/AuthContext';
 import { InventoryItemModal } from '../../components/inventory/InventoryItemModal';
+import { CATEGORIES, getStockItems, recordStockMovement, StockItem } from '../../api/inventoryService';
 
-export function InventoryList() {
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [stockFilter, setStockFilter] = useState<string>('All');
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+export function StockBadge({ item }: { item: Pick<StockItem, 'stockStatus' | 'expiryStatus'> }) {
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {item.stockStatus === 'out' ? <Badge variant="error">Out of stock</Badge> :
+        item.stockStatus === 'low' ? <Badge variant="warning">Low</Badge> : <Badge variant="success">In stock</Badge>}
+      {item.expiryStatus === 'expired' && <Badge variant="error">Expired</Badge>}
+      {item.expiryStatus === 'soon' && <Badge variant="warning">Expiring soon</Badge>}
+    </span>
+  );
+}
 
-  const categories = ['All', 'Consumables', 'Instruments', 'PPE', 'Medications', 'Equipment'];
+export function InventoryList({ clinicId, onChanged }: { clinicId?: string; onChanged?: () => void }) {
+  const { user } = useAuth();
+  const canManage = user?.role !== 'dentist';
+  const [rows, setRows] = useState<StockItem[] | null>(null);
+  const [q, setQ] = useState('');
+  const [category, setCategory] = useState('All');
+  const [status, setStatus] = useState('');
+  const [open, setOpen] = useState<StockItem | 'new' | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const filteredItems = mockInventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
-    const matchesStock = stockFilter === 'All' || 
-                         (stockFilter === 'Low Stock' && item.currentStock <= item.reorderThreshold) ||
-                         (stockFilter === 'Out of Stock' && item.currentStock <= 0);
-    return matchesSearch && matchesCategory && matchesStock;
-  });
+  const load = useCallback(async () => {
+    const res = await getStockItems({ clinicId, q: q || undefined, category, status: status || undefined });
+    setRows(res.data || []);
+  }, [clinicId, q, category, status]);
 
-  const getStatusBadge = (item: InventoryItem) => {
-    if (item.currentStock <= 0) {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-error/10 text-error border border-error/20">Out of Stock</span>;
-    }
-    if (item.currentStock <= item.reorderThreshold) {
-      return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Low Stock</span>;
-    }
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20">In Stock</span>;
+  useEffect(() => { const t = setTimeout(load, q ? 250 : 0); return () => clearTimeout(t); }, [load, q]);
+
+  const takeOne = async (item: StockItem) => {
+    setBusy(item.id);
+    const res = await recordStockMovement(item.id, { change: -1, type: 'usage', reason: 'Used' });
+    setBusy(null);
+    if (res.data) { setRows(r => (r || []).map(x => (x.id === item.id ? res.data! : x))); onChanged?.(); }
+    else toast({ title: res.error?.message || 'Could not record', variant: 'error' });
   };
 
-  const isExpiringSoon = (dateString?: string) => {
-    if (!dateString) return false;
-    const expiry = new Date(dateString);
-    const diffTime = expiry.getTime() - new Date().getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30;
+  const changed = (item: StockItem) => {
+    setRows(r => {
+      const list = r || [];
+      return list.some(x => x.id === item.id) ? list.map(x => (x.id === item.id ? item : x)) : [item, ...list];
+    });
+    onChanged?.();
   };
-
-  const columns = [
-    {
-      header: 'Item Name',
-      key: 'name',
-      cell: (row: InventoryItem) => (
-        <div>
-          <div className="font-semibold text-text-main flex items-center gap-2">
-            {row.name}
-            {isExpiringSoon(row.expiryDate) && (
-               <AlertTriangle className="w-4 h-4 text-yellow-500" title="Expiring soon or expired" />
-            )}
-          </div>
-          <div className="text-xs text-text-muted">{row.category}</div>
-        </div>
-      )
-    },
-    {
-      header: 'Current Stock',
-      key: 'currentStock',
-      cell: (row: InventoryItem) => (
-        <div className="flex items-center gap-2">
-          <span className={`font-bold text-lg ${row.currentStock <= row.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
-            {row.currentStock}
-          </span>
-          <span className="text-xs text-text-muted">{row.unit}</span>
-        </div>
-      )
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      cell: (row: InventoryItem) => getStatusBadge(row)
-    },
-    {
-      header: 'Threshold',
-      key: 'reorderThreshold',
-      cell: (row: InventoryItem) => <span className="text-sm text-text-muted">{row.reorderThreshold} {row.unit}</span>
-    },
-    {
-      header: 'Last Restocked',
-      key: 'lastRestockedDate',
-      cell: (row: InventoryItem) => (
-        <span className="text-sm text-text-muted">
-          {row.lastRestockedDate ? new Date(row.lastRestockedDate).toLocaleDateString() : 'N/A'}
-        </span>
-      )
-    }
-  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-            <input
-              type="text"
-              placeholder="Search inventory items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-text-muted" />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <select
-              value={stockFilter}
-              onChange={(e) => setStockFilter(e.target.value)}
-              className="bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-            >
-              <option value="All">All Stock Levels</option>
-              <option value="Low Stock">Low Stock</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-          </div>
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search items" className="pl-9" aria-label="Search items" />
         </div>
-        
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" /> Add New Item
-        </Button>
+        <select value={category} onChange={e => setCategory(e.target.value)} className="h-10 px-3 rounded-control border border-line bg-surface text-sm" aria-label="Category">
+          <option value="All">All categories</option>
+          {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+        </select>
+        <select value={status} onChange={e => setStatus(e.target.value)} className="h-10 px-3 rounded-control border border-line bg-surface text-sm" aria-label="Stock level">
+          <option value="">All stock levels</option>
+          <option value="low">Low or out</option>
+          <option value="out">Out of stock</option>
+          <option value="expiring">Expired or expiring</option>
+        </select>
+        {canManage && <Button onClick={() => setOpen('new')}><Plus className="w-4 h-4" /> Add item</Button>}
       </div>
 
-      <div className="bg-white rounded-xl border border-line overflow-hidden">
-        <DataTable 
-          data={filteredItems} 
-          columns={columns} 
-          onRowClick={setSelectedItem}
-        />
-      </div>
+      {rows === null ? <div className="space-y-2">{[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div> :
+        rows.length === 0 ? (
+          <EmptyState icon={Package} title="No items match" description="Add the materials and medicines you stock to track usage and reorders."
+            actionLabel={canManage ? 'Add item' : undefined} onAction={canManage ? () => setOpen('new') : undefined} />
+        ) : (
+          <div className="rounded-control border border-line overflow-hidden">
+            <div className="hidden md:grid grid-cols-[1fr_140px_150px_160px_120px] gap-3 px-4 py-2.5 bg-surface-hover text-[12px] font-medium text-text-muted">
+              <span>Item</span><span>In stock</span><span>Status</span><span>Supplier</span><span className="text-right">Quick use</span>
+            </div>
+            <ul className="divide-y divide-line">
+              {rows.map(item => (
+                <li key={item.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_150px_160px_120px] gap-x-3 gap-y-1 px-4 py-3 items-center hover:bg-surface-hover/60">
+                  <button className="text-left min-w-0" onClick={() => setOpen(item)}>
+                    <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                      {item.name}
+                      {item.expiryStatus && <AlertTriangle className={`w-3.5 h-3.5 ${item.expiryStatus === 'expired' ? 'text-error' : 'text-warning'}`} aria-label="Expiry warning" />}
+                    </div>
+                    <div className="text-[12px] text-text-muted">
+                      {item.category}{item.expiryDate ? ` · expires ${format(parseISO(item.expiryDate), 'd MMM yyyy')}` : ''}
+                      {item.lastRestockedAt ? ` · restocked ${formatDistanceToNowStrict(parseISO(item.lastRestockedAt))} ago` : ''}
+                    </div>
+                  </button>
+                  <div className="text-right md:text-left">
+                    <span className={`text-lg font-semibold tabular-nums ${item.stockStatus !== 'ok' ? 'text-error' : ''}`}>{item.currentStock}</span>
+                    <span className="text-[12px] text-text-muted ml-1">{item.unit}</span>
+                    <div className="text-[11px] text-text-muted">reorder at {item.reorderThreshold}</div>
+                  </div>
+                  <div className="col-span-2 md:col-span-1"><StockBadge item={item} /></div>
+                  <div className="hidden md:block text-[13px] text-text-muted truncate">{item.supplierName || '—'}</div>
+                  <div className="hidden md:flex justify-end">
+                    <Button size="sm" variant="outline" onClick={() => takeOne(item)} disabled={item.currentStock <= 0} loading={busy === item.id} aria-label={`Use one ${item.name}`}>
+                      <Minus className="w-3.5 h-3.5" /> Use 1
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {selectedItem && (
-        <InventoryItemModal 
-          item={selectedItem} 
-          onClose={() => setSelectedItem(null)} 
-        />
+      {open && (
+        <InventoryItemModal item={open === 'new' ? null : open} clinicId={clinicId} onClose={() => setOpen(null)}
+          onSaved={item => { changed(item); if (open === 'new') setOpen(item); }} />
       )}
     </div>
   );

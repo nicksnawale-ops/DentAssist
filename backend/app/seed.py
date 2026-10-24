@@ -150,6 +150,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
 
     seed_medicines(db)
     seed_templates(db)
+    seed_inventory(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -373,3 +374,93 @@ def seed_history(db: Session) -> None:
     if central:
         # Demo link; replace with the clinic's real Google review link in its settings.
         central.google_review_url = "https://g.page/r/visionedge-central-demo/review"
+
+
+SUPPLIERS = [
+    ("sup_1", "Apex Dental Supplies", "Rahul Sharma", "+91 98765 01111", "rahul@apexdental.in", "123 Industrial Area, Phase 1, Mumbai",
+     "Primary supplier for consumables and PPE.", ["Consumables", "PPE"], False, None),
+    ("sup_2", "Mediquip Instruments", "Priya Patel", "+91 98765 02222", "sales@mediquip.in", "45 Tech Park, Bangalore",
+     "Dental instruments and equipment parts.", ["Instruments", "Equipment"], False, None),
+    ("sup_3", "PharmaCare Solutions", "Amit Kumar", "+91 98765 03333", "orders@pharmacare.in", "78 Pharma Hub, Hyderabad",
+     "Local distributor for medicines and anaesthetics.", ["Medications"], False, None),
+    ("lab_1", "Precision Dental Lab", "Sanjay Gupta", "+91 98765 04444", "info@precisiondentallab.in", "12 Lab Street, Andheri, Mumbai",
+     "Zirconia and PFM crowns, bridges, veneers.", ["Crown", "Bridge", "Veneer"], True, 5),
+    ("lab_2", "Perfect Align Labs", "Meera Reddy", "+91 98765 05555", "orders@perfectalign.in", "56 Ortho Avenue, Pune",
+     "Clear aligners, retainers and night guards.", ["Aligner", "Night Guard", "Retainer"], True, 8),
+]
+
+STOCK = [
+    # clinic, name, category, unit, stock, threshold, reorder qty, unit cost, supplier, expiry in days
+    (DEFAULT_CLINIC, "Nitrile gloves (medium)", "PPE", "boxes", 45, 50, 100, 320, "sup_1", None),
+    (DEFAULT_CLINIC, "Composite resin A2", "Consumables", "syringes", 12, 10, 20, 850, "sup_1", 180),
+    (DEFAULT_CLINIC, "Lidocaine 2% cartridges", "Medications", "boxes of 50", 5, 15, 20, 1450, "sup_3", 15),
+    (DEFAULT_CLINIC, "Sterilisation pouches (medium)", "Consumables", "pouches", 150, 100, 500, 4, "sup_1", None),
+    (DEFAULT_CLINIC, "Amoxicillin 500 mg", "Medications", "strips", 2, 20, 40, 60, "sup_3", -5),
+    (DEFAULT_CLINIC, "High-speed burs", "Instruments", "pieces", 120, 50, 100, 95, "sup_2", None),
+    (DEFAULT_CLINIC, "Face masks (3-ply)", "PPE", "boxes", 30, 20, 50, 180, "sup_1", None),
+    (DEFAULT_CLINIC, "Alginate impression material", "Consumables", "packs", 8, 6, 12, 650, "sup_1", 240),
+    (DEFAULT_CLINIC, "Endo files K-type 25mm", "Instruments", "packs", 0, 5, 10, 420, "sup_2", None),
+    (WESTSIDE_CLINIC, "Nitrile gloves (medium)", "PPE", "boxes", 80, 40, 100, 320, "sup_1", None),
+    (WESTSIDE_CLINIC, "Lidocaine 2% cartridges", "Medications", "boxes of 50", 18, 10, 20, 1450, "sup_3", 120),
+    (WESTSIDE_CLINIC, "Glass ionomer cement", "Consumables", "kits", 3, 4, 6, 1900, "sup_1", 300),
+]
+
+
+def seed_inventory(db: Session) -> None:
+    from decimal import Decimal as D
+
+    from app.models import InventoryItem, LabOrder, LabOrderUpdate, PurchaseOrder, StockMovement, Supplier
+
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    for sid, name, contact, phone, email, address, notes, items, is_lab, tat in SUPPLIERS:
+        db.add(Supplier(id=sid, name=name, contact_person=contact, phone=phone, email=email, address=address, notes=notes,
+                        items_supplied=items, is_lab=is_lab, turnaround_days=tat))
+    db.flush()
+    lidocaine = None
+    for i, (clinic, name, cat, unit, stock, threshold, qty, cost, sup, expiry) in enumerate(STOCK, start=1):
+        item = InventoryItem(id=f"inv_{i}", clinic_id=clinic, name=name, category=cat, unit=unit, current_stock=stock,
+                             reorder_threshold=threshold, reorder_quantity=qty, unit_cost=D(cost), supplier_id=sup,
+                             expiry_date=today + timedelta(days=expiry) if expiry is not None else None,
+                             last_restocked_at=now - timedelta(days=30),
+                             low_stock_alerted_at=now - timedelta(days=2) if stock <= threshold else None)
+        db.add(item)
+        db.add(StockMovement(item_id=item.id, clinic_id=clinic, change=stock + 10, balance_after=stock + 10, type="received",
+                             reason="Opening stock", recorded_at=now - timedelta(days=30)))
+        db.add(StockMovement(item_id=item.id, clinic_id=clinic, change=-10, balance_after=stock, type="usage",
+                             reason="Used in treatments", recorded_at=now - timedelta(days=3)))
+        if name.startswith("Lidocaine") and clinic == DEFAULT_CLINIC:
+            lidocaine = item
+    year = today.year
+    if lidocaine:
+        db.add(PurchaseOrder(po_number=f"PO-{year}-0001", clinic_id=DEFAULT_CLINIC, supplier_id="sup_2", status="Received",
+                             items=[{"itemId": "inv_6", "name": "High-speed burs", "unit": "pieces", "quantity": 100,
+                                     "unitPrice": 95.0, "receivedQuantity": 100}],
+                             total_amount=D("9500"), sent_at=now - timedelta(days=35), received_at=now - timedelta(days=30)))
+        db.add(PurchaseOrder(po_number=f"PO-{year}-0002", clinic_id=DEFAULT_CLINIC, supplier_id="sup_3", status="Sent",
+                             items=[{"itemId": lidocaine.id, "name": lidocaine.name, "unit": lidocaine.unit, "quantity": 20,
+                                     "unitPrice": 1450.0, "receivedQuantity": 0}],
+                             total_amount=D("29000"), sent_at=now - timedelta(days=1), expected_date=today + timedelta(days=3)))
+
+    cases = [
+        # patient, clinic, lab, dentist, item, teeth, shade, material, status, ordered days ago, due in days, delivered days ago, cost
+        ("pat_1", DEFAULT_CLINIC, "lab_1", "s1", "Crown", ["16"], "A2", "Zirconia", "Ready for Pickup", 6, 1, None, 6500),
+        ("pat_2", DEFAULT_CLINIC, "lab_2", "s1", "Aligner", [], "", "Clear aligner set 1-6", "In Progress", 10, -1, None, 28000),
+        ("pat_3", DEFAULT_CLINIC, "lab_1", "s3", "Bridge", ["14", "15", "16"], "A1", "PFM", "Delivered to Clinic", 12, -2, 3, 15000),
+        ("pat_5", DEFAULT_CLINIC, "lab_1", "s1", "Crown", ["36"], "A3", "Zirconia", "Fitted/Completed", 60, -55, 54, 6500),
+        ("pat_6", DEFAULT_CLINIC, "lab_1", "s1", "Veneer", ["11", "21"], "BL2", "E-max", "Fitted/Completed", 90, -84, 82, 18000),
+        ("pat_9", WESTSIDE_CLINIC, "lab_2", "s3", "Night Guard", [], "", "Hard acrylic", "Fitted/Completed", 40, -32, 29, 4500),
+        ("pat_11", WESTSIDE_CLINIC, "lab_1", "s3", "Crown", ["46"], "A2", "PFM", "Fitted/Completed", 120, -114, 110, 5500),
+    ]
+    for n, (pid, clinic, lab, dentist, item, teeth, shade, material, status, ago, due, delivered, cost) in enumerate(cases, start=1):
+        o = LabOrder(id=f"lo_{n}", order_number=f"LAB-{year}-{n:04d}", clinic_id=clinic, patient_id=pid, lab_id=lab,
+                     dentist_id=dentist, item_type=item, tooth_numbers=teeth, shade=shade, material=material, status=status,
+                     order_date=today - timedelta(days=ago), expected_date=today + timedelta(days=due),
+                     delivered_at=now - timedelta(days=delivered) if delivered is not None else None,
+                     fitted_at=now - timedelta(days=max((delivered or 0) - 2, 0)) if status == "Fitted/Completed" else None,
+                     cost=D(cost))
+        db.add(o)
+        flow = ["Ordered", "In Progress", "Quality Check", "Ready for Pickup", "Delivered to Clinic", "Fitted/Completed"]
+        for k, st in enumerate(flow[: flow.index(status) + 1]):
+            db.add(LabOrderUpdate(lab_order_id=o.id, status=st, note="" if k else "Sent to lab",
+                                  created_at=now - timedelta(days=max(ago - k * 2, 0))))

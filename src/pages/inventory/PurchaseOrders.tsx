@@ -1,103 +1,124 @@
-import React, { useState } from 'react';
-import { mockPurchaseOrders } from '../../data/mockPurchaseOrders';
-import { mockSuppliers } from '../../data/mockSuppliers';
-import { Search, Plus } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { DataTable } from '../../components/ui/DataTable';
-import { PurchaseOrder } from '../../types';
+import React, { useCallback, useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
+import { PackageCheck, Plus, ShoppingCart, Sparkles } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { toast } from '../../components/ui/useToast';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../utils/currencyConfig';
 import { PurchaseOrderModal } from '../../components/inventory/PurchaseOrderModal';
-import { formatCurrency } from '../../utils/currencyConfig';
+import {
+  createPOFromSuggestions, getPurchaseOrders, getReorderSuggestions, POStatus, PurchaseOrder, ReorderGroup,
+} from '../../api/inventoryService';
 
-export function PurchaseOrders() {
-  const [search, setSearch] = useState('');
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+const STATUS_VARIANT: Record<POStatus, 'outline' | 'secondary' | 'warning' | 'success' | 'error'> = {
+  Draft: 'outline', Sent: 'secondary', 'Partially Received': 'warning', Received: 'success', Cancelled: 'outline',
+};
 
-  const filteredPOs = mockPurchaseOrders.filter(po => 
-    po.poNumber.toLowerCase().includes(search.toLowerCase())
-  );
+export function POStatusBadge({ status }: { status: POStatus }) {
+  return <Badge variant={STATUS_VARIANT[status]}>{status}</Badge>;
+}
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Received':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20">Received</span>;
-      case 'Partially Received':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Partial</span>;
-      case 'Sent':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 border border-blue-500/20">Sent</span>;
-      default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-text-muted/10 text-text-muted border border-line">{status}</span>;
-    }
+export function PurchaseOrders({ clinicId, onChanged }: { clinicId?: string; onChanged?: () => void }) {
+  const { user, selectedClinicId } = useAuth();
+  const canManage = user?.role !== 'dentist';
+  const { formatCurrency } = useCurrency();
+  const [suggestions, setSuggestions] = useState<ReorderGroup[] | null>(null);
+  const [orders, setOrders] = useState<PurchaseOrder[] | null>(null);
+  const [open, setOpen] = useState<PurchaseOrder | 'new' | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const [s, o] = await Promise.all([getReorderSuggestions(clinicId), getPurchaseOrders({ clinicId })]);
+    setSuggestions(s.data || []);
+    setOrders(o.data || []);
+  }, [clinicId]);
+  useEffect(() => { load(); }, [load]);
+
+  const fromSuggestion = async (g: ReorderGroup) => {
+    if (!g.supplierId) return toast({ title: 'Set a supplier on these items first', variant: 'error' });
+    setBusy(g.supplierId);
+    const res = await createPOFromSuggestions(g.clinicId, g.supplierId);
+    setBusy(null);
+    if (res.error || !res.data) return toast({ title: res.error?.message || 'Could not create the order', variant: 'error' });
+    toast({ title: `Draft ${res.data.poNumber} created`, variant: 'success' });
+    load();
+    onChanged?.();
+    setOpen(res.data);
   };
 
-  const columns = [
-    {
-      header: 'PO Number',
-      key: 'poNumber',
-      cell: (row: PurchaseOrder) => <span className="font-bold text-text-main">{row.poNumber}</span>
-    },
-    {
-      header: 'Supplier',
-      key: 'supplierId',
-      cell: (row: PurchaseOrder) => {
-        const supplier = mockSuppliers.find(s => s.id === row.supplierId);
-        return <span className="text-sm font-medium text-text-main">{supplier?.name || 'Unknown'}</span>;
-      }
-    },
-    {
-      header: 'Date Created',
-      key: 'createdAt',
-      cell: (row: PurchaseOrder) => <span className="text-sm text-text-muted">{format(parseISO(row.createdAt), 'MMM d, yyyy')}</span>
-    },
-    {
-      header: 'Items',
-      key: 'items',
-      cell: (row: PurchaseOrder) => <span className="text-sm text-text-muted">{row.items.length} items</span>
-    },
-    {
-      header: 'Total Amount',
-      key: 'totalAmount',
-      cell: (row: PurchaseOrder) => <span className="font-semibold text-text-main">{formatCurrency(row.totalAmount || 0)}</span>
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      cell: (row: PurchaseOrder) => getStatusBadge(row.status)
-    }
-  ];
+  const changed = () => { load(); onChanged?.(); };
+  const open_ = orders?.filter(o => ['Draft', 'Sent', 'Partially Received'].includes(o.status)) || [];
+  const closed = orders?.filter(o => !['Draft', 'Sent', 'Partially Received'].includes(o.status)) || [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4 justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search purchase orders..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
-          />
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-accent" />
+          <h3 className="text-[15px] font-semibold mr-auto">Needs reordering</h3>
         </div>
-        
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" /> Create PO
-        </Button>
-      </div>
+        {suggestions === null ? <Skeleton className="h-24 w-full" /> : suggestions.length === 0 ? (
+          <p className="text-[13px] text-text-muted rounded-control border border-dashed border-line p-4">Everything is above its reorder level, or already on order.</p>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-3">
+            {suggestions.map(g => (
+              <div key={`${g.clinicId}-${g.supplierId}`} className="rounded-control border border-line p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-semibold mr-auto">{g.supplierName || 'No supplier set'}</div>
+                  {canManage && g.supplierId && (
+                    <Button size="sm" onClick={() => fromSuggestion(g)} loading={busy === g.supplierId}><ShoppingCart className="w-4 h-4" /> Create order</Button>
+                  )}
+                </div>
+                <ul className="text-[13px] space-y-1">
+                  {g.items.map(i => (
+                    <li key={i.itemId} className="flex justify-between gap-2">
+                      <span className="truncate">{i.name} <span className="text-text-muted">({i.currentStock} left)</span></span>
+                      <span className="text-text-muted whitespace-nowrap">order {i.suggestedQuantity} {i.unit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
-      <div className="bg-white rounded-xl border border-line overflow-hidden">
-        <DataTable 
-          data={filteredPOs} 
-          columns={columns} 
-          onRowClick={setSelectedPO}
-        />
-      </div>
+      <section className="space-y-3">
+        <div className="flex items-center">
+          <h3 className="text-[15px] font-semibold mr-auto">Purchase orders</h3>
+          {canManage && <Button size="sm" variant="outline" onClick={() => setOpen('new')} disabled={!clinicId && selectedClinicId === 'all' && user?.role === 'super_admin'}
+            title={!clinicId && user?.role === 'super_admin' ? 'Pick a clinic at the top first' : undefined}><Plus className="w-4 h-4" /> New order</Button>}
+        </div>
+        {orders === null ? <Skeleton className="h-32 w-full" /> : orders.length === 0 ? (
+          <EmptyState icon={ShoppingCart} title="No purchase orders yet" description="Create one from the reorder list above, or start a new order." />
+        ) : (
+          <ul className="divide-y divide-line rounded-control border border-line">
+            {[...open_, ...closed].map(po => (
+              <li key={po.id}>
+                <button onClick={() => setOpen(po)} className="w-full text-left px-4 py-3 hover:bg-surface-hover flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span className="font-mono text-[13px] w-28">{po.poNumber}</span>
+                  <span className="text-sm font-medium flex-1 min-w-[10rem]">{po.supplierName}</span>
+                  <POStatusBadge status={po.status} />
+                  <span className="text-[13px] text-text-muted w-40">
+                    {po.items.length} {po.items.length === 1 ? 'item' : 'items'} · {formatCurrency(po.totalAmount)}
+                  </span>
+                  <span className="text-[12px] text-text-muted w-32">
+                    {po.status === 'Received' && po.receivedAt ? <><PackageCheck className="w-3.5 h-3.5 inline" /> {format(parseISO(po.receivedAt), 'd MMM')}</> :
+                      po.expectedDate ? `due ${format(parseISO(po.expectedDate), 'd MMM')}` : format(parseISO(po.createdAt), 'd MMM yyyy')}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      {selectedPO && (
-        <PurchaseOrderModal 
-          po={selectedPO} 
-          onClose={() => setSelectedPO(null)} 
-        />
+      {open && (
+        <PurchaseOrderModal order={open === 'new' ? null : open} clinicId={clinicId} onClose={() => setOpen(null)}
+          onChanged={po => { changed(); setOpen(po); }} />
       )}
     </div>
   );

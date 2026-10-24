@@ -1,201 +1,182 @@
-import React, { useState } from 'react';
-import { InventoryItem } from '../../types';
-import { mockSuppliers } from '../../data/mockSuppliers';
-import { X, Package, AlertTriangle, ArrowUpCircle, ArrowDownCircle, Info, Calendar } from 'lucide-react';
-import { Button } from '../ui/Button';
+import React, { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
+import { ArrowDownLeft, ArrowUpRight, History, Pencil, Save } from 'lucide-react';
+import { Modal, Field, selectClass } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { toast } from '../ui/useToast';
+import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../utils/currencyConfig';
+import {
+  CATEGORIES, getStockItem, getSuppliers, recordStockMovement, saveStockItem, StockItem, StockItemInput, StockMovement, Supplier,
+} from '../../api/inventoryService';
+import { StockBadge } from '../../pages/inventory/InventoryList';
 
-interface InventoryItemModalProps {
-  item: InventoryItem;
-  onClose: () => void;
-}
+type Action = 'usage' | 'received' | 'adjustment' | 'expired';
+const ACTIONS: { key: Action; label: string; sign: 1 | -1 }[] = [
+  { key: 'usage', label: 'Used', sign: -1 },
+  { key: 'received', label: 'Received', sign: 1 },
+  { key: 'adjustment', label: 'Stock count', sign: 1 },
+  { key: 'expired', label: 'Thrown away', sign: -1 },
+];
+const TYPE_LABEL: Record<StockMovement['type'], string> = { received: 'Received', usage: 'Used', adjustment: 'Count corrected', expired: 'Thrown away', returned: 'Returned' };
 
-export function InventoryItemModal({ item, onClose }: InventoryItemModalProps) {
-  const supplier = mockSuppliers.find(s => s.id === item.supplierId);
-  const [activeTab, setActiveTab] = useState<'details' | 'adjust'>('details');
-  const [adjustType, setAdjustType] = useState<'addition' | 'usage'>('usage');
-  const [adjustAmount, setAdjustAmount] = useState(1);
-  const [adjustReason, setAdjustReason] = useState('');
+/** Item details: record usage, deliveries and counts, edit settings, see history. `item` null = new item. */
+export function InventoryItemModal({ item, clinicId, onClose, onSaved }: { item: StockItem | null; clinicId?: string; onClose: () => void; onSaved: (i: StockItem) => void }) {
+  const { user } = useAuth();
+  const canManage = user?.role !== 'dentist';
+  const { formatCurrency } = useCurrency();
+  const [full, setFull] = useState<StockItem | null>(item);
+  const [editing, setEditing] = useState(!item);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [form, setForm] = useState<StockItemInput>(item ? { ...item } : { category: 'Consumables', unit: 'pieces', reorderThreshold: 5, reorderQuantity: 10, unitCost: 0, openingStock: 0 });
+  const [action, setAction] = useState<Action>('usage');
+  const [qty, setQty] = useState(1);
+  const [countTo, setCountTo] = useState(item?.currentStock ?? 0);
+  const [reason, setReason] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isExpiringSoon = (dateString?: string) => {
-    if (!dateString) return false;
-    const expiry = new Date(dateString);
-    const diffTime = expiry.getTime() - new Date().getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30;
+  useEffect(() => {
+    if (item) getStockItem(item.id).then(r => { if (r.data) { setFull(r.data); setCountTo(r.data.currentStock); } });
+    if (canManage) getSuppliers({ labs: false }).then(r => setSuppliers(r.data || []));
+  }, [item, canManage]);
+
+  const actions = canManage ? ACTIONS : ACTIONS.filter(a => a.key === 'usage');
+
+  const record = async () => {
+    if (!full) return;
+    const change = action === 'adjustment' ? countTo - full.currentStock : (ACTIONS.find(a => a.key === action)!.sign * Math.abs(qty));
+    if (change === 0) { setError('Nothing to change'); return; }
+    setBusy(true);
+    setError(null);
+    const res = await recordStockMovement(full.id, {
+      change, type: action, reason: reason.trim() || (action === 'adjustment' ? 'Stock count' : ''), expiryDate: action === 'received' && expiry ? expiry : undefined,
+    });
+    setBusy(false);
+    if (res.error || !res.data) { setError(res.error?.message || 'Could not record'); return; }
+    setFull(res.data);
+    setCountTo(res.data.currentStock);
+    setReason(''); setQty(1); setExpiry('');
+    onSaved(res.data);
+    toast({ title: `${full.name}: ${res.data.currentStock} ${res.data.unit} now`, variant: 'success' });
   };
 
-  const isExpired = (dateString?: string) => {
-    if (!dateString) return false;
-    return new Date(dateString).getTime() < new Date().getTime();
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    const { openingStock, ...rest } = form;
+    const body: StockItemInput = { ...rest, clinicId: full?.clinicId || clinicId, ...(full ? {} : { openingStock }) };
+    const res = await saveStockItem(body, full?.id);
+    setBusy(false);
+    if (res.error || !res.data) {
+      const fields = res.error?.fieldErrors ? Object.values(res.error.fieldErrors).join(' ') : '';
+      setError(fields || res.error?.message || 'Could not save');
+      return;
+    }
+    setFull(res.data);
+    setEditing(false);
+    onSaved(res.data);
+    toast({ title: full ? 'Item updated' : 'Item added', variant: 'success' });
   };
 
-  const handleAdjust = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In a real app, this would call an API to update stock
-    console.log(`Adjusting ${adjustType} by ${adjustAmount} for: ${adjustReason}`);
-    onClose();
-  };
+  const set = (k: keyof StockItemInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.type === 'number' ? Number(e.target.value) : e.target.value || null }));
 
   return (
-    <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-panel border border-line shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b border-line flex justify-between items-center bg-base rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-              <Package className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-text-main">{item.name}</h2>
-              <p className="text-sm text-text-muted">{item.category}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex border-b border-line bg-base px-4">
-          <button
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main'}`}
-            onClick={() => setActiveTab('details')}
-          >
-            Item Details
-          </button>
-          <button
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'adjust' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main'}`}
-            onClick={() => setActiveTab('adjust')}
-          >
-            Adjust Stock
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'details' && (
-            <div className="space-y-8">
-              {isExpiringSoon(item.expiryDate) && (
-                <div className={`p-4 rounded-xl border flex items-start gap-3 ${isExpired(item.expiryDate) ? 'bg-error/10 border-error/20 text-error' : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-700'}`}>
-                  <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold">{isExpired(item.expiryDate) ? 'Item Expired' : 'Expiring Soon'}</h4>
-                    <p className="text-sm opacity-90 mt-1">
-                      This item {isExpired(item.expiryDate) ? 'expired' : 'will expire'} on {format(parseISO(item.expiryDate!), 'MMMM d, yyyy')}.
-                      {isExpired(item.expiryDate) && ' Do not use for patient treatment.'}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-base p-4 rounded-xl border border-line">
-                  <p className="text-xs text-text-muted font-medium mb-1">Current Stock</p>
-                  <p className={`text-2xl font-bold ${item.currentStock <= item.reorderThreshold ? 'text-error' : 'text-text-main'}`}>
-                    {item.currentStock} <span className="text-sm font-normal text-text-muted">{item.unit}</span>
-                  </p>
-                </div>
-                <div className="bg-base p-4 rounded-xl border border-line">
-                  <p className="text-xs text-text-muted font-medium mb-1">Reorder Level</p>
-                  <p className="text-2xl font-bold text-text-main">{item.reorderThreshold}</p>
-                </div>
-                <div className="bg-base p-4 rounded-xl border border-line col-span-2">
-                  <p className="text-xs text-text-muted font-medium mb-1 flex items-center gap-1">
-                    <Info className="w-3 h-3" /> Primary Supplier
-                  </p>
-                  <p className="text-sm font-bold text-text-main truncate">{supplier?.name}</p>
-                  <p className="text-xs text-text-muted truncate">{supplier?.email}</p>
-                </div>
-              </div>
-
+    <Modal title={full ? full.name : 'Add stock item'} subtitle={full ? `${full.category}${full.supplierName ? ` · ${full.supplierName}` : ''}` : undefined}
+      onClose={onClose} size="lg"
+      footer={editing ? <>
+        {full && <Button variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>}
+        <Button onClick={save} loading={busy} disabled={!form.name || form.name.length < 2}><Save className="w-4 h-4" /> Save</Button>
+      </> : <Button onClick={onClose}>Done</Button>}>
+      <div className="p-5 space-y-5">
+        {full && !editing && (
+          <>
+            <div className="flex flex-wrap items-end gap-6">
               <div>
-                <h3 className="font-bold text-text-main mb-4">Stock Movement History</h3>
-                {item.movements && item.movements.length > 0 ? (
-                  <div className="space-y-3">
-                    {item.movements.map(mov => (
-                      <div key={mov.id} className="flex items-start justify-between p-3 bg-base border border-line rounded-lg">
-                        <div className="flex items-start gap-3">
-                          {mov.type === 'usage' ? (
-                            <ArrowDownCircle className="w-5 h-5 text-error mt-0.5 shrink-0" />
-                          ) : (
-                            <ArrowUpCircle className="w-5 h-5 text-success mt-0.5 shrink-0" />
-                          )}
-                          <div>
-                            <p className="text-sm font-semibold text-text-main">{mov.reason}</p>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-text-muted">
-                              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {format(parseISO(mov.recordedAt), 'MMM d, yyyy h:mm a')}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`font-bold ${mov.type === 'usage' ? 'text-error' : 'text-success'}`}>
-                          {mov.type === 'usage' ? '' : '+'}{mov.changeAmount}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-[12px] text-text-muted">In stock</div>
+                <div className="text-3xl font-semibold tabular-nums">{full.currentStock} <span className="text-base font-normal text-text-muted">{full.unit}</span></div>
+              </div>
+              <div className="text-[13px] space-y-0.5">
+                <StockBadge item={full} />
+                <div className="text-text-muted">Reorder at {full.reorderThreshold}, order {full.reorderQuantity || '—'} · {formatCurrency(full.unitCost)} each</div>
+                {full.expiryDate && <div className="text-text-muted">Expires {format(parseISO(full.expiryDate), 'd MMM yyyy')}{full.batchNumber ? ` · batch ${full.batchNumber}` : ''}</div>}
+                {full.location && <div className="text-text-muted">Kept in {full.location}</div>}
+              </div>
+              {canManage && <Button size="sm" variant="ghost" className="ml-auto" onClick={() => { setForm({ ...full }); setEditing(true); }}><Pencil className="w-4 h-4" /> Edit</Button>}
+            </div>
+
+            <section className="rounded-control border border-line p-4 space-y-3">
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="What happened">
+                {actions.map(a => (
+                  <button key={a.key} role="radio" aria-checked={action === a.key} onClick={() => { setAction(a.key); setError(null); }}
+                    className={`h-8 px-3 rounded-full text-[13px] font-medium border ${action === a.key ? 'bg-primary text-white border-primary' : 'border-line hover:bg-surface-hover'}`}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr_auto] gap-2 items-end">
+                {action === 'adjustment' ? (
+                  <Field label="Counted"><Input type="number" min={0} value={countTo} onChange={e => setCountTo(Number(e.target.value))} /></Field>
                 ) : (
-                  <p className="text-sm text-text-muted italic">No recent movements recorded.</p>
+                  <Field label="Quantity"><Input type="number" min={1} value={qty} onChange={e => setQty(Number(e.target.value))} /></Field>
                 )}
+                <Field label={action === 'adjustment' ? 'Why the count changed' : 'Note (optional)'}>
+                  <Input value={reason} onChange={e => setReason(e.target.value)} placeholder={action === 'usage' ? 'e.g. RCT 36, Alice' : action === 'received' ? 'Invoice or batch' : ''} />
+                </Field>
+                <Button onClick={record} loading={busy}>Record</Button>
               </div>
-            </div>
-          )}
+              {action === 'received' && (
+                <Field label="Expiry date of this delivery (optional)"><Input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className="sm:w-48" /></Field>
+              )}
+            </section>
+            {error && <p className="text-[13px] text-error">{error}</p>}
 
-          {activeTab === 'adjust' && (
-            <form onSubmit={handleAdjust} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div 
-                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'usage' ? 'border-error bg-error/5 ring-1 ring-error' : 'border-line hover:border-error/30'}`}
-                  onClick={() => setAdjustType('usage')}
-                >
-                  <div className="flex items-center gap-2 text-error font-bold mb-1">
-                    <ArrowDownCircle className="w-5 h-5" /> Reduce Stock
-                  </div>
-                  <p className="text-xs text-text-muted">Item was used, damaged, or expired.</p>
-                </div>
-                <div 
-                  className={`p-4 border rounded-xl cursor-pointer transition-all ${adjustType === 'addition' ? 'border-success bg-success/5 ring-1 ring-success' : 'border-line hover:border-success/30'}`}
-                  onClick={() => setAdjustType('addition')}
-                >
-                  <div className="flex items-center gap-2 text-success font-bold mb-1">
-                    <ArrowUpCircle className="w-5 h-5" /> Add Stock
-                  </div>
-                  <p className="text-xs text-text-muted">Manual restock or adjustment.</p>
-                </div>
-              </div>
+            <section>
+              <h3 className="text-[13px] font-semibold flex items-center gap-1.5 mb-2"><History className="w-4 h-4" /> History</h3>
+              {!full.movements?.length ? <p className="text-[13px] text-text-muted">No movements yet.</p> : (
+                <ul className="divide-y divide-line rounded-control border border-line text-[13px]">
+                  {full.movements.map(m => (
+                    <li key={m.id} className="px-3 py-2 flex items-center gap-3">
+                      {m.change > 0 ? <ArrowDownLeft className="w-4 h-4 text-success flex-none" /> : <ArrowUpRight className="w-4 h-4 text-text-muted flex-none" />}
+                      <div className="flex-1 min-w-0">
+                        <div><strong className="tabular-nums">{m.change > 0 ? '+' : ''}{m.change}</strong> {TYPE_LABEL[m.type]}{m.reason && m.reason !== TYPE_LABEL[m.type] ? `: ${m.reason}` : ''}</div>
+                        <div className="text-[12px] text-text-muted">{format(parseISO(m.recordedAt), 'd MMM yyyy, h:mm a')}{m.recordedByName ? ` · ${m.recordedByName}` : ''}</div>
+                      </div>
+                      <span className="text-[12px] text-text-muted tabular-nums">→ {m.balanceAfter}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
+        )}
 
-              <div>
-                <label className="block text-sm font-semibold text-text-main mb-1">Quantity ({item.unit})</label>
-                <input
-                  type="number"
-                  min="1"
-                  max={adjustType === 'usage' ? item.currentStock : undefined}
-                  required
-                  value={adjustAmount}
-                  onChange={e => setAdjustAmount(Number(e.target.value))}
-                  className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-text-main mb-1">Reason</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={adjustType === 'usage' ? 'e.g., Used in procedure, Expired' : 'e.g., Inventory recount, Manual addition'}
-                  value={adjustReason}
-                  onChange={e => setAdjustReason(e.target.value)}
-                  className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                <Button type="submit" variant={adjustType === 'usage' ? 'danger' : 'primary'}>
-                  Confirm Adjustment
-                </Button>
-              </div>
-            </form>
-          )}
-        </div>
+        {editing && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2"><Field label="Name"><Input value={form.name || ''} onChange={set('name')} autoFocus /></Field></div>
+            <Field label="Category">
+              <select value={form.category} onChange={set('category')} className={selectClass}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>
+            </Field>
+            <Field label="Counted in"><Input value={form.unit || ''} onChange={set('unit')} placeholder="boxes, syringes, packs…" /></Field>
+            <Field label="Reorder when stock reaches"><Input type="number" min={0} value={form.reorderThreshold ?? 0} onChange={set('reorderThreshold')} /></Field>
+            <Field label="Usual order quantity"><Input type="number" min={0} value={form.reorderQuantity ?? 0} onChange={set('reorderQuantity')} /></Field>
+            <Field label="Cost per unit"><Input type="number" min={0} step="0.01" value={form.unitCost ?? 0} onChange={set('unitCost')} /></Field>
+            <Field label="Supplier">
+              <select value={form.supplierId || ''} onChange={set('supplierId')} className={selectClass}>
+                <option value="">None</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Expiry date"><Input type="date" value={form.expiryDate || ''} onChange={set('expiryDate')} /></Field>
+            <Field label="Where it's kept"><Input value={form.location || ''} onChange={set('location')} placeholder="e.g. Store room, shelf B" /></Field>
+            {!full && <Field label="Stock you have now"><Input type="number" min={0} value={form.openingStock ?? 0} onChange={set('openingStock')} /></Field>}
+            {error && <p className="sm:col-span-2 text-[13px] text-error">{error}</p>}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

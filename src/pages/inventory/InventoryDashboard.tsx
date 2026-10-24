@@ -1,136 +1,77 @@
-import React, { useState } from 'react';
-import * as Tabs from '@radix-ui/react-tabs';
-import { Package, ShoppingCart, Truck, AlertTriangle, FlaskConical } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { AlertTriangle, CalendarClock, FlaskConical, Package, ShoppingCart, Truck, PackageCheck } from 'lucide-react';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { StatTile } from '../../components/ui/StatTile';
+import { useAuth } from '../../context/AuthContext';
+import { getInventorySummary, InventorySummary } from '../../api/inventoryService';
 import { InventoryList } from './InventoryList';
 import { PurchaseOrders } from './PurchaseOrders';
 import { SuppliersList } from './SuppliersList';
-import { mockInventory } from '../../data/mockInventory';
 import { LabOrdersList } from '../lab/LabOrdersList';
-import { LabDirectory } from '../lab/LabDirectory';
-import { mockLabOrders } from '../../data/mockLabOrders';
+import { useCurrency } from '../../utils/currencyConfig';
+
+type Tab = 'stock' | 'orders' | 'lab' | 'suppliers';
+const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
+  { key: 'stock', label: 'Stock', icon: Package },
+  { key: 'orders', label: 'Reorder & purchase orders', icon: ShoppingCart },
+  { key: 'lab', label: 'Lab cases', icon: FlaskConical },
+  { key: 'suppliers', label: 'Suppliers & labs', icon: Truck },
+];
 
 export function InventoryDashboard() {
-  const [activeTab, setActiveTab] = useState('items');
-  const now = new Date();
+  const { selectedClinicId, user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get('tab') as Tab) || 'stock';
+  const setTab = (t: Tab) => { params.set('tab', t); setParams(params, { replace: true }); };
+  const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const { formatCurrency } = useCurrency();
+  const clinicId = selectedClinicId === 'all' ? undefined : selectedClinicId;
 
-  // Metrics
-  const lowStockItems = mockInventory.filter(item => item.currentStock <= item.reorderThreshold);
-  const expiringItems = mockInventory.filter(item => {
-    if (!item.expiryDate) return false;
-    const expiry = new Date(item.expiryDate);
-    const diffTime = expiry.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 30; // Includes already expired
-  });
-  
-  const pendingLabOrders = mockLabOrders.filter(lo => lo.status !== 'Fitted/Completed' && lo.status !== 'Delivered to Clinic');
+  const refresh = useCallback(() => { getInventorySummary(clinicId).then(r => r.data && setSummary(r.data)); }, [clinicId]);
+  useEffect(() => { refresh(); }, [refresh]);
 
+  const s = summary;
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Inventory & Lab Management</h1>
-          <p className="text-sm text-text-muted mt-1">Track stock, purchase orders, and lab cases.</p>
+    <div className="space-y-5">
+      <PageHeader title="Inventory & lab" description="Stock levels, reorders, deliveries and lab cases in one place." />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button className="text-left" onClick={() => setTab('stock')}>
+          <StatTile label="Low or out of stock" value={s ? s.lowStock + s.outOfStock : '–'} icon={AlertTriangle} tone={s && s.lowStock + s.outOfStock ? 'error' : undefined} />
+        </button>
+        <button className="text-left" onClick={() => setTab('stock')}>
+          <StatTile label="Expired or expiring in 30 days" value={s ? s.expired + s.expiringSoon : '–'} icon={CalendarClock} tone={s && s.expired ? 'error' : s?.expiringSoon ? 'warning' : undefined} />
+        </button>
+        <button className="text-left" onClick={() => setTab('lab')}>
+          <StatTile label="Lab cases overdue" value={s ? s.labCasesOverdue : '–'} icon={FlaskConical} tone={s?.labCasesOverdue ? 'warning' : undefined} />
+        </button>
+        <button className="text-left" onClick={() => setTab('lab')}>
+          <StatTile label="Lab work ready to fit" value={s ? s.labCasesReadyToFit : '–'} icon={PackageCheck} tone={s?.labCasesReadyToFit ? 'accent' : undefined} />
+        </button>
+      </div>
+      {s && (
+        <p className="text-[12px] text-text-muted -mt-2">
+          {s.totalItems} items · stock value {formatCurrency(s.stockValue)} · {s.openPurchaseOrders} open purchase {s.openPurchaseOrders === 1 ? 'order' : 'orders'} · {s.labCasesAtLab} cases at the lab
+        </p>
+      )}
+
+      <div className="bg-surface rounded-panel border border-line shadow-panel overflow-hidden">
+        <div className="border-b border-line px-2 sm:px-4 flex gap-1 overflow-x-auto scrollbar-hide" role="tablist">
+          {TABS.filter(t => t.key !== 'suppliers' || user?.role !== 'dentist').map(t => (
+            <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+              className={`h-12 px-3 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px flex items-center gap-2 ${tab === t.key ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text-main'}`}>
+              <t.icon className="w-4 h-4" /> {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="p-4 sm:p-5">
+          {tab === 'stock' && <InventoryList clinicId={clinicId} onChanged={refresh} />}
+          {tab === 'orders' && <PurchaseOrders clinicId={clinicId} onChanged={refresh} />}
+          {tab === 'lab' && <LabOrdersList clinicId={clinicId} onChanged={refresh} />}
+          {tab === 'suppliers' && <SuppliersList />}
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-surface rounded-xl border border-line p-5 shadow-panel">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-              <Package className="w-5 h-5" />
-            </div>
-            <p className="font-semibold text-text-main">Total Items</p>
-          </div>
-          <h3 className="text-3xl font-bold text-text-main ml-13">{mockInventory.length}</h3>
-        </div>
-        
-        <div className="bg-surface rounded-xl border border-error/20 p-5 shadow-panel relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-error" />
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-error/10 rounded-lg flex items-center justify-center text-error">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <p className="font-semibold text-text-main">Low Stock</p>
-          </div>
-          <h3 className="text-3xl font-bold text-text-main ml-13">{lowStockItems.length}</h3>
-        </div>
-
-        <div className="bg-surface rounded-xl border border-yellow-500/20 p-5 shadow-panel relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-yellow-500" />
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-yellow-500/10 rounded-lg flex items-center justify-center text-yellow-600">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <p className="font-semibold text-text-main">Expiring Soon</p>
-          </div>
-          <h3 className="text-3xl font-bold text-text-main ml-13">{expiringItems.length}</h3>
-        </div>
-
-        <div className="bg-surface rounded-xl border border-blue-500/20 p-5 shadow-panel relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-blue-600">
-              <FlaskConical className="w-5 h-5" />
-            </div>
-            <p className="font-semibold text-text-main">Pending Lab Cases</p>
-          </div>
-          <h3 className="text-3xl font-bold text-text-main ml-13">{pendingLabOrders.length}</h3>
-        </div>
-      </div>
-
-      <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
-        <Tabs.List className="flex border-b border-line bg-base px-2 pt-2 overflow-x-auto scrollbar-hide">
-          <Tabs.Trigger 
-            value="items" 
-            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
-          >
-            <Package className="w-4 h-4" /> Stock Items
-          </Tabs.Trigger>
-          <Tabs.Trigger 
-            value="pos" 
-            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
-          >
-            <ShoppingCart className="w-4 h-4" /> Purchase Orders
-          </Tabs.Trigger>
-          <Tabs.Trigger 
-            value="suppliers" 
-            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
-          >
-            <Truck className="w-4 h-4" /> Suppliers
-          </Tabs.Trigger>
-          <Tabs.Trigger 
-            value="lab_orders" 
-            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
-          >
-            <FlaskConical className="w-4 h-4" /> Lab Orders
-          </Tabs.Trigger>
-          <Tabs.Trigger 
-            value="labs" 
-            className="whitespace-nowrap shrink-0 px-4 sm:px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors flex items-center gap-2"
-          >
-            <FlaskConical className="w-4 h-4" /> Lab Directory
-          </Tabs.Trigger>
-        </Tabs.List>
-        
-        <div className="p-6">
-          <Tabs.Content value="items" className="outline-none">
-            <InventoryList />
-          </Tabs.Content>
-          <Tabs.Content value="pos" className="outline-none">
-            <PurchaseOrders />
-          </Tabs.Content>
-          <Tabs.Content value="suppliers" className="outline-none">
-            <SuppliersList />
-          </Tabs.Content>
-          <Tabs.Content value="lab_orders" className="outline-none">
-            <LabOrdersList />
-          </Tabs.Content>
-          <Tabs.Content value="labs" className="outline-none">
-            <LabDirectory />
-          </Tabs.Content>
-        </div>
-      </Tabs.Root>
     </div>
   );
 }

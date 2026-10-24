@@ -111,6 +111,13 @@ DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "(link valid for 3 days)",
         "params": ["patient_first_name", "clinic_name", "procedure", "link"],
     },
+    "lab_ready": {
+        "label": "Lab work ready for fitting",
+        "metaName": "lab_work_ready", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, good news: your {{2}} is ready at {{3}}. Book your fitting appointment: {{4}} "
+                "or reply BOOK and we'll call you.",
+        "params": ["patient_first_name", "item", "clinic_name", "booking_link"],
+    },
 }
 
 for _key, _tpl in DEFAULT_TEMPLATES.items():
@@ -122,7 +129,7 @@ CANCEL_WORDS = {"cancel", "cancelled", "cancel it", "2"} | i18n.CANCEL_WORDS_LOC
 RESCHEDULE_WORDS = {"reschedule", "change", "3"} | i18n.RESCHEDULE_WORDS_LOCAL
 YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"} | i18n.YES_WORDS_LOCAL
 REPLYABLE_KINDS = ["appointment_reminder", "reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer",
-                   "recall_checkup", "recall_treatment"]
+                   "recall_checkup", "recall_treatment", "lab_ready"]
 BOOK_WORDS = {"book", "book please", "yes", "ok", "बुक", "हाँ", "हां", "हो"}
 
 
@@ -435,7 +442,7 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
     if source and source.kind == "slot_offer" and word in YES_WORDS | CONFIRM_WORDS:
         return _accept_offer(db, phone, patient, source, lang)
 
-    if source and source.kind in ("recall_checkup", "recall_treatment") and word in BOOK_WORDS:
+    if source and source.kind in ("recall_checkup", "recall_treatment", "lab_ready") and word in BOOK_WORDS:
         clinic_id = (source.payload or {}).get("clinicId") or (patient.clinic_id if patient else None)
         name = f"{patient.first_name} {patient.last_name}".strip() if patient else f"+{phone}"
         if clinic_id:
