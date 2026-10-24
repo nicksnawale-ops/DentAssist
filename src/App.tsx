@@ -37,6 +37,7 @@ import { PatientProfileSettings } from './pages/patients/PatientProfileSettings'
 
 // Communications
 import { CommunicationLog } from './pages/communications/CommunicationLog';
+import { RecallsPage } from './pages/recalls/RecallsPage';
 
 const AppointmentsDispatcher = () => {
   const { user } = useAuth();
@@ -79,6 +80,7 @@ function AppRoutes() {
         
         <Route path="appointments" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist', 'patient']}><AppointmentsDispatcher /></RoleRoute>} />
         
+        <Route path="recalls" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'receptionist']}><RecallsPage /></RoleRoute>} />
         <Route path="communications" element={<RoleRoute allowedRoles={['super_admin', 'admin', 'dentist', 'receptionist']}><CommunicationLog /></RoleRoute>} />
         
         <Route path="patients">

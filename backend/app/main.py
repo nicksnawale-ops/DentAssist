@@ -13,6 +13,7 @@ from app.api import (
     clinics,
     dashboard,
     messaging,
+    recalls,
     notifications,
     patient_portal,
     patients,
@@ -34,11 +35,15 @@ log = logging.getLogger("dentassist.reminders")
 
 def _reminders_once() -> None:
     from app.services.messaging import run_due_reminders
+    from app.services.recalls import run_jobs as run_recall_jobs
 
     with SessionLocal() as db:
         counts = run_due_reminders(db)
         if any(counts.values()):
             log.info("Reminders: %s", counts)
+        recall_counts = run_recall_jobs(db)
+        if any(recall_counts.values()):
+            log.info("Recalls and reviews: %s", recall_counts)
 
 
 async def _reminder_loop() -> None:
@@ -84,7 +89,7 @@ app.add_middleware(
 register_error_handlers(app)
 
 for module in (auth, dashboard, clinics, staff, patients, appointments, waitlist, patient_portal, notifications,
-               settings_api, billing, clinical, scheduling, messaging):
+               settings_api, billing, clinical, scheduling, messaging, recalls):
     app.include_router(module.router, prefix=settings.api_prefix)
 
 

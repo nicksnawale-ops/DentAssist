@@ -58,6 +58,8 @@ export interface Clinic {
   status: ClinicStatus;
   /** Public booking page at /book/<id>. */
   onlineBookingEnabled?: boolean;
+  /** Google review link sent to patients after a visit. */
+  googleReviewUrl?: string | null;
   createdAt: string;
   // Mock aggregated stats
   activeStaffCount?: number;

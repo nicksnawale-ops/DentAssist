@@ -1,6 +1,7 @@
 """Command-line jobs.
 
     python -m app.jobs run-reminders    # send due WhatsApp reminders once (for cron)
+    python -m app.jobs run-recalls      # refresh recalls, send due recalls and review requests
 """
 
 import sys
@@ -10,12 +11,19 @@ from app.services.messaging import run_due_reminders
 
 
 def main(argv: list[str]) -> int:
-    if argv[:1] != ["run-reminders"]:
-        print(__doc__)
-        return 2
-    with SessionLocal() as db:
-        print(run_due_reminders(db))
-    return 0
+    command = argv[:1]
+    if command == ["run-reminders"]:
+        with SessionLocal() as db:
+            print(run_due_reminders(db))
+        return 0
+    if command == ["run-recalls"]:
+        from app.services.recalls import run_jobs
+
+        with SessionLocal() as db:
+            print(run_jobs(db))
+        return 0
+    print(__doc__)
+    return 2
 
 
 if __name__ == "__main__":

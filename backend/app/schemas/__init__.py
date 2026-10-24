@@ -111,6 +111,7 @@ class ClinicBase(CamelModel):
     logo_url: str | None = None
     status: ClinicStatus | None = None
     online_booking_enabled: bool | None = None
+    google_review_url: str | None = Field(default=None, max_length=500, pattern=r"^(https://\S+)?$")
 
 
 class ClinicCreate(ClinicBase):
@@ -132,6 +133,7 @@ class ClinicOut(CamelModel):
     logo_url: str | None = None
     status: ClinicStatus
     online_booking_enabled: bool = True
+    google_review_url: str | None = None
     created_at: datetime
     # Live aggregates
     active_staff_count: int = 0

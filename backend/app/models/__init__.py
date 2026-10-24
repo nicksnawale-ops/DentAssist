@@ -7,10 +7,10 @@ history, working hours...) are stored as JSONB columns.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, true
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, JSONType
@@ -43,6 +43,8 @@ class Clinic(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)  # active | inactive
     # Public booking page at /book/<clinic id>
     online_booking_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
+    # Google Business review link sent to patients after a visit (e.g. https://g.page/r/.../review)
+    google_review_url: Mapped[str | None] = mapped_column(String(500))
 
 
 class User(TimestampMixin, Base):
@@ -421,3 +423,25 @@ class MessageLog(Base):
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class Recall(TimestampMixin, Base):
+    """A patient who should come back: a routine checkup, or an unfinished treatment plan."""
+
+    __tablename__ = "recalls"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str] = mapped_column(ForeignKey("patients.id", ondelete="CASCADE"), nullable=False, index=True)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # checkup | treatment
+    treatment_plan_id: Mapped[str | None] = mapped_column(ForeignKey("treatment_plans.id", ondelete="CASCADE"))
+    due_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    # due | contacted | booked | dismissed
+    status: Mapped[str] = mapped_column(String(12), default="due", nullable=False, index=True)
+    reason: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    last_visit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    contact_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    booked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[str | None] = mapped_column(Text)
