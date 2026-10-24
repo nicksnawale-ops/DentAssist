@@ -39,6 +39,11 @@ class MessagingStatusOut(CamelModel):
     detail: str
 
 
+class TranslationOut(CamelModel):
+    body: str
+    enabled: bool
+
+
 class TemplateOut(CamelModel):
     key: str
     label: str
@@ -47,6 +52,13 @@ class TemplateOut(CamelModel):
     enabled: bool
     body: str
     params: list[str]
+    # Hindi ("hi") and Marathi ("mr") versions, used for patients who chose that language.
+    translations: dict[str, TranslationOut] = {}
+
+
+class TranslationUpdate(CamelModel):
+    body: str | None = Field(default=None, min_length=1, max_length=1024)
+    enabled: bool | None = None
 
 
 class TemplateUpdate(CamelModel):
@@ -54,6 +66,7 @@ class TemplateUpdate(CamelModel):
     language: str | None = Field(default=None, min_length=2, max_length=10)
     enabled: bool | None = None
     body: str | None = Field(default=None, min_length=1, max_length=1024)
+    translations: dict[str, TranslationUpdate] | None = None
 
 
 class MessageOut(CamelModel):
@@ -70,6 +83,7 @@ class MessageOut(CamelModel):
     provider_message_id: str | None = None
     appointment_id: str | None
     invoice_id: str | None
+    language: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -107,6 +121,7 @@ def _out(db: Session, row: MessageLog, names: dict[str, str] | None = None) -> M
             name = f"{p.first_name} {p.last_name}".strip() if p else None
     data = MessageOut.model_validate(row)
     data.patient_name = name
+    data.language = (row.payload or {}).get("language") if row.direction == "outbound" else None
     return data
 
 
@@ -148,10 +163,23 @@ def status(user: StaffUser):
     )
 
 
+def _template_out(key: str, t: dict) -> TemplateOut:
+    return TemplateOut(key=key, label=t["label"], meta_name=t["metaName"], language=t["language"], enabled=t["enabled"],
+                       body=t["body"], params=t["params"],
+                       translations={lang: TranslationOut(**tr) for lang, tr in t["translations"].items()})
+
+
+def _check_placeholders(key: str, text: str, field: str) -> None:
+    expected = len(msg.DEFAULT_TEMPLATES[key]["params"])
+    missing = [i for i in range(1, expected + 1) if "{{" + str(i) + "}}" not in text]
+    if missing:
+        raise AppError(400, f"The message must keep the placeholders {', '.join('{{%d}}' % i for i in missing)}",
+                       "TEMPLATE_PLACEHOLDERS", {field: "Missing placeholders"})
+
+
 @router.get("/messaging/templates", response_model=list[TemplateOut])
 def list_templates(db: DbSession, user: StaffUser):
-    return [TemplateOut(key=k, label=t["label"], meta_name=t["metaName"], language=t["language"], enabled=t["enabled"],
-                        body=t["body"], params=t["params"]) for k, t in msg.templates(db).items()]
+    return [_template_out(k, t) for k, t in msg.templates(db).items()]
 
 
 @router.put("/messaging/templates/{key}", response_model=TemplateOut)
@@ -159,16 +187,24 @@ def update_template(key: str, body: TemplateUpdate, db: DbSession, user: User = 
     if key not in msg.DEFAULT_TEMPLATES:
         raise not_found("Template")
     if body.body is not None:
-        expected = len(msg.DEFAULT_TEMPLATES[key]["params"])
-        missing = [i for i in range(1, expected + 1) if "{{" + str(i) + "}}" not in body.body]
-        if missing:
-            raise AppError(400, f"The message must keep the placeholders {', '.join('{{%d}}' % i for i in missing)}",
-                           "TEMPLATE_PLACEHOLDERS", {"body": "Missing placeholders"})
+        _check_placeholders(key, body.body, "body")
+    known = msg.DEFAULT_TEMPLATES[key]["translations"]
+    for lang, tr in (body.translations or {}).items():
+        if lang not in known:
+            raise bad_request(f"No {lang} version for this message", "UNKNOWN_LANGUAGE")
+        if tr.body is not None:
+            _check_placeholders(key, tr.body, f"translations.{lang}.body")
     row = db.get(AppSetting, "whatsapp_templates")
     current = dict(row.value) if row else {}
     override = dict(current.get(key, {}))
     override.update({k: v for k, v in {"metaName": body.meta_name, "language": body.language, "enabled": body.enabled,
                                        "body": body.body}.items() if v is not None})
+    if body.translations:
+        translations = {lang: dict(t) for lang, t in (override.get("translations") or {}).items()}
+        for lang, tr in body.translations.items():
+            translations.setdefault(lang, {}).update(
+                {k: v for k, v in {"body": tr.body, "enabled": tr.enabled}.items() if v is not None})
+        override["translations"] = translations
     current[key] = override
     if row:
         row.value = current
@@ -176,9 +212,7 @@ def update_template(key: str, body: TemplateUpdate, db: DbSession, user: User = 
         db.add(AppSetting(key="whatsapp_templates", value=current))
     audit.record(db, user, "update", "whatsapp_template", key, after=override)
     db.commit()
-    t = msg.templates(db)[key]
-    return TemplateOut(key=key, label=t["label"], meta_name=t["metaName"], language=t["language"], enabled=t["enabled"],
-                       body=t["body"], params=t["params"])
+    return _template_out(key, msg.templates(db)[key])
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +262,7 @@ def remind_now(appointment_id: str, db: DbSession, user: User = FrontDesk):
         raise bad_request("Only upcoming appointments can be reminded", "APPOINTMENT_NOT_UPCOMING")
     if as_utc(appt.start_time) <= datetime.now(as_utc(appt.start_time).tzinfo):
         raise bad_request("This appointment has already started", "APPOINTMENT_PAST")
-    row = msg.appointment_message(db, appt, "reminder_24h", actor=user, dedupe=False)
+    row = msg.appointment_message(db, appt, "appointment_reminder", actor=user, dedupe=False)
     db.commit()
     return _result(db, row)
 

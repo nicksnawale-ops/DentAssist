@@ -12,7 +12,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/useToast';
 import { useAuth } from '../../context/AuthContext';
 import {
-  formatPhone, getMessageLog, getMessagingStatus, MESSAGE_KIND_LABELS, MessageLogEntry, MessagingStatus, sendReply,
+  formatPhone, getMessageLog, getMessagingStatus, LANGUAGE_LABELS, MESSAGE_KIND_LABELS, MessageLogEntry, MessagingStatus, sendReply,
 } from '../../api/messagingService';
 
 type Filter = 'all' | 'replies' | 'problems';
@@ -276,9 +276,12 @@ export function CommunicationLog() {
                                : 'bg-white dark:bg-[#202C33] text-[#111B21] dark:text-[#E9EDEF] rounded-tl-none'
                         } ${problem ? 'opacity-80 ring-1 ring-error/30' : ''}`}>
                           {mine && m.kind !== 'text' && (
-                            <div className="text-[11px] font-semibold text-[#008069] dark:text-[#53BDEB] mb-0.5">{MESSAGE_KIND_LABELS[m.kind] || m.kind}</div>
+                            <div className="text-[11px] font-semibold text-[#008069] dark:text-[#53BDEB] mb-0.5">
+                              {MESSAGE_KIND_LABELS[m.kind] || m.kind}
+                              {m.language && m.language !== 'en' && <span className="font-normal opacity-80"> · {LANGUAGE_LABELS[m.language] || m.language}</span>}
+                            </div>
                           )}
-                          <div className="whitespace-pre-wrap break-words">{m.body}</div>
+                          <div className="whitespace-pre-wrap break-words" lang={m.language || undefined}>{m.body}</div>
                           <div className="flex items-center justify-end gap-1 mt-1 text-[11px] opacity-60">
                             {format(parseISO(m.createdAt), 'h:mm a')}
                             {mine && <StatusTick m={m} />}

@@ -8,7 +8,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { useToast } from '../../components/ui/useToast';
 import { useAuth } from '../../context/AuthContext';
 import {
-  getMessageTemplates, getMessagingStatus, MessageTemplate, MessagingStatus, previewTemplate,
+  getMessageTemplates, getMessagingStatus, LANGUAGE_LABELS, MessageTemplate, MessagingStatus, previewTemplate,
   sendTestMessage, updateMessageTemplate,
 } from '../../api/messagingService';
 
@@ -20,6 +20,7 @@ export function WhatsAppTemplates() {
   const [status, setStatus] = useState<MessagingStatus | null>(null);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [activeKey, setActiveKey] = useState<string>('reminder_24h');
+  const [lang, setLang] = useState<string>('en');
   const [draft, setDraft] = useState<MessageTemplate | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +39,23 @@ export function WhatsAppTemplates() {
   }, []);
 
   const saved = templates.find(t => t.key === activeKey);
-  const dirty = !!(draft && saved && (draft.body !== saved.body || draft.metaName !== saved.metaName || draft.enabled !== saved.enabled));
-  const preview = useMemo(() => (draft ? previewTemplate(draft) : ''), [draft]);
+  const dirty = !!(draft && saved && JSON.stringify(draft) !== JSON.stringify(saved));
+  const translation = draft && lang !== 'en' ? draft.translations[lang] : undefined;
+  const text = draft ? (translation ? translation.body : draft.body) : '';
+  const preview = useMemo(() => (draft ? previewTemplate({ body: text, params: draft.params }, lang) : ''), [draft, text, lang]);
+  const languages = draft ? ['en', ...Object.keys(draft.translations)] : ['en'];
+
+  const setText = (value: string) => {
+    if (!draft) return;
+    if (lang === 'en') setDraft({ ...draft, body: value });
+    else setDraft({ ...draft, translations: { ...draft.translations, [lang]: { ...draft.translations[lang], body: value } } });
+  };
 
   const select = (key: string) => {
+    const t = templates.find(x => x.key === key) || null;
     setActiveKey(key);
-    setDraft(templates.find(t => t.key === key) || null);
+    setDraft(t);
+    if (t && lang !== 'en' && !t.translations[lang]) setLang('en');
     setError(null);
   };
 
@@ -52,7 +64,9 @@ export function WhatsAppTemplates() {
     const next = { ...draft, ...patch };
     setSaving(true);
     setError(null);
-    const res = await updateMessageTemplate(next.key, { body: next.body, metaName: next.metaName, enabled: next.enabled });
+    const res = await updateMessageTemplate(next.key, {
+      body: next.body, metaName: next.metaName, enabled: next.enabled, translations: next.translations,
+    });
     setSaving(false);
     if (res.error || !res.data) {
       setError(res.error?.message || 'Could not save');
@@ -147,14 +161,42 @@ export function WhatsAppTemplates() {
               </label>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-control border border-line p-0.5" role="tablist" aria-label="Language">
+                {languages.map(code => (
+                  <button key={code} role="tab" aria-selected={lang === code} onClick={() => setLang(code)}
+                    className={`px-3 h-8 rounded-[6px] text-[13px] font-medium transition-colors ${lang === code ? 'bg-primary text-white' : 'text-text-muted hover:bg-surface-hover'}`}>
+                    {LANGUAGE_LABELS[code] || code}
+                    {code !== 'en' && draft.translations[code] && !draft.translations[code].enabled && <span className="ml-1 opacity-70">(off)</span>}
+                  </button>
+                ))}
+              </div>
+              {translation && (
+                <label className={`inline-flex items-center gap-2 text-[13px] ${canEdit ? 'cursor-pointer' : 'opacity-60'}`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-line text-primary focus:ring-primary"
+                    checked={translation.enabled}
+                    disabled={!canEdit || saving}
+                    onChange={e => setDraft({ ...draft, translations: { ...draft.translations, [lang]: { ...translation, enabled: e.target.checked } } })}
+                  />
+                  Use for patients who chose {LANGUAGE_LABELS[lang]}
+                </label>
+              )}
+            </div>
+            <p className="text-[12px] text-text-muted -mt-3">
+              Patients get the message in the language on their profile. If a version is off or Meta hasn't approved it yet, they get English.
+            </p>
+
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="space-y-3">
                 <label className="block">
                   <span className="text-[13px] font-medium">Message</span>
                   <textarea
-                    value={draft.body}
+                    value={text}
                     readOnly={!canEdit}
-                    onChange={e => setDraft({ ...draft, body: e.target.value })}
+                    lang={lang}
+                    onChange={e => setText(e.target.value)}
                     rows={6}
                     className="mt-1 w-full p-3 bg-surface border border-line rounded-control text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none resize-y"
                   />
@@ -185,14 +227,14 @@ export function WhatsAppTemplates() {
               <div>
                 <span className="text-[13px] font-medium">Preview</span>
                 <div className="mt-1 rounded-control border border-line bg-[#EFEAE2] dark:bg-[#0B141A] p-4 min-h-[180px]">
-                  <div className="bg-[#D9FDD3] dark:bg-[#005C4B] text-[#111B21] dark:text-[#E9EDEF] rounded-lg rounded-tl-none px-3 py-2 text-sm max-w-[90%] shadow-sm whitespace-pre-wrap">
+                  <div lang={lang} className="bg-[#D9FDD3] dark:bg-[#005C4B] text-[#111B21] dark:text-[#E9EDEF] rounded-lg rounded-tl-none px-3 py-2 text-sm max-w-[90%] shadow-sm whitespace-pre-wrap">
                     {preview}
                     <div className="text-right text-[11px] opacity-50 mt-1">10:00 AM</div>
                   </div>
                 </div>
                 <p className="text-[12px] text-text-muted mt-2 flex gap-1.5">
                   <Info className="w-3.5 h-3.5 flex-none mt-0.5" />
-                  Meta must approve wording changes. Submit the same text in WhatsApp Manager, keeping the numbered placeholders in order.
+                  Meta must approve each language. In WhatsApp Manager add {LANGUAGE_LABELS[lang] === 'English' ? 'this text' : `this as the ${lang === 'hi' ? 'Hindi' : 'Marathi'} translation`} of “{draft.metaName}”, keeping the numbered placeholders in order.
                 </p>
               </div>
             </div>

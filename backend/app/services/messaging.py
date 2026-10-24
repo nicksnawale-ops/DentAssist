@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Callable
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -20,6 +20,7 @@ from app.models import (
     User,
     WaitlistEntry,
 )
+from app.services import message_i18n as i18n
 from app.services.availability import clinic_tz, is_free
 from app.services.scheduling import as_utc
 from app.services.whatsapp import get_provider, normalise_phone
@@ -28,7 +29,15 @@ log = logging.getLogger("dentassist.messaging")
 
 # Default templates. "metaName" must match a template approved in Meta's WhatsApp Manager;
 # "body" is the wording to submit for approval (and what the log shows). {{n}} are parameters.
+# Hindi and Marathi versions live in message_i18n and are added to each template below.
 DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
+    "appointment_reminder": {
+        "label": "Reminder, sent by staff",
+        "metaName": "appointment_reminder", "language": "en", "enabled": True,
+        "body": "Hi {{1}}, a reminder of your dental appointment at {{2}} on {{3}} at {{4}} with {{5}}. "
+                "Reply CONFIRM to confirm, CANCEL to cancel or RESCHEDULE to change the time.",
+        "params": ["patient_first_name", "clinic_name", "date", "time", "dentist_name"],
+    },
     "reminder_24h": {
         "label": "Reminder, day before",
         "metaName": "appointment_reminder_24h", "language": "en", "enabled": True,
@@ -70,10 +79,15 @@ DEFAULT_TEMPLATES: dict[str, dict[str, Any]] = {
     },
 }
 
-CONFIRM_WORDS = {"confirm", "confirmed", "yes confirm", "ok", "okay", "1", "👍"}
-CANCEL_WORDS = {"cancel", "cancelled", "cancel it", "2"}
-RESCHEDULE_WORDS = {"reschedule", "change", "3"}
-YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"}
+for _key, _tpl in DEFAULT_TEMPLATES.items():
+    _tpl["translations"] = {lang: {"body": body, "enabled": True}
+                            for lang, body in i18n.TEMPLATE_TRANSLATIONS.get(_key, {}).items()}
+
+CONFIRM_WORDS = {"confirm", "confirmed", "yes confirm", "ok", "okay", "1", "👍"} | i18n.CONFIRM_WORDS_LOCAL
+CANCEL_WORDS = {"cancel", "cancelled", "cancel it", "2"} | i18n.CANCEL_WORDS_LOCAL
+RESCHEDULE_WORDS = {"reschedule", "change", "3"} | i18n.RESCHEDULE_WORDS_LOCAL
+YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"} | i18n.YES_WORDS_LOCAL
+REPLYABLE_KINDS = ["appointment_reminder", "reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer"]
 
 
 # ---------------------------------------------------------------------------
@@ -82,12 +96,33 @@ YES_WORDS = {"yes", "y", "haan", "ha", "book", "yes please"}
 
 def templates(db: Session) -> dict[str, dict[str, Any]]:
     stored = db.get(AppSetting, "whatsapp_templates")
-    merged = {k: dict(v) for k, v in DEFAULT_TEMPLATES.items()}
+    merged = {k: {**v, "translations": {lang: dict(t) for lang, t in v["translations"].items()}}
+              for k, v in DEFAULT_TEMPLATES.items()}
     if stored:
         for key, override in (stored.value or {}).items():
-            if key in merged:
-                merged[key].update({k: v for k, v in override.items() if k in ("metaName", "language", "enabled", "body")})
+            if key not in merged:
+                continue
+            merged[key].update({k: v for k, v in override.items() if k in ("metaName", "language", "enabled", "body")})
+            for lang, t in (override.get("translations") or {}).items():
+                if lang in merged[key]["translations"]:
+                    merged[key]["translations"][lang].update(
+                        {k: v for k, v in t.items() if k in ("body", "enabled")})
     return merged
+
+
+def message_language(tpl: dict[str, Any], patient: Patient) -> str:
+    """The patient's language if this template has an active version in it, otherwise English."""
+    lang = i18n.language_of(patient.communication_prefs)
+    t = tpl["translations"].get(lang)
+    return lang if t and t.get("enabled", True) and t.get("body") else "en"
+
+
+def _body(tpl: dict[str, Any], lang: str) -> str:
+    return tpl["translations"][lang]["body"] if lang != "en" else tpl["body"]
+
+
+def _meta_language(tpl: dict[str, Any], lang: str) -> str:
+    return tpl.get("language", "en") if lang == "en" else lang
 
 
 def render(body: str, params: list[str]) -> str:
@@ -105,9 +140,9 @@ def _first_name(p: Patient) -> str:
     return (p.first_name or "there").split(" ")[0]
 
 
-def _when(clinic: Clinic, dt: datetime) -> tuple[str, str]:
+def _when(clinic: Clinic, dt: datetime, lang: str = "en") -> tuple[str, str]:
     local = as_utc(dt).astimezone(clinic_tz(clinic))
-    return local.strftime("%a %d %b"), local.strftime("%I:%M %p").lstrip("0")
+    return i18n.day_label(local, lang), local.strftime("%I:%M %p").lstrip("0")
 
 
 def _dentist(db: Session, user_id: str) -> str:
@@ -128,7 +163,7 @@ def send_template(
     db: Session,
     patient: Patient,
     key: str,
-    params: list[str],
+    params: list[str] | Callable[[str], list[str]],
     *,
     appointment_id: str | None = None,
     invoice_id: str | None = None,
@@ -137,14 +172,21 @@ def send_template(
     actor: User | None = None,
     respect_opt_in: bool = True,
 ) -> MessageLog | None:
-    """Send one template message and log it. Returns None if it was already sent (dedupe)."""
+    """Send one template message in the patient's language and log it.
+
+    `params` may be a function of the language code, so dates can be written in that language.
+    Returns None if it was already sent (dedupe).
+    """
     tpl = templates(db)[key]
+    build = params if callable(params) else (lambda _lang: params)
+    lang = message_language(tpl, patient)
+    values = build(lang)
     phone = normalise_phone(patient.phone)
     row = MessageLog(
         patient_id=patient.id, phone=phone or (patient.phone or "")[:20], direction="outbound", kind=key,
-        template_name=tpl["metaName"], body=render(tpl["body"], params), status="queued",
-        appointment_id=appointment_id, invoice_id=invoice_id, payload=payload, dedupe_key=dedupe_key,
-        created_by_id=actor.id if actor else None,
+        template_name=tpl["metaName"], body=render(_body(tpl, lang), values), status="queued",
+        appointment_id=appointment_id, invoice_id=invoice_id, payload={**(payload or {}), "language": lang},
+        dedupe_key=dedupe_key, created_by_id=actor.id if actor else None,
     )
     # Claim the dedupe key first, so two workers can never send the same reminder.
     if dedupe_key:
@@ -170,7 +212,17 @@ def send_template(
     elif provider is None:
         row.status, row.error = "skipped", "WhatsApp is not set up"
     else:
-        result = provider.send_template(phone, tpl["metaName"], tpl.get("language", "en"), params, row.body)
+        result = provider.send_template(phone, tpl["metaName"], _meta_language(tpl, lang), values, row.body)
+        if not result.ok and lang != "en":
+            # Most often the translation isn't approved in Meta yet: fall back to English.
+            en_values = build("en")
+            fallback = provider.send_template(phone, tpl["metaName"], _meta_language(tpl, "en"), en_values,
+                                              render(tpl["body"], en_values))
+            if fallback.ok:
+                log.warning("WhatsApp %s in %s failed (%s); sent in English", key, lang, result.error)
+                row.body = render(tpl["body"], en_values)
+                row.payload = {**(row.payload or {}), "language": "en", "fallbackFrom": lang}
+                result = fallback
         row.status = "sent" if result.ok else "failed"
         row.provider_message_id = result.provider_message_id
         row.error = result.error
@@ -203,12 +255,14 @@ def appointment_message(db: Session, appt: Appointment, key: str, actor: User | 
     clinic = db.get(Clinic, appt.clinic_id)
     if not patient or not clinic:
         return None
-    date_s, time_s = _when(clinic, appt.start_time)
-    values = {
-        "patient_first_name": _first_name(patient), "clinic_name": clinic.name, "date": date_s, "time": time_s,
-        "dentist_name": _dentist(db, appt.dentist_id),
-    }
-    params = [values[p] for p in DEFAULT_TEMPLATES[key]["params"]]
+    def params(lang: str) -> list[str]:
+        date_s, time_s = _when(clinic, appt.start_time, lang)
+        values = {
+            "patient_first_name": _first_name(patient), "clinic_name": clinic.name, "date": date_s, "time": time_s,
+            "dentist_name": _dentist(db, appt.dentist_id),
+        }
+        return [values[p] for p in DEFAULT_TEMPLATES[key]["params"]]
+
     return send_template(db, patient, key, params, appointment_id=appt.id, actor=actor,
                          dedupe_key=f"{appt.id}:{key}" if dedupe else None)
 
@@ -220,20 +274,26 @@ def invoice_message(db: Session, invoice: Invoice, key: str, actor: User | None 
     if not patient or not clinic:
         return None
     link = f"{get_settings().public_app_url.rstrip('/')}/bills"
-    values = {
-        "patient_first_name": _first_name(patient), "invoice_number": invoice.invoice_number,
-        "amount": _money(amount if amount is not None else invoice.total), "clinic_name": clinic.name,
-        "due_date": as_utc(invoice.due_date).astimezone(clinic_tz(clinic)).strftime("%d %b"), "link": link,
-    }
-    params = [values[p] for p in DEFAULT_TEMPLATES[key]["params"]]
+
+    def params(lang: str) -> list[str]:
+        due = as_utc(invoice.due_date).astimezone(clinic_tz(clinic))
+        values = {
+            "patient_first_name": _first_name(patient), "invoice_number": invoice.invoice_number,
+            "amount": _money(amount if amount is not None else invoice.total), "clinic_name": clinic.name,
+            "due_date": i18n.day_label(due, lang, with_weekday=False), "link": link,
+        }
+        return [values[p] for p in DEFAULT_TEMPLATES[key]["params"]]
+
     return send_template(db, patient, key, params, invoice_id=invoice.id, actor=actor, dedupe_key=dedupe_key)
 
 
 def offer_slot(db: Session, appt: Appointment, entry: WaitlistEntry, actor: User | None) -> MessageLog | None:
     patient = db.get(Patient, entry.patient_id)
     clinic = db.get(Clinic, appt.clinic_id)
-    date_s, time_s = _when(clinic, appt.start_time)
-    params = [_first_name(patient), _dentist(db, appt.dentist_id), date_s, time_s]
+    def params(lang: str) -> list[str]:
+        date_s, time_s = _when(clinic, appt.start_time, lang)
+        return [_first_name(patient), _dentist(db, appt.dentist_id), date_s, time_s]
+
     return send_template(
         db, patient, "slot_offer", params, appointment_id=appt.id, actor=actor,
         dedupe_key=f"{appt.id}:{appt.start_time.isoformat()}:offer:{entry.id}",
@@ -324,7 +384,7 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
     if source is None:
         source = db.scalars(
             select(MessageLog).where(MessageLog.phone == phone, MessageLog.direction == "outbound",
-                                     MessageLog.kind.in_(["reminder_24h", "reminder_2h", "booking_confirmation", "slot_offer"]),
+                                     MessageLog.kind.in_(REPLYABLE_KINDS),
                                      MessageLog.created_at >= datetime.now(timezone.utc) - timedelta(hours=72))
             .order_by(MessageLog.created_at.desc())
         ).first()
@@ -335,16 +395,18 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
                       appointment_id=source.appointment_id if source else None))
     db.flush()
 
+    lang = i18n.language_of(patient.communication_prefs) if patient else "en"
     if source and source.kind == "slot_offer" and word in YES_WORDS | CONFIRM_WORDS:
-        return _accept_offer(db, phone, patient, source)
+        return _accept_offer(db, phone, patient, source, lang)
 
     appt = db.get(Appointment, source.appointment_id) if source and source.appointment_id else None
     if appt and appt.status in ("scheduled", "confirmed") and as_utc(appt.start_time) > datetime.now(timezone.utc):
         clinic = db.get(Clinic, appt.clinic_id)
-        date_s, time_s = _when(clinic, appt.start_time)
+        date_s, time_s = _when(clinic, appt.start_time, lang)
+        desk_date, desk_time = _when(clinic, appt.start_time)
         if word in CONFIRM_WORDS:
             appt.status = "confirmed"
-            send_text(db, phone, f"Thank you, your appointment on {date_s} at {time_s} is confirmed.", patient, appt.id)
+            send_text(db, phone, i18n.reply("confirmed", lang, date=date_s, time=time_s), patient, appt.id)
             return "confirmed"
         if word in CANCEL_WORDS:
             from app.services.waitlist import notify_slot_freed  # avoid import cycle
@@ -353,14 +415,14 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
             appt.notes = (appt.notes + "\n" if appt.notes else "") + "Cancelled by patient on WhatsApp"
             notify_slot_freed(db, appt)
             _notify_desk(db, appt.clinic_id, "Cancelled on WhatsApp",
-                         f"{patient.first_name if patient else phone} cancelled {date_s} at {time_s}.")
-            send_text(db, phone, f"Your appointment on {date_s} at {time_s} is cancelled. "
-                                 f"Call {clinic.phone or 'the clinic'} or reply here to book again.", patient, appt.id)
+                         f"{patient.first_name if patient else phone} cancelled {desk_date} at {desk_time}.")
+            send_text(db, phone, i18n.reply("cancelled", lang, date=date_s, time=time_s,
+                                            phone=clinic.phone or i18n.reply("the_clinic", lang)), patient, appt.id)
             return "cancelled"
         if word in RESCHEDULE_WORDS:
             _notify_desk(db, appt.clinic_id, "Reschedule request",
-                         f"{patient.first_name if patient else phone} wants to move {date_s} at {time_s}. Please call them.")
-            send_text(db, phone, "No problem. The clinic will call you shortly to find a new time.", patient, appt.id)
+                         f"{patient.first_name if patient else phone} wants to move {desk_date} at {desk_time}. Please call them.")
+            send_text(db, phone, i18n.reply("reschedule", lang), patient, appt.id)
             return "reschedule_requested"
 
     # Anything else: make sure a person sees it.
@@ -371,7 +433,7 @@ def handle_incoming(db: Session, phone: str, text: str, provider_message_id: str
     return "forwarded"
 
 
-def _accept_offer(db: Session, phone: str, patient: Patient | None, offer: MessageLog) -> str:
+def _accept_offer(db: Session, phone: str, patient: Patient | None, offer: MessageLog, lang: str = "en") -> str:
     data = offer.payload or {}
     entry = db.get(WaitlistEntry, data.get("waitlistEntryId")) if data.get("waitlistEntryId") else None
     clinic = db.get(Clinic, data.get("clinicId")) if data.get("clinicId") else None
@@ -379,9 +441,10 @@ def _accept_offer(db: Session, phone: str, patient: Patient | None, offer: Messa
         return "forwarded"
     start = datetime.fromisoformat(data["startTime"])
     end = datetime.fromisoformat(data["endTime"])
-    date_s, time_s = _when(clinic, start)
+    date_s, time_s = _when(clinic, start, lang)
+    desk_date, desk_time = _when(clinic, start)
     if entry.status != "waiting" or not is_free(db, clinic, data["dentistId"], start, end):
-        send_text(db, phone, f"Sorry, the {date_s} {time_s} slot has just been taken. We'll keep you on the waitlist.", patient)
+        send_text(db, phone, i18n.reply("offer_taken", lang, date=date_s, time=time_s), patient)
         return "offer_taken"
     appt = Appointment(patient_id=patient.id, dentist_id=data["dentistId"], clinic_id=clinic.id, start_time=start,
                        end_time=end, status="confirmed", procedure_type=data.get("procedureType") or "Consultation",
@@ -389,6 +452,7 @@ def _accept_offer(db: Session, phone: str, patient: Patient | None, offer: Messa
     db.add(appt)
     entry.status = "scheduled"
     db.flush()
-    _notify_desk(db, clinic.id, "Waitlist slot filled", f"{patient.first_name} {patient.last_name} took {date_s} at {time_s}.")
-    send_text(db, phone, f"Done! You're booked for {date_s} at {time_s} with {_dentist(db, data['dentistId'])}.", patient, appt.id)
+    _notify_desk(db, clinic.id, "Waitlist slot filled", f"{patient.first_name} {patient.last_name} took {desk_date} at {desk_time}.")
+    send_text(db, phone, i18n.reply("offer_accepted", lang, date=date_s, time=time_s,
+                                    dentist=_dentist(db, data["dentistId"])), patient, appt.id)
     return "offer_accepted"

@@ -197,3 +197,108 @@ def test_phone_normalisation(raw, expected):
     from app.services.whatsapp import normalise_phone
 
     assert normalise_phone(raw) == expected
+
+
+# ---------- Staff reminder wording and languages ----------
+
+FIONA_PHONE = "919876566666"  # pat_6, opted in, prefers Hindi
+
+
+def test_staff_reminder_does_not_say_tomorrow(client, as_role):
+    h = as_role("receptionist")
+    appt = book(client, h, hours_ahead=24 * 4)
+    res = client.post(f"{API}/appointments/{appt['id']}/remind", headers=h).json()
+    assert res["status"] == "sent"
+    assert res["message"]["kind"] == "appointment_reminder"
+    assert "tomorrow" not in res["message"]["body"].lower()
+    # The staff reminder can be sent again; automatic reminders are still sent once.
+    again = client.post(f"{API}/appointments/{appt['id']}/remind", headers=h).json()
+    assert again["status"] == "sent"
+
+
+def test_hindi_patient_gets_hindi_message_and_dates(client, as_role):
+    a = as_role("super_admin")
+    book(client, a, patient="pat_6", hours_ahead=50, sendWhatsapp=True)
+    row = log(client, a, patientId="pat_6")[0]
+    assert row["language"] == "hi"
+    assert row["body"].startswith("नमस्ते Fiona")
+    assert not any(day in row["body"] for day in ("Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat ", "Sun "))
+    assert "{{" not in row["body"]
+
+
+def test_reply_in_hindi_confirms_and_answers_in_hindi(client, as_role):
+    a = as_role("super_admin")
+    appt = book(client, a, patient="pat_6", hours_ahead=50, sendWhatsapp=True)
+    assert inbound(client, FIONA_PHONE, "हाँ", "wamid.hi1").json()["handled"] == ["confirmed"]
+    assert client.get(f"{API}/appointments/{appt['id']}", headers=a).json()["status"] == "confirmed"
+    answer = [r for r in log(client, a, patientId="pat_6") if r["kind"] == "text"][0]
+    assert answer["body"].startswith("धन्यवाद")
+
+
+def test_switched_off_translation_falls_back_to_english(client, as_role):
+    a = as_role("super_admin")
+    res = client.put(f"{API}/messaging/templates/booking_confirmation", headers=a,
+                     json={"translations": {"hi": {"enabled": False}}})
+    assert res.status_code == 200 and res.json()["translations"]["hi"]["enabled"] is False
+    book(client, a, patient="pat_6", hours_ahead=50, sendWhatsapp=True)
+    row = log(client, a, patientId="pat_6")[0]
+    assert row["language"] == "en" and row["body"].startswith("Hi Fiona")
+
+
+def test_translation_edits_keep_placeholders(client, as_role):
+    a = as_role("super_admin")
+    bad = client.put(f"{API}/messaging/templates/reminder_2h", headers=a,
+                     json={"translations": {"mr": {"body": "नमस्कार {{1}}"}}})
+    assert bad.status_code == 400 and bad.json()["code"] == "TEMPLATE_PLACEHOLDERS"
+    unknown = client.put(f"{API}/messaging/templates/reminder_2h", headers=a,
+                         json={"translations": {"fr": {"enabled": False}}})
+    assert unknown.status_code == 400
+
+
+def test_unapproved_translation_retries_in_english(client, as_role, monkeypatch):
+    from app.services import messaging
+    from app.services.whatsapp import SendResult
+
+    calls = []
+
+    class PickyProvider:
+        def send_template(self, to, template, language, params, preview):
+            calls.append(language)
+            if language != "en":
+                return SendResult(False, error="Template name does not exist in the translation")
+            return SendResult(True, "wamid.fallback")
+
+        def send_text(self, to, text):
+            return SendResult(True, "wamid.text")
+
+    monkeypatch.setattr(messaging, "get_provider", lambda: PickyProvider())
+    a = as_role("super_admin")
+    book(client, a, patient="pat_6", hours_ahead=50, sendWhatsapp=True)
+    row = log(client, a, patientId="pat_6")[0]
+    assert calls == ["hi", "en"]
+    assert row["status"] == "sent" and row["language"] == "en" and row["body"].startswith("Hi Fiona")
+
+
+def test_language_helpers():
+    from datetime import datetime as dt
+
+    from app.services import message_i18n as i18n
+
+    assert i18n.language_of({"language": "Marathi"}) == "mr"
+    assert i18n.language_of({"language": "Tamil"}) == "en"
+    assert i18n.language_of(None) == "en"
+    tuesday = dt(2026, 10, 27, 10, 30)
+    assert i18n.day_label(tuesday, "en") == "Tue 27 Oct"
+    assert i18n.day_label(tuesday, "hi") == "मंगल 27 अक्टू"
+    assert i18n.day_label(tuesday, "mr", with_weekday=False) == "27 ऑक्टो"
+
+
+def test_every_translation_keeps_placeholders_in_order():
+    from app.services.messaging import DEFAULT_TEMPLATES
+    import re
+
+    for key, tpl in DEFAULT_TEMPLATES.items():
+        expected = [str(i) for i in range(1, len(tpl["params"]) + 1)]
+        assert re.findall(r"\{\{(\d+)\}\}", tpl["body"]) == expected, key
+        for lang, tr in tpl["translations"].items():
+            assert re.findall(r"\{\{(\d+)\}\}", tr["body"]) == expected, (key, lang)

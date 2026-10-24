@@ -5,6 +5,7 @@
 import { ApiResponse } from '../types';
 import { apiClient } from './apiClient';
 import { http, USE_MOCK_API } from './http';
+import { mockWhatsAppTranslations } from '../data/mockWhatsAppTranslations';
 
 export type MessageStatus = 'queued' | 'sent' | 'delivered' | 'read' | 'failed' | 'skipped' | 'received';
 
@@ -25,7 +26,20 @@ export interface MessageTemplate {
   enabled: boolean;
   body: string;
   params: string[];
+  /** Hindi ("hi") and Marathi ("mr") versions, sent to patients who chose that language. */
+  translations: Record<string, TemplateTranslation>;
 }
+
+export interface TemplateTranslation {
+  body: string;
+  enabled: boolean;
+}
+
+export type TemplateUpdate = Partial<Pick<MessageTemplate, 'metaName' | 'language' | 'enabled' | 'body'>> & {
+  translations?: Record<string, Partial<TemplateTranslation>>;
+};
+
+export const LANGUAGE_LABELS: Record<string, string> = { en: 'English', hi: 'हिंदी', mr: 'मराठी' };
 
 export interface MessageLogEntry {
   id: string;
@@ -41,6 +55,8 @@ export interface MessageLogEntry {
   providerMessageId?: string | null;
   appointmentId: string | null;
   invoiceId: string | null;
+  /** Language the message went out in (outbound only). */
+  language?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +68,7 @@ export interface SendResult {
 }
 
 export const MESSAGE_KIND_LABELS: Record<string, string> = {
+  appointment_reminder: 'Reminder',
   reminder_24h: 'Reminder (day before)',
   reminder_2h: 'Reminder (2 hours)',
   booking_confirmation: 'Booking confirmation',
@@ -65,7 +82,10 @@ export const MESSAGE_KIND_LABELS: Record<string, string> = {
 
 // ---------- Mock data ----------
 
-const MOCK_TEMPLATES: MessageTemplate[] = [
+const MOCK_TEMPLATES: Omit<MessageTemplate, 'translations'>[] = [
+  { key: 'appointment_reminder', label: 'Reminder, sent by staff', metaName: 'appointment_reminder', language: 'en', enabled: true,
+    body: 'Hi {{1}}, a reminder of your dental appointment at {{2}} on {{3}} at {{4}} with {{5}}. Reply CONFIRM to confirm, CANCEL to cancel or RESCHEDULE to change the time.',
+    params: ['patient_first_name', 'clinic_name', 'date', 'time', 'dentist_name'] },
   { key: 'reminder_24h', label: 'Reminder, day before', metaName: 'appointment_reminder_24h', language: 'en', enabled: true,
     body: 'Hi {{1}}, a reminder of your dental appointment at {{2}} tomorrow, {{3}} at {{4}} with {{5}}. Reply CONFIRM to confirm, CANCEL to cancel or RESCHEDULE to change the time.',
     params: ['patient_first_name', 'clinic_name', 'date', 'time', 'dentist_name'] },
@@ -86,6 +106,11 @@ const MOCK_TEMPLATES: MessageTemplate[] = [
     params: ['patient_first_name', 'amount', 'invoice_number'] },
 ];
 
+const mockTemplates: MessageTemplate[] = MOCK_TEMPLATES.map(t => ({
+  ...t,
+  translations: Object.fromEntries(Object.entries(mockWhatsAppTranslations[t.key] || {}).map(([lang, tr]) => [lang, { ...tr }])),
+}));
+
 const ago = (mins: number) => new Date(Date.now() - mins * 60000).toISOString();
 const mockLog: MessageLogEntry[] = [
   { id: 'm1', patientId: 'pat_1', patientName: 'Alice Green', phone: '919876511111', direction: 'outbound', kind: 'reminder_24h',
@@ -102,6 +127,10 @@ const mockLog: MessageLogEntry[] = [
   { id: 'm5', patientId: 'pat_2', patientName: 'Bob Martin', phone: '919876522222', direction: 'outbound', kind: 'booking_confirmation',
     templateName: 'appointment_booked', body: 'Hi Bob, your appointment with Dr. Sarah Smith at VisionEdge Central is booked for Thu 29 Oct at 4:00 PM.',
     status: 'skipped', error: 'Patient has not opted in to WhatsApp', appointmentId: null, invoiceId: null, createdAt: ago(1500), updatedAt: ago(1500) },
+  { id: 'm6', patientId: 'pat_6', patientName: 'Fiona Shah', phone: '919876566666', direction: 'outbound', kind: 'reminder_24h',
+    templateName: 'appointment_reminder_24h', language: 'hi',
+    body: 'नमस्ते Fiona, VisionEdge Central में आपका डेंटल अपॉइंटमेंट कल, बुध 28 अक्टू को 11:00 AM बजे Dr. Sarah Smith के साथ है। पुष्टि के लिए CONFIRM, रद्द करने के लिए CANCEL या समय बदलने के लिए RESCHEDULE लिखें।',
+    status: 'delivered', error: null, appointmentId: null, invoiceId: null, createdAt: ago(40), updatedAt: ago(39) },
 ];
 
 const mockSent = (kind: string, body: string): SendResult => {
@@ -123,15 +152,19 @@ export async function getMessagingStatus(): Promise<ApiResponse<MessagingStatus>
 
 export async function getMessageTemplates(): Promise<ApiResponse<MessageTemplate[]>> {
   if (!USE_MOCK_API) return http.get('/messaging/templates');
-  return apiClient(() => MOCK_TEMPLATES.map(t => ({ ...t })));
+  return apiClient(() => mockTemplates.map(t => ({ ...t, translations: { ...t.translations } })));
 }
 
-export async function updateMessageTemplate(key: string, patch: Partial<Pick<MessageTemplate, 'metaName' | 'language' | 'enabled' | 'body'>>): Promise<ApiResponse<MessageTemplate>> {
+export async function updateMessageTemplate(key: string, patch: TemplateUpdate): Promise<ApiResponse<MessageTemplate>> {
   if (!USE_MOCK_API) return http.put(`/messaging/templates/${encodeURIComponent(key)}`, patch);
   return apiClient(() => {
-    const t = MOCK_TEMPLATES.find(x => x.key === key)!;
-    Object.assign(t, patch);
-    return { ...t };
+    const t = mockTemplates.find(x => x.key === key)!;
+    const { translations, ...rest } = patch;
+    Object.assign(t, rest);
+    for (const [lang, tr] of Object.entries(translations || {})) {
+      if (t.translations[lang]) t.translations[lang] = { ...t.translations[lang], ...tr };
+    }
+    return { ...t, translations: { ...t.translations } };
   });
 }
 
@@ -165,10 +198,12 @@ export async function sendTestMessage(phone: string): Promise<ApiResponse<SendRe
 }
 
 /** Turn "{{1}}" placeholders into readable sample values for previews. */
-export function previewTemplate(t: Pick<MessageTemplate, 'body' | 'params'>): string {
+export function previewTemplate(t: Pick<MessageTemplate, 'body' | 'params'>, lang = 'en'): string {
+  const dates: Record<string, [string, string]> = { en: ['Tue 27 Oct', '3 Nov'], hi: ['मंगल 27 अक्टू', '3 नव'], mr: ['मंगळ 27 ऑक्टो', '3 नोव्हें'] };
+  const [date, due] = dates[lang] || dates.en;
   const samples: Record<string, string> = {
-    patient_first_name: 'Priya', clinic_name: 'VisionEdge Central', date: 'Tue 27 Oct', time: '10:30 AM',
-    dentist_name: 'Dr. Sarah Smith', invoice_number: 'INV-2026-0042', amount: '₹4,500', due_date: '3 Nov',
+    patient_first_name: 'Priya', clinic_name: 'VisionEdge Central', date, time: '10:30 AM',
+    dentist_name: 'Dr. Sarah Smith', invoice_number: 'INV-2026-0042', amount: '₹4,500', due_date: due,
     link: 'dentassist.app/bills',
   };
   return t.params.reduce((text, p, i) => text.split(`{{${i + 1}}}`).join(samples[p] ?? p), t.body);
