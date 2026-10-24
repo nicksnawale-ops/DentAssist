@@ -56,11 +56,11 @@ export function CalendarToolbar({
   };
 
   return (
-    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 border-b border-text-muted/10 bg-base">
+    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 border-b border-line bg-base">
       
       {/* Date Navigation & View Switcher */}
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-text-muted/10">
+        <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-line">
           <Button variant="ghost" size="sm" onClick={handlePrev} className="px-2" aria-label="Previous">
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -81,14 +81,14 @@ export function CalendarToolbar({
           </h2>
         </div>
 
-        <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-text-muted/10 h-10">
+        <div className="flex items-center gap-1 bg-surface p-1 rounded-lg border border-line h-10">
           {(['day', 'week', 'month'] as const).map(v => (
             <button
               key={v}
               onClick={() => setView(v)}
               className={`px-3 py-1 text-sm font-medium rounded-md capitalize transition-colors ${
                 view === v 
-                ? 'bg-primary text-white shadow-sm' 
+                ? 'bg-primary text-white shadow-panel' 
                 : 'text-text-muted hover:text-text-main hover:bg-surface-hover'
               }`}
             >
@@ -104,7 +104,7 @@ export function CalendarToolbar({
           <div className="flex items-center gap-2">
             {/* Desktop Avatars */}
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-xs uppercase tracking-wider font-semibold text-text-muted">Dentists:</span>
+              <span className="text-xs font-semibold text-text-muted">Dentists:</span>
               <div className="flex items-center -space-x-2">
                 {dentists.map((dentist, i) => {
                   const isSelected = selectedDentists.includes(dentist.id);
@@ -118,7 +118,7 @@ export function CalendarToolbar({
                       }`}
                       style={{ zIndex: isSelected ? 10 + i : i }}
                     >
-                      <AvatarPrimitive.Root className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface border border-text-muted/20 overflow-hidden">
+                      <AvatarPrimitive.Root className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface border border-line overflow-hidden">
                         {dentist.avatarUrl ? (
                            <AvatarPrimitive.Image src={dentist.avatarUrl} alt={dentist.firstName} className="h-full w-full object-cover" />
                         ) : (
@@ -136,7 +136,7 @@ export function CalendarToolbar({
             {/* Mobile Dropdown */}
             <div className="sm:hidden flex-1">
               <select 
-                className="w-full bg-surface border border-text-muted/20 rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full bg-surface border border-line rounded-lg px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={isMobileDayView ? activeMobileDentistId : (selectedDentists.length === 1 ? selectedDentists[0] : 'all')}
                 onChange={(e) => {
                   if (e.target.value === 'all') setSelectedDentists(dentists.map(d => d.id));

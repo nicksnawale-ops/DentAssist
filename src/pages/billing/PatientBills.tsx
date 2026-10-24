@@ -31,18 +31,18 @@ export function PatientBills() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Paid':
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20"><CheckCircle className="w-3 h-3" /> Paid</span>;
+        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20"><CheckCircle className="w-3 h-3" /> Paid</span>;
       case 'Overdue':
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-error/10 text-error border border-error/20"><Clock className="w-3 h-3" /> Overdue</span>;
+        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-error/10 text-error border border-error/20"><Clock className="w-3 h-3" /> Overdue</span>;
       default:
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"><Clock className="w-3 h-3" /> {status}</span>;
+        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"><Clock className="w-3 h-3" /> {status}</span>;
     }
   };
 
   const InvoiceList = ({ invoices }: { invoices: Invoice[] }) => (
     <div className="space-y-4 mt-6">
       {invoices.length === 0 ? (
-        <div className="text-center py-12 bg-surface rounded-xl border border-text-muted/10">
+        <div className="text-center py-12 bg-surface rounded-xl border border-line">
           <Receipt className="w-12 h-12 text-text-muted/30 mx-auto mb-3" />
           <p className="text-text-muted font-medium">No invoices found.</p>
         </div>
@@ -50,7 +50,7 @@ export function PatientBills() {
         invoices.map(invoice => {
           const clinic = mockClinics.find(c => c.id === invoice.clinicId);
           return (
-            <div key={invoice.id} className="bg-surface rounded-xl border border-text-muted/10 shadow-sm p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-primary/30 transition-colors">
+            <div key={invoice.id} className="bg-surface rounded-xl border border-line shadow-panel p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-primary/30 transition-colors">
               <div className="flex items-start gap-4">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${invoice.status === 'Paid' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}`}>
                   <Receipt className="w-6 h-6" />
@@ -68,10 +68,10 @@ export function PatientBills() {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-3 w-full md:w-auto mt-4 md:mt-0 border-t md:border-t-0 border-text-muted/10 pt-4 md:pt-0">
+              <div className="flex flex-col items-end gap-3 w-full md:w-auto mt-4 md:mt-0 border-t md:border-t-0 border-line pt-4 md:pt-0">
                 <div className="text-right w-full md:w-auto flex justify-between md:block">
                   <span className="md:hidden text-text-muted text-sm font-medium">Amount</span>
-                  <p className="text-xl font-black text-text-main">{formatCurrency(invoice.total)}</p>
+                  <p className="text-xl font-bold text-text-main">{formatCurrency(invoice.total)}</p>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto">
                   <Button variant="outline" size="sm" onClick={() => setSelectedInvoiceForPreview(invoice)} className="flex-1 md:flex-auto">
@@ -94,19 +94,19 @@ export function PatientBills() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-main">My Bills</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Bills</h1>
         <p className="text-sm text-text-muted mt-2">View your invoice history and manage payments securely.</p>
       </div>
 
       {totalOutstanding > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="bg-primary/5 border border-primary/20 rounded-panel p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary">
               <CreditCard className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-primary/80 uppercase tracking-wider mb-1">Total Outstanding Balance</p>
-              <h2 className="text-3xl font-black text-text-main">{formatCurrency(totalOutstanding)}</h2>
+              <p className="text-sm font-semibold text-primary/80 mb-1">Total Outstanding Balance</p>
+              <h2 className="text-3xl font-bold text-text-main">{formatCurrency(totalOutstanding)}</h2>
             </div>
           </div>
           <p className="text-sm text-text-muted max-w-xs">
@@ -116,11 +116,11 @@ export function PatientBills() {
       )}
 
       <Tabs.Root defaultValue="unpaid" className="mt-8">
-        <Tabs.List className="flex border-b border-text-muted/10">
-          <Tabs.Trigger value="unpaid" className="px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
+        <Tabs.List className="flex border-b border-line overflow-x-auto scrollbar-hide">
+          <Tabs.Trigger value="unpaid" className="whitespace-nowrap shrink-0 px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
             Unpaid ({unpaidInvoices.length})
           </Tabs.Trigger>
-          <Tabs.Trigger value="paid" className="px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
+          <Tabs.Trigger value="paid" className="whitespace-nowrap shrink-0 px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary outline-none transition-colors">
             Paid History
           </Tabs.Trigger>
         </Tabs.List>

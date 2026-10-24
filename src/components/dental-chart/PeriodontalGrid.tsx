@@ -24,16 +24,16 @@ export function PeriodontalGrid({ readings, numberingSystem }: PeriodontalGridPr
           const bop = reading?.bleedingOnProbing;
 
           return (
-            <div key={fdi} className="flex flex-col items-center w-12 border border-text-muted/20 bg-base rounded overflow-hidden">
+            <div key={fdi} className="flex flex-col items-center w-12 border border-line bg-base rounded overflow-hidden">
               <div className={`w-full text-center py-1 text-xs font-bold ${bop ? 'bg-error/10 text-error' : 'bg-surface text-text-main'}`}>
                 {num}
               </div>
-              <div className="w-full grid grid-cols-3 divide-x divide-text-muted/10 border-b border-text-muted/10">
+              <div className="w-full grid grid-cols-3 divide-x divide-line border-b border-line">
                 <div className={`text-center text-[10px] py-1 ${Number(b[0]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{b[0] || '-'}</div>
                 <div className={`text-center text-[10px] py-1 ${Number(b[1]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{b[1] || '-'}</div>
                 <div className={`text-center text-[10px] py-1 ${Number(b[2]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{b[2] || '-'}</div>
               </div>
-              <div className="w-full grid grid-cols-3 divide-x divide-text-muted/10 bg-surface">
+              <div className="w-full grid grid-cols-3 divide-x divide-line bg-surface">
                 <div className={`text-center text-[10px] py-1 ${Number(l[0]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{l[0] || '-'}</div>
                 <div className={`text-center text-[10px] py-1 ${Number(l[1]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{l[1] || '-'}</div>
                 <div className={`text-center text-[10px] py-1 ${Number(l[2]) > 3 ? 'text-error font-bold' : 'text-text-muted'}`}>{l[2] || '-'}</div>
@@ -46,7 +46,7 @@ export function PeriodontalGrid({ readings, numberingSystem }: PeriodontalGridPr
   );
 
   return (
-    <div className="bg-surface p-6 rounded-2xl border border-text-muted/10 shadow-sm space-y-6">
+    <div className="bg-surface p-6 rounded-panel border border-line shadow-panel space-y-6">
        <div className="flex justify-between items-center">
          <div>
            <h3 className="text-lg font-bold text-text-main">Periodontal Charting</h3>

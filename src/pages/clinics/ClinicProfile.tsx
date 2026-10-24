@@ -138,7 +138,7 @@ export function ClinicProfile() {
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-text-main tracking-tight">{clinic.name}</h1>
+              <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">{clinic.name}</h1>
               <Badge variant={clinic.status === 'active' ? 'success' : 'secondary'}>
                 {clinic.status === 'active' ? 'Active' : 'Inactive'}
               </Badge>
@@ -153,7 +153,7 @@ export function ClinicProfile() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-text-muted/10">
+      <div className="flex items-center gap-6 border-b border-line">
         <button
           onClick={() => setActiveTab('overview')}
           className={`py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -185,17 +185,17 @@ export function ClinicProfile() {
               <Card className="p-4 flex flex-col items-center justify-center text-center">
                 <Users className="w-6 h-6 text-primary mb-2" />
                 <span className="text-2xl font-bold text-text-main">{clinic.activePatientsCount || 0}</span>
-                <span className="text-xs text-text-muted font-medium uppercase tracking-wider">Active Patients</span>
+                <span className="text-xs text-text-muted font-medium">Active Patients</span>
               </Card>
               <Card className="p-4 flex flex-col items-center justify-center text-center">
                 <ShieldCheck className="w-6 h-6 text-primary mb-2" />
                 <span className="text-2xl font-bold text-text-main">{clinic.activeStaffCount || 0}</span>
-                <span className="text-xs text-text-muted font-medium uppercase tracking-wider">Active Staff</span>
+                <span className="text-xs text-text-muted font-medium">Active Staff</span>
               </Card>
               <Card className="p-4 flex flex-col items-center justify-center text-center">
                 <Activity className="w-6 h-6 text-primary mb-2" />
                 <span className="text-2xl font-bold text-text-main">{formatCurrency((clinic.monthlyRevenue || 0))}</span>
-                <span className="text-xs text-text-muted font-medium uppercase tracking-wider">Monthly Revenue</span>
+                <span className="text-xs text-text-muted font-medium">Monthly Revenue</span>
               </Card>
             </div>
 
@@ -210,7 +210,7 @@ export function ClinicProfile() {
                   <p>{clinic.address?.street}</p>
                   <p>{clinic.address?.city}, {clinic.address?.state} {clinic.address?.pincode}</p>
                   <p>{clinic.address?.country}</p>
-                  <div className="pt-4 space-y-2 border-t border-text-muted/10 mt-4">
+                  <div className="pt-4 space-y-2 border-t border-line mt-4">
                     <div className="flex items-center gap-2 text-text-muted">
                       <Phone className="w-4 h-4" />
                       <span>{clinic.phone || 'N/A'}</span>
@@ -222,7 +222,7 @@ export function ClinicProfile() {
                   </div>
                 </div>
                 {/* Map Placeholder */}
-                <div className="flex-1 bg-base min-h-[200px] rounded-xl flex items-center justify-center border border-text-muted/10 relative overflow-hidden">
+                <div className="flex-1 bg-base min-h-[200px] rounded-xl flex items-center justify-center border border-line relative overflow-hidden">
                    {/* In a real app, an iframe or google map component would go here */}
                    <div className="absolute inset-0 bg-primary/5 pattern-grid-lg" />
                    <div className="relative flex flex-col items-center text-text-muted">
@@ -253,7 +253,7 @@ export function ClinicProfile() {
                   </div>
                 ))}
               </div>
-              <div className="mt-6 pt-4 border-t border-text-muted/10 flex items-center justify-between text-sm">
+              <div className="mt-6 pt-4 border-t border-line flex items-center justify-between text-sm">
                 <span className="text-text-muted">Timezone</span>
                 <span className="text-text-main font-medium">{clinic.timezone}</span>
               </div>
@@ -284,7 +284,7 @@ export function ClinicProfile() {
                     <div className="bg-teal-500 h-2 rounded-full" style={{ width: '18%' }}></div>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-text-muted/10 flex justify-between items-center text-sm">
+                <div className="pt-4 border-t border-line flex justify-between items-center text-sm">
                   <span className="text-text-muted">Current Plan:</span>
                   <span className="font-bold text-primary">Enterprise</span>
                 </div>

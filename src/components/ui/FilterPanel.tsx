@@ -65,7 +65,7 @@ export function FilterPanel({ groups, activeFilters, onChange, resultCount }: Fi
           <Filter className="w-4 h-4" />
           <span className="hidden sm:inline">Filters</span>
           {activeFilterCount > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">
               {activeFilterCount}
             </span>
           )}
@@ -74,11 +74,11 @@ export function FilterPanel({ groups, activeFilters, onChange, resultCount }: Fi
 
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogPrimitive.Content className="fixed z-50 grid w-full gap-4 bg-surface p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out sm:rounded-2xl border border-text-muted/10
+        <DialogPrimitive.Content className="fixed z-50 grid w-full gap-4 bg-surface p-6 shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out sm:rounded-panel border border-line
           /* Mobile: Bottom Sheet */
           bottom-0 left-0 right-0 rounded-t-2xl sm:bottom-auto
           /* Desktop: Float underneath trigger (approximate placement since this is dialog not popover, but close enough for standard) */
-          md:top-[120px] md:right-8 md:left-auto md:w-[340px] md:rounded-2xl
+          md:top-[120px] md:right-8 md:left-auto md:w-[340px] md:rounded-panel
           data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom
           md:data-[state=closed]:slide-out-to-right-4 md:data-[state=open]:slide-in-from-right-4 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95
         ">
@@ -130,7 +130,7 @@ export function FilterPanel({ groups, activeFilters, onChange, resultCount }: Fi
             ))}
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-text-muted/10 mt-2">
+          <div className="flex items-center justify-between pt-4 border-t border-line mt-2">
             <Button variant="ghost" onClick={handleClear} className="text-text-muted hover:text-text-main px-2">
               Clear All
             </Button>

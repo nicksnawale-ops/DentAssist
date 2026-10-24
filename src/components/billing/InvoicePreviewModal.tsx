@@ -55,20 +55,20 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
     <div className="fixed inset-0 z-50 bg-base/90 backdrop-blur-sm flex flex-col p-4 overflow-y-auto print:bg-white print:p-0">
       
       {/* Modal Controls (Hidden when printing) */}
-      <div className="flex flex-wrap items-center justify-end gap-2 mb-4 shrink-0 print:hidden sticky top-0 z-50 bg-base/80 p-2 rounded-xl backdrop-blur-md max-w-[21cm] mx-auto w-full border border-text-muted/10 shadow-sm">
+      <div className="flex flex-wrap items-center justify-end gap-2 mb-4 shrink-0 print:hidden sticky top-0 z-50 bg-base/80 p-2 rounded-xl backdrop-blur-md max-w-[21cm] mx-auto w-full border border-line shadow-panel">
          {balance > 0 && (
-           <Button size="sm" onClick={() => setShowRecordPayment(true)} className="gap-2 shadow-sm flex-1 sm:flex-none">
+           <Button size="sm" onClick={() => setShowRecordPayment(true)} className="gap-2 shadow-panel flex-1 sm:flex-none">
              <IndianRupee className="w-4 h-4" /> Record Payment
            </Button>
          )}
-         <Button size="sm" variant="outline" onClick={handlePrint} className="bg-surface gap-2 shadow-sm flex-1 sm:flex-none">
+         <Button size="sm" variant="outline" onClick={handlePrint} className="bg-surface gap-2 shadow-panel flex-1 sm:flex-none">
            <Printer className="w-4 h-4" /> Print / PDF
          </Button>
          <Button 
            size="sm"
            onClick={handleWhatsAppSend} 
            disabled={isSendingWhatsApp || whatsAppSent}
-           className={`gap-2 shadow-sm flex-1 sm:flex-none ${whatsAppSent ? 'bg-success hover:bg-success text-white' : 'bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent'}`}
+           className={`gap-2 shadow-panel flex-1 sm:flex-none ${whatsAppSent ? 'bg-success hover:bg-success text-white' : 'bg-[#25D366] hover:bg-[#128C7E] text-white border-transparent'}`}
          >
            {whatsAppSent ? (
              <><CheckCircle2 className="w-4 h-4" /> Sent</>
@@ -78,7 +78,7 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
              <><MessageCircle className="w-4 h-4" /> WhatsApp</>
            )}
          </Button>
-         <button onClick={onClose} aria-label="Close" className="p-2 bg-surface border border-text-muted/20 text-text-muted hover:text-text-main rounded-lg shadow-sm transition-colors">
+         <button onClick={onClose} aria-label="Close" className="p-2 bg-surface border border-line text-text-muted hover:text-text-main rounded-lg shadow-panel transition-colors">
            <X className="w-5 h-5" />
          </button>
       </div>
@@ -88,7 +88,7 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
          
          {/* Status Watermark */}
          {isPaid && (
-           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] border-4 border-green-500/20 text-green-500/20 text-8xl font-black uppercase tracking-widest pointer-events-none select-none z-0">
+           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-30deg] border-4 border-green-500/20 text-green-500/20 text-8xl font-black pointer-events-none select-none z-0">
              PAID
            </div>
          )}
@@ -111,7 +111,7 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
                <p className="text-sm text-gray-600 font-medium mt-1">GSTIN: {clinic?.id === 'c1' ? '27AAAAA0000A1Z5' : 'N/A'}</p>
             </div>
             <div className="text-right">
-               <h2 className="text-4xl font-black text-gray-200 uppercase tracking-widest mb-4">Invoice</h2>
+               <h2 className="text-4xl font-black text-gray-200 mb-4">Invoice</h2>
                <div className="space-y-1 text-sm">
                   <div className="flex justify-end gap-4"><span className="text-gray-500 w-24">Invoice No:</span> <span className="font-bold text-gray-900">{invoice.invoiceNumber}</span></div>
                   <div className="flex justify-end gap-4"><span className="text-gray-500 w-24">Date:</span> <span className="font-medium text-gray-900">{format(parseISO(invoice.createdAt), 'dd MMM yyyy')}</span></div>
@@ -122,7 +122,7 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
 
          {/* Bill To */}
          <div className="mt-8 mb-8 relative z-10">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Bill To</h3>
+            <h3 className="text-xs font-bold text-gray-400 mb-2">Bill To</h3>
             <p className="font-bold text-gray-900 text-lg">{patientName}</p>
             <p className="text-sm text-gray-600 mt-1">{patient?.phone}</p>
             <p className="text-sm text-gray-600">{patient?.email}</p>
@@ -204,10 +204,10 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
          {/* Payment History */}
          {payments.length > 0 && (
            <div className="mt-8 relative z-10 bg-gray-50 rounded-xl p-6 border border-gray-100">
-             <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Payment History</h4>
+             <h4 className="text-sm font-bold text-gray-900 mb-4">Payment History</h4>
              <div className="space-y-3">
                {payments.map(p => (
-                 <div key={p.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                 <div key={p.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-200 shadow-panel">
                    <div className="flex items-center gap-3">
                      <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                        <IndianRupee className="w-4 h-4" />
@@ -229,13 +229,13 @@ export function InvoicePreviewModal({ invoice, onClose }: InvoicePreviewModalPro
          {/* Footer / Notes */}
          <div className="mt-16 pt-8 border-t-2 border-gray-100 relative z-10 flex justify-between items-end">
             <div className="max-w-md">
-               <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Payment Instructions</h4>
+               <h4 className="text-xs font-bold text-gray-900 mb-2">Payment Instructions</h4>
                <p className="text-sm text-gray-500 leading-relaxed">
                  Please make the payment by the due date. You can pay via UPI to <span className="font-semibold text-gray-700">pay@visionedge</span> or transfer to Account No: XXXXXX9999, IFSC: SBIN000XXXX.
                </p>
                {invoice.notes && (
                  <div className="mt-4 pt-4 border-t border-gray-100">
-                   <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Notes</h4>
+                   <h4 className="text-xs font-bold text-gray-900 mb-2">Notes</h4>
                    <p className="text-sm text-gray-600 italic">{invoice.notes}</p>
                  </div>
                )}

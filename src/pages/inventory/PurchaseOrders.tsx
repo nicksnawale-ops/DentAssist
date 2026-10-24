@@ -20,13 +20,13 @@ export function PurchaseOrders() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Received':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-success/10 text-success border border-success/20">Received</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-success/10 text-success border border-success/20">Received</span>;
       case 'Partially Received':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Partial</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">Partial</span>;
       case 'Sent':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-600 border border-blue-500/20">Sent</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 border border-blue-500/20">Sent</span>;
       default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-text-muted/10 text-text-muted border border-text-muted/20">{status}</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-text-muted/10 text-text-muted border border-line">{status}</span>;
     }
   };
 
@@ -76,7 +76,7 @@ export function PurchaseOrders() {
             placeholder="Search purchase orders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary"
+            className="w-full pl-10 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary"
           />
         </div>
         
@@ -85,7 +85,7 @@ export function PurchaseOrders() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl border border-text-muted/10 overflow-hidden">
+      <div className="bg-white rounded-xl border border-line overflow-hidden">
         <DataTable 
           data={filteredPOs} 
           columns={columns} 

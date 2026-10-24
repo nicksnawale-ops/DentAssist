@@ -72,8 +72,8 @@ export function DayView({ date, appointments, patients, dentists, onRefresh, onS
   return (
     <div className="flex min-w-full md:min-w-[800px]">
       {/* Time column */}
-      <div className="w-[88px] md:w-20 flex-shrink-0 border-r border-text-muted/10 bg-surface z-10 sticky left-0">
-        <div className="h-12 border-b border-text-muted/10 flex items-end justify-end pr-2 md:pr-3 pb-2 text-xs font-medium text-text-muted">
+      <div className="w-[88px] md:w-20 flex-shrink-0 border-r border-line bg-surface z-10 sticky left-0">
+        <div className="h-12 border-b border-line flex items-end justify-end pr-2 md:pr-3 pb-2 text-xs font-medium text-text-muted">
           GMT
         </div>
         <div className="relative h-[840px] md:h-[960px]">
@@ -119,8 +119,8 @@ export function DayView({ date, appointments, patients, dentists, onRefresh, onS
           }
 
           return (
-            <div key={dentist.id} className="flex-1 min-w-0 md:min-w-[200px] border-r border-text-muted/10 relative">
-              <div className="h-12 border-b border-text-muted/10 flex flex-col items-center justify-center bg-surface sticky top-0 z-10 shadow-sm">
+            <div key={dentist.id} className="flex-1 min-w-0 md:min-w-[200px] border-r border-line relative">
+              <div className="h-12 border-b border-line flex flex-col items-center justify-center bg-surface sticky top-0 z-10 shadow-panel">
                 <span className="font-semibold text-sm text-text-main truncate px-1 max-w-full">Dr. {dentist.firstName}</span>
                 <span className="text-[10px] md:text-xs text-text-muted truncate px-1 max-w-full">{dentist.specializations?.[0] || 'Dentist'}</span>
               </div>
@@ -176,7 +176,7 @@ export function DayView({ date, appointments, patients, dentists, onRefresh, onS
                          onRefresh={onRefresh}
                       >
                         <button 
-                          className={`w-full h-full rounded-md border-l-4 border text-left p-1.5 md:p-2 shadow-sm transition-transform hover:scale-[1.02] flex flex-col overflow-hidden leading-tight ${statusColorMap[appt.status]} ${statusBorderMap[appt.status]}`}
+                          className={`w-full h-full rounded-md border-l-4 border text-left p-1.5 md:p-2 shadow-panel transition-transform hover:scale-[1.02] flex flex-col overflow-hidden leading-tight ${statusColorMap[appt.status]} ${statusBorderMap[appt.status]}`}
                         >
                            <div className="font-bold text-[11px] md:text-xs w-full flex items-start md:items-center justify-between md:justify-start gap-1 mb-0.5 md:mb-0 whitespace-normal md:whitespace-nowrap break-words md:truncate">
                              <span className="md:truncate">{patient?.firstName} {patient?.lastName}</span>

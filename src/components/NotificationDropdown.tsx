@@ -55,8 +55,8 @@ export function NotificationDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface border border-text-muted/10 rounded-2xl shadow-lg z-50 overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-text-muted/10 flex items-center justify-between bg-base/50">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-surface border border-line rounded-panel shadow-lg z-50 overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-line flex items-center justify-between bg-base/50">
             <h3 className="font-semibold text-text-main">Notifications</h3>
             {unreadCount > 0 && (
               <button 
@@ -93,7 +93,7 @@ export function NotificationDropdown() {
                       <p className="text-xs text-text-muted mt-1 leading-snug">
                         {n.message}
                       </p>
-                      <p className="text-[10px] text-text-muted/60 mt-2 uppercase tracking-wide">
+                      <p className="text-[11px] text-text-muted/60 mt-2">
                         {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', month: 'short', day: 'numeric' }).format(new Date(n.createdAt))}
                       </p>
                     </div>
@@ -106,7 +106,7 @@ export function NotificationDropdown() {
             )}
           </div>
           
-          <div className="p-3 border-t border-text-muted/10 bg-base/50 text-center">
+          <div className="p-3 border-t border-line bg-base/50 text-center">
             <button className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors w-full">
               View all notifications
             </button>

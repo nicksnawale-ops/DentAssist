@@ -103,10 +103,10 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
           className={`flex flex-col items-center p-0.5 md:p-1 cursor-pointer group h-full`}
         >
           <div 
-            className={`w-full h-full rounded-xl md:rounded-2xl p-1 md:p-2 flex flex-col items-center justify-start transition-all overflow-hidden
-              ${isToday && !isSelected ? 'bg-[#0F4C5C] text-white shadow-sm' : ''}
-              ${isSelected ? 'bg-[#14A89D] text-white shadow-md' : ''}
-              ${!isToday && !isSelected && isCurrentMonth ? 'bg-white hover:bg-surface-hover shadow-sm border border-text-muted/5' : ''}
+            className={`w-full h-full rounded-xl md:rounded-panel p-1 md:p-2 flex flex-col items-center justify-start transition-all overflow-hidden
+              ${isToday && !isSelected ? 'bg-primary text-white shadow-panel' : ''}
+              ${isSelected ? 'bg-accent text-white shadow-md' : ''}
+              ${!isToday && !isSelected && isCurrentMonth ? 'bg-white hover:bg-surface-hover shadow-panel border border-text-muted/5' : ''}
               ${!isToday && !isSelected && !isCurrentMonth ? 'bg-transparent text-[#C5D0CF]' : ''}
             `}
           >
@@ -145,8 +145,8 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
     .sort((a, b) => compareAsc(parseISO(a.startTime), parseISO(b.startTime)));
 
   const PanelContent = () => (
-    <div className="flex flex-col h-full bg-white md:rounded-2xl md:shadow-sm md:border md:border-text-muted/10 overflow-hidden">
-      <div className="p-4 md:p-5 border-b border-text-muted/10 flex items-center justify-between bg-white shrink-0">
+    <div className="flex flex-col h-full bg-white md:rounded-panel md:shadow-panel md:border md:border-line overflow-hidden">
+      <div className="p-4 md:p-5 border-b border-line flex items-center justify-between bg-white shrink-0">
         <div>
           <h3 className="font-bold text-lg text-text-main">
             {format(date, 'EEEE, MMMM d')}
@@ -179,7 +179,7 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
             const endTimeStr = format(parseISO(appt.endTime), 'h:mm a');
             
             return (
-              <div key={appt.id} className="bg-white border border-text-muted/10 rounded-xl p-3 md:p-4 shadow-sm flex flex-col gap-2 relative">
+              <div key={appt.id} className="bg-white border border-line rounded-xl p-3 md:p-4 shadow-panel flex flex-col gap-2 relative">
                 <div className="flex justify-between items-start">
                    <div className="text-xs font-semibold text-text-muted tracking-tight">
                      {startTimeStr} – {endTimeStr}
@@ -210,7 +210,7 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
                       </>
                     )}
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${getStatusBadgeColor(appt.status)}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getStatusBadgeColor(appt.status)}`}>
                     {appt.status.replace('_', ' ')}
                   </span>
                 </div>
@@ -220,7 +220,7 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
         )}
       </div>
       
-      <div className="p-4 md:p-5 border-t border-text-muted/10 bg-white shrink-0">
+      <div className="p-4 md:p-5 border-t border-line bg-white shrink-0">
          <Button className="w-full gap-2" onClick={() => onNewApptForDate?.(date)}>
            <Plus className="w-4 h-4" />
            New Appointment
@@ -230,12 +230,12 @@ export function MonthView({ date, appointments, patients, dentists, onDayClick, 
   );
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-[#F7FAFA] relative overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-base relative overflow-hidden">
       {/* Month Grid Area */}
       <div className="flex-1 flex flex-col h-full w-full md:w-[60%] lg:w-[65%] p-2 md:p-6 overflow-hidden">
         <div className="grid grid-cols-7 mb-2 shrink-0">
           {weekDays.map(wd => (
-            <div key={wd} className="text-center text-xs font-semibold text-text-muted uppercase tracking-wider">
+            <div key={wd} className="text-center text-xs font-semibold text-text-muted">
               {wd}
             </div>
           ))}

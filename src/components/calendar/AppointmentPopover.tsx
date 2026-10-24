@@ -67,7 +67,7 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
             align="start" 
             sideOffset={5}
             collisionPadding={16}
-            className="z-50 w-[calc(100vw-32px)] sm:w-80 rounded-xl bg-surface p-4 shadow-xl border border-text-muted/10 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+            className="z-50 w-[calc(100vw-32px)] sm:w-80 rounded-xl bg-surface p-4 shadow-xl border border-line data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           >
             <div className="space-y-4">
               {/* Header */}
@@ -115,7 +115,7 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
 
               {/* Notes */}
               {appointment.notes && (
-                <div className="p-3 bg-base rounded-md border border-text-muted/10 mt-2">
+                <div className="p-3 bg-base rounded-md border border-line mt-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-text-main mb-1">
                     <FileText className="w-3.5 h-3.5" /> Notes
                   </div>
@@ -124,7 +124,7 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
               )}
 
               {/* Actions */}
-              <div className="pt-3 flex flex-wrap items-center gap-2 border-t border-text-muted/10">
+              <div className="pt-3 flex flex-wrap items-center gap-2 border-t border-line">
                 {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
                   <>
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => { setOpen(false); setRescheduleOpen(true); }}>Reschedule</Button>

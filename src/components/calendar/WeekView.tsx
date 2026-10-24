@@ -71,8 +71,8 @@ export function WeekView({ date, appointments, patients, dentists, onRefresh, on
   return (
     <div className="flex min-w-[1000px]">
       {/* Time column */}
-      <div className="w-16 flex-shrink-0 border-r border-text-muted/10 bg-surface z-10 sticky left-0">
-        <div className="h-14 border-b border-text-muted/10 flex items-end justify-end pr-2 pb-2 text-xs font-medium text-text-muted">
+      <div className="w-16 flex-shrink-0 border-r border-line bg-surface z-10 sticky left-0">
+        <div className="h-14 border-b border-line flex items-end justify-end pr-2 pb-2 text-xs font-medium text-text-muted">
           GMT
         </div>
         <div className="relative h-[1080px] md:h-[960px]">
@@ -122,9 +122,9 @@ export function WeekView({ date, appointments, patients, dentists, onRefresh, on
           }
 
           return (
-            <div key={dayIndex} className="flex-1 border-r border-text-muted/10 relative">
-              <div className="h-14 border-b border-text-muted/10 flex flex-col items-center justify-center bg-surface sticky top-0 z-10 shadow-sm">
-                <span className={`text-xs uppercase tracking-wider font-semibold ${isToday ? 'text-primary' : 'text-text-muted'}`}>
+            <div key={dayIndex} className="flex-1 border-r border-line relative">
+              <div className="h-14 border-b border-line flex flex-col items-center justify-center bg-surface sticky top-0 z-10 shadow-panel">
+                <span className={`text-xs font-semibold ${isToday ? 'text-primary' : 'text-text-muted'}`}>
                   {format(day, 'EEE')}
                 </span>
                 <span className={`text-lg transition-colors ${isToday ? 'font-bold bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center' : 'font-medium text-text-main'}`}>
@@ -181,7 +181,7 @@ export function WeekView({ date, appointments, patients, dentists, onRefresh, on
                          onRefresh={onRefresh}
                        >
                           <button 
-                            className={`w-full h-full rounded-md border-l-4 border text-left p-1.5 shadow-sm transition-transform hover:scale-[1.02] flex flex-col overflow-hidden leading-tight ${statusColorMap[appt.status]} ${statusBorderMap[appt.status]}`}
+                            className={`w-full h-full rounded-md border-l-4 border text-left p-1.5 shadow-panel transition-transform hover:scale-[1.02] flex flex-col overflow-hidden leading-tight ${statusColorMap[appt.status]} ${statusBorderMap[appt.status]}`}
                           >
                              <span className="font-bold text-[10px] truncate w-full flex items-center gap-1">
                                {patient?.firstName} {patient?.lastName}

@@ -25,12 +25,12 @@ export function TreatmentPlansTab({ patientId }: { patientId: string }) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Draft': return 'bg-text-muted/10 text-text-muted border-text-muted/20';
+      case 'Draft': return 'bg-text-muted/10 text-text-muted border-line';
       case 'Proposed': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'Approved': return 'bg-primary/10 text-primary border-primary/20';
       case 'In Progress': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'Completed': return 'bg-teal-100 text-teal-700 border-teal-200';
-      default: return 'bg-text-muted/10 text-text-muted border-text-muted/20';
+      default: return 'bg-text-muted/10 text-text-muted border-line';
     }
   };
 
@@ -47,12 +47,12 @@ export function TreatmentPlansTab({ patientId }: { patientId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex justify-between items-center bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div>
           <h3 className="text-lg font-bold text-text-main">Treatment Plans</h3>
           <p className="text-sm text-text-muted">Manage and track proposed procedures.</p>
         </div>
-        <Button onClick={() => setIsBuilding(true)} className="gap-2 shadow-sm">
+        <Button onClick={() => setIsBuilding(true)} className="gap-2 shadow-panel">
           <Plus className="w-4 h-4" /> New Plan
         </Button>
       </div>
@@ -67,13 +67,13 @@ export function TreatmentPlansTab({ patientId }: { patientId: string }) {
             const finalTotal = subtotal + tax;
 
             return (
-              <div key={plan.id} className="bg-base border border-text-muted/20 rounded-xl p-5 shadow-sm hover:shadow transition-shadow">
+              <div key={plan.id} className="bg-base border border-line rounded-xl p-5 shadow-panel hover:shadow transition-shadow">
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h4 className="font-bold text-text-main">{plan.name}</h4>
                     <div className="text-xs text-text-muted mt-1">{format(parseISO(plan.createdAt), 'MMM d, yyyy')}</div>
                   </div>
-                  <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md border ${getStatusColor(plan.status)}`}>
+                  <span className={`px-2.5 py-1 text-[11px] font-bold rounded-md border ${getStatusColor(plan.status)}`}>
                     {plan.status}
                   </span>
                 </div>
@@ -97,7 +97,7 @@ export function TreatmentPlansTab({ patientId }: { patientId: string }) {
                   )}
                 </div>
 
-                <div className="flex justify-between items-end pt-4 border-t border-text-muted/10">
+                <div className="flex justify-between items-end pt-4 border-t border-line">
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => { setSelectedPlan(plan); setIsBuilding(true); }}>Edit</Button>
                   </div>
@@ -111,7 +111,7 @@ export function TreatmentPlansTab({ patientId }: { patientId: string }) {
           })}
         </div>
       ) : (
-        <div className="py-16 text-center bg-surface rounded-xl border border-text-muted/10 border-dashed">
+        <div className="py-16 text-center bg-surface rounded-xl border border-line border-dashed">
           <FileText className="w-12 h-12 text-text-muted/30 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-text-main">No Treatment Plans</h3>
           <p className="text-sm text-text-muted mt-1 max-w-sm mx-auto">Create a treatment plan to estimate costs and outline procedures for the patient.</p>

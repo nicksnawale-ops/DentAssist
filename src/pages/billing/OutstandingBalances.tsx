@@ -65,12 +65,12 @@ export function OutstandingBalances() {
             <AlertCircle className="w-5 h-5" />
             <h3 className="font-semibold">Total Outstanding</h3>
           </div>
-          <p className="text-3xl font-black text-error">{formatCurrency(totalOutstanding)}</p>
+          <p className="text-3xl font-bold text-error">{formatCurrency(totalOutstanding)}</p>
           <p className="text-sm text-error/80 mt-1">{filteredInvoices.length} pending invoices</p>
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div className="flex-1 relative max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -78,7 +78,7 @@ export function OutstandingBalances() {
             placeholder="Search outstanding by invoice # or patient..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
         <div className="flex gap-3">
@@ -95,10 +95,10 @@ export function OutstandingBalances() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4 w-10">
                   <input 
@@ -116,7 +116,7 @@ export function OutstandingBalances() {
                 <th className="px-6 py-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {filteredInvoices.length > 0 ? (
                 filteredInvoices.map((invoice) => {
                   const patient = mockPatients.find(p => p.id === invoice.patientId);
@@ -153,7 +153,7 @@ export function OutstandingBalances() {
                       </td>
                       <td className="px-6 py-4">
                         {isOverdue ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-error/10 text-error border border-error/20">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-error/10 text-error border border-error/20">
                             {daysOverdue} Days
                           </span>
                         ) : (

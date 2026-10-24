@@ -44,7 +44,7 @@ export function PatientProfileSettings() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-main tracking-tight mb-2">My Profile</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">My Profile</h1>
         <p className="text-sm text-text-muted">Manage your personal information and communication preferences.</p>
       </div>
 
@@ -77,7 +77,7 @@ export function PatientProfileSettings() {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                      className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div>
@@ -87,7 +87,7 @@ export function PatientProfileSettings() {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                      className="w-full px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div>
@@ -99,7 +99,7 @@ export function PatientProfileSettings() {
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
@@ -112,7 +112,7 @@ export function PatientProfileSettings() {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
@@ -125,18 +125,18 @@ export function PatientProfileSettings() {
                         name="address"
                         value={formData.address}
                         onChange={handleChange}
-                        className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-text-muted/10 space-y-4">
+                <div className="pt-6 border-t border-line space-y-4">
                   <h3 className="text-lg font-bold text-text-main flex items-center gap-2">
                     <MessageSquare className="w-5 h-5" /> Preferences
                   </h3>
                   
-                  <label className="flex items-start gap-3 p-4 border border-text-muted/20 rounded-xl cursor-pointer hover:bg-base/50 transition-colors">
+                  <label className="flex items-start gap-3 p-4 border border-line rounded-xl cursor-pointer hover:bg-base/50 transition-colors">
                     <input
                       type="checkbox"
                       name="whatsappOptIn"
@@ -156,7 +156,7 @@ export function PatientProfileSettings() {
                       name="language"
                       value={formData.language}
                       onChange={handleChange}
-                      className="w-full md:w-1/2 px-4 py-2 bg-base border border-text-muted/20 rounded-lg focus:outline-none focus:border-primary"
+                      className="w-full md:w-1/2 px-4 py-2 bg-base border border-line rounded-lg focus:outline-none focus:border-primary"
                     >
                       <option value="English">English</option>
                       <option value="Hindi">Hindi</option>
@@ -192,7 +192,7 @@ export function PatientProfileSettings() {
             <CardContent className="p-6">
               <h3 className="font-bold text-text-main mb-3">Refer a Friend</h3>
               <p className="text-sm text-text-muted mb-4">Give your friends 10% off their first visit, and get 500 bonus points for yourself.</p>
-              <div className="flex bg-base rounded border border-text-muted/20 p-1">
+              <div className="flex bg-base rounded border border-line p-1">
                  <input type="text" readOnly value="SMILE-P1-492" className="bg-transparent border-none outline-none text-sm font-bold text-center w-full" />
                  <Button size="sm" variant="outline">Copy</Button>
               </div>

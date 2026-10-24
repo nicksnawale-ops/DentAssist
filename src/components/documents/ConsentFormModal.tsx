@@ -84,8 +84,8 @@ export function ConsentFormModal({ patientId, onClose, onSave }: ConsentFormModa
 
   return (
     <div className="fixed inset-0 z-50 bg-base/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-surface w-full max-w-2xl rounded-2xl border border-text-muted/20 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-         <div className="p-4 border-b border-text-muted/10 flex justify-between items-center bg-base">
+      <div className="bg-surface w-full max-w-2xl rounded-panel border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+         <div className="p-4 border-b border-line flex justify-between items-center bg-base">
             <h3 className="font-bold text-text-main flex items-center gap-2"><FileSignature className="w-5 h-5 text-primary" /> Generate Consent Form</h3>
             <button onClick={onClose} className="p-1.5 text-text-muted hover:bg-text-muted/10 rounded-full transition-colors"><X className="w-5 h-5" /></button>
          </div>
@@ -93,36 +93,36 @@ export function ConsentFormModal({ patientId, onClose, onSave }: ConsentFormModa
          <div className="p-6 overflow-y-auto flex-1 space-y-6">
             <div className="grid grid-cols-2 gap-4">
                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Select Template</label>
+                  <label className="block text-xs font-bold text-text-muted mb-2">Select Template</label>
                   <select 
                     value={selectedTemplate} 
                     onChange={e => setSelectedTemplate(e.target.value)}
-                    className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                   >
                     {TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                </div>
                <div>
-                  <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Tooth Number (Optional)</label>
+                  <label className="block text-xs font-bold text-text-muted mb-2">Tooth Number (Optional)</label>
                   <input 
                     type="text" 
                     placeholder="e.g. 16, 48"
                     value={toothNumber}
                     onChange={e => setToothNumber(e.target.value)}
-                    className="w-full bg-base border border-text-muted/20 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    className="w-full bg-base border border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                   />
                </div>
             </div>
 
-            <div className="bg-base border border-text-muted/20 rounded-lg p-6">
+            <div className="bg-base border border-line rounded-lg p-6">
                <h4 className="font-bold text-lg text-center mb-6">{template?.name}</h4>
                <p className="text-sm text-text-main leading-relaxed mb-8">
                  {template?.content.replace('_______', toothNumber ? ` ${toothNumber} ` : ' _______ ')}
                </p>
                
                <div className="space-y-2">
-                 <label className="block text-xs font-bold text-text-muted uppercase tracking-wider">Patient Signature</label>
-                 <div className="border border-text-muted/20 rounded-lg bg-white relative">
+                 <label className="block text-xs font-bold text-text-muted">Patient Signature</label>
+                 <div className="border border-line rounded-lg bg-white relative">
                    <canvas 
                      ref={canvasRef}
                      className="w-full h-40 cursor-crosshair rounded-lg"
@@ -154,17 +154,17 @@ export function ConsentFormModal({ patientId, onClose, onSave }: ConsentFormModa
                    />
                    <button 
                      onClick={clearSignature}
-                     className="absolute top-2 right-2 p-1.5 bg-surface border border-text-muted/20 rounded text-text-muted hover:text-error transition-colors"
+                     className="absolute top-2 right-2 p-1.5 bg-surface border border-line rounded text-text-muted hover:text-error transition-colors"
                    >
                      <Trash2 className="w-4 h-4" />
                    </button>
                  </div>
-                 <p className="text-[10px] text-text-muted text-center mt-1">Sign above using mouse or touch</p>
+                 <p className="text-[11px] text-text-muted text-center mt-1">Sign above using mouse or touch</p>
                </div>
             </div>
          </div>
 
-         <div className="p-4 border-t border-text-muted/10 bg-base flex justify-end gap-3">
+         <div className="p-4 border-t border-line bg-base flex justify-end gap-3">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
             <Button onClick={handleSave} className="gap-2"><Save className="w-4 h-4" /> Save Signed Document</Button>
          </div>

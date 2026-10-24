@@ -6,6 +6,8 @@ import { CalendarComponent } from '../../components/calendar/CalendarComponent';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { WaitlistModal } from '../../components/calendar/WaitlistModal';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { useSearchParams } from 'react-router-dom';
 
 export function AppointmentsList() {
   const { selectedClinicId } = useAuth();
@@ -66,6 +68,16 @@ export function AppointmentsList() {
     fetchData();
   }, [selectedClinicId]);
 
+  // "/appointments?new=1" (e.g. from the dashboard) opens the booking form straight away.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (!loading && searchParams.get('new') === '1') {
+      setIsNewApptOpen(true);
+      searchParams.delete('new');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [loading, searchParams, setSearchParams]);
+
   const handleOpenNewAppt = (date?: Date, dentistId?: string) => {
     setInitialApptDate(date);
     setInitialApptDentistId(dentistId);
@@ -92,12 +104,13 @@ export function AppointmentsList() {
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      <div className="flex-none">
-        <h1 className="text-2xl font-bold text-text-main tracking-tight">Appointments</h1>
-        <p className="text-sm text-text-muted mt-1">Manage schedules, bookings, and availability</p>
-      </div>
+      <PageHeader
+        className="flex-none mb-0"
+        title="Appointments"
+        description="Book, move and check in patients across your dentists' calendars."
+      />
 
-      <div className="flex-1 min-h-0 bg-surface rounded-xl border border-text-muted/10 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 bg-surface rounded-panel border border-line shadow-panel flex flex-col overflow-hidden">
          <CalendarComponent 
            date={date}
            setDate={setDate}

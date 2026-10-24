@@ -91,7 +91,7 @@ export function FinancialReports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex justify-between items-center bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div>
           <h2 className="text-xl font-bold text-text-main">Financial Overview</h2>
         </div>
@@ -106,7 +106,7 @@ export function FinancialReports() {
             <span className="w-5 h-5 flex items-center justify-center font-bold text-lg">{symbol}</span>
             <h3 className="font-semibold">Total Revenue Collected</h3>
           </div>
-          <p className="text-4xl font-black text-primary">{formatCurrency(totalRevenue)}</p>
+          <p className="text-4xl font-bold text-primary">{formatCurrency(totalRevenue)}</p>
         </div>
         
         <div className="bg-error/5 border border-error/20 rounded-xl p-6 flex flex-col justify-center">
@@ -114,12 +114,12 @@ export function FinancialReports() {
             <TrendingUp className="w-5 h-5" />
             <h3 className="font-semibold">Total Outstanding</h3>
           </div>
-          <p className="text-4xl font-black text-error">{formatCurrency(Math.max(0, totalOutstanding))}</p>
+          <p className="text-4xl font-bold text-error">{formatCurrency(Math.max(0, totalOutstanding))}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm p-6">
+        <div className="bg-surface rounded-xl border border-line shadow-panel p-6">
           <h3 className="font-bold text-text-main mb-6 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-text-muted" /> 6-Month Revenue Trend
           </h3>
@@ -140,7 +140,7 @@ export function FinancialReports() {
           </div>
         </div>
 
-        <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm p-6">
+        <div className="bg-surface rounded-xl border border-line shadow-panel p-6">
           <h3 className="font-bold text-text-main mb-6 flex items-center gap-2">
             <PieChartIcon className="w-4 h-4 text-text-muted" /> Revenue by Payment Method
           </h3>
@@ -183,7 +183,7 @@ export function FinancialReports() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm p-6">
+        <div className="bg-surface rounded-xl border border-line shadow-panel p-6">
           <h3 className="font-bold text-text-main mb-6 flex items-center gap-2">
             <Activity className="w-4 h-4 text-text-muted" /> Top 5 Procedures by Revenue
           </h3>
@@ -204,7 +204,7 @@ export function FinancialReports() {
           </div>
         </div>
 
-        <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm p-6">
+        <div className="bg-surface rounded-xl border border-line shadow-panel p-6">
           <h3 className="font-bold text-text-main mb-6 flex items-center gap-2">
             <User className="w-4 h-4 text-text-muted" /> Revenue by Dentist
           </h3>
@@ -226,13 +226,13 @@ export function FinancialReports() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-text-muted/10 bg-base">
+      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
+        <div className="p-4 border-b border-line bg-base">
           <h3 className="font-bold text-text-main">Recent Transactions</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4">Invoice #</th>
@@ -241,7 +241,7 @@ export function FinancialReports() {
                 <th className="px-6 py-4 text-right">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {clinicPayments.sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()).slice(0, 10).map((payment) => {
                 const invoice = clinicInvoices.find(i => i.id === payment.invoiceId);
                 return (
@@ -253,7 +253,7 @@ export function FinancialReports() {
                       {invoice?.invoiceNumber}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border border-text-muted/20 bg-base">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border border-line bg-base">
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: methodColors[payment.method] || '#94a3b8' }}></span>
                         {payment.method}
                       </span>

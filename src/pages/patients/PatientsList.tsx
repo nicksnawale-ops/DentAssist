@@ -71,15 +71,15 @@ export function PatientsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-main tracking-tight">Patient Directory</h1>
+          <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Patient Directory</h1>
           <p className="text-sm text-text-muted mt-1">Manage patient records, medical histories, and appointments.</p>
         </div>
-        <Button onClick={() => setShowRegistration(true)} className="gap-2 shadow-sm">
+        <Button onClick={() => setShowRegistration(true)} className="gap-2 shadow-panel">
           <Plus className="w-4 h-4" /> New Patient
         </Button>
       </div>
 
-      <div className="flex flex-col gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -88,7 +88,7 @@ export function PatientsList() {
               placeholder="Search by name or phone..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-base border border-text-muted/20 rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
+              className="w-full bg-base border border-line rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all"
             />
           </div>
           <div className="flex gap-4 w-full md:w-auto">
@@ -97,7 +97,7 @@ export function PatientsList() {
               <select 
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
-                className="w-full bg-base border border-text-muted/20 rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all appearance-none"
+                className="w-full bg-base border border-line rounded-lg py-2 pl-9 pr-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all appearance-none"
               >
                 <option value="All">All Tags</option>
                 {allTags.map(tag => (
@@ -110,7 +110,7 @@ export function PatientsList() {
               <select 
                 value={dentistFilter}
                 onChange={(e) => setDentistFilter(e.target.value)}
-                className="w-full bg-base border border-text-muted/20 rounded-lg py-2 px-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all appearance-none"
+                className="w-full bg-base border border-line rounded-lg py-2 px-4 text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all appearance-none"
               >
                 <option value="All">All Dentists</option>
                 <option value="dr_smith">Dr. Smith</option>
@@ -129,7 +129,7 @@ export function PatientsList() {
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-xs font-semibold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4">Patient Name</th>
                 <th className="px-6 py-4">Contact</th>
@@ -140,7 +140,7 @@ export function PatientsList() {
                 <th className="px-6 py-4">Tags</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {filteredPatients.map(patient => (
                 <tr 
                   key={patient.id} 
@@ -193,7 +193,7 @@ export function PatientsList() {
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1.5">
                       {patient.tags?.map(tag => (
-                        <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-text-muted/10 text-text-muted">
+                        <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-text-muted/10 text-text-muted">
                           {tag}
                         </span>
                       ))}

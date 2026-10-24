@@ -54,7 +54,7 @@ export function InsuranceClaimsTab() {
 
     const Icon = icons[status];
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[status]}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold border ${styles[status]}`}>
         <Icon className="w-3 h-3" />
         {status}
       </span>
@@ -63,7 +63,7 @@ export function InsuranceClaimsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-text-muted/10 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-4 rounded-xl border border-line shadow-panel">
         <div className="flex-1 relative max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
@@ -71,14 +71,14 @@ export function InsuranceClaimsTab() {
             placeholder="Search provider, patient, or invoice #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
           />
         </div>
         <div className="flex gap-4">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-4 py-2 bg-base border border-text-muted/20 rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
+            className="px-4 py-2 bg-base border border-line rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
           >
             <option value="All">All Statuses</option>
             <option value="Submitted">Submitted</option>
@@ -93,10 +93,10 @@ export function InsuranceClaimsTab() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-xl border border-text-muted/10 shadow-sm overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line shadow-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-base border-b border-text-muted/10 text-text-muted uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
               <tr>
                 <th className="px-6 py-4">Submitted</th>
                 <th className="px-6 py-4">Patient / Invoice</th>
@@ -106,7 +106,7 @@ export function InsuranceClaimsTab() {
                 <th className="px-6 py-4 text-right">Approved Amt</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-text-muted/10">
+            <tbody className="divide-y divide-line">
               {filteredClaims.length > 0 ? (
                 filteredClaims.map((claim) => {
                   const patient = mockPatients.find(p => p.id === claim.patientId);

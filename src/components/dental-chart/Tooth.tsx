@@ -22,7 +22,7 @@ export function Tooth({ fdi, numberingSystem, record, onClick, isSelected }: Too
 
   if (conditions.includes('Missing')) {
     bgColor = 'bg-surface-hover';
-    borderColor = 'border-text-muted/20';
+    borderColor = 'border-line';
     icon = <X className="w-5 h-5 text-text-muted/50" />;
   } else if (conditions.includes('Extraction Planned')) {
     borderColor = 'border-orange-500';
@@ -63,7 +63,7 @@ export function Tooth({ fdi, numberingSystem, record, onClick, isSelected }: Too
     >
       <span className="text-[10px] font-bold text-text-muted" aria-hidden="true">{num}</span>
       <div 
-        className={`w-8 h-10 md:w-10 md:h-12 border-2 rounded-t-md rounded-b-xl flex items-center justify-center relative overflow-hidden transition-colors ${bgColor} ${borderColor} shadow-sm`}
+        className={`w-8 h-10 md:w-10 md:h-12 border-2 rounded-t-md rounded-b-xl flex items-center justify-center relative overflow-hidden transition-colors ${bgColor} ${borderColor} shadow-panel`}
       >
          {icon}
          {/* If multiple conditions, show a small indicator */}

@@ -84,8 +84,8 @@ export function ReportsDashboard() {
             onClick={() => setDateRange(range)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               dateRange === range 
-                ? 'bg-primary text-white shadow-sm' 
-                : 'bg-surface border border-text-muted/20 text-text-muted hover:text-text-main hover:bg-surface-hover'
+                ? 'bg-primary text-white shadow-panel' 
+                : 'bg-surface border border-line text-text-muted hover:text-text-main hover:bg-surface-hover'
             }`}
           >
             {range === 'Custom' && <Calendar className="w-3.5 h-3.5 inline mr-1.5" />}
@@ -146,7 +146,7 @@ export function ReportsDashboard() {
       )}
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-text-main">Reports & Analytics</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Reports & Analytics</h1>
         <p className="text-text-muted">Track revenue, procedure performance, and staff metrics.</p>
       </div>
 
@@ -225,7 +225,7 @@ export function ReportsDashboard() {
           <div>
             <CardTitle>Revenue Trend</CardTitle>
           </div>
-          <div className="flex items-center gap-1 bg-surface border border-text-muted/20 p-1 rounded-lg mt-2 sm:mt-0">
+          <div className="flex items-center gap-1 bg-surface border border-line p-1 rounded-lg mt-2 sm:mt-0">
             {['daily', 'weekly', 'monthly'].map(view => (
               <button
                 key={view}
@@ -415,10 +415,10 @@ export function ReportsDashboard() {
           <CardTitle>Staff Performance</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="border border-text-muted/10 rounded-xl overflow-hidden bg-base">
+          <div className="border border-line rounded-xl overflow-hidden bg-base">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-surface border-b border-text-muted/10 text-text-muted">
+                <thead className="bg-surface-hover border-b border-line text-text-muted text-[13px] font-medium">
                   <tr>
                     <th className="px-4 py-3 font-medium whitespace-nowrap">Provider Name</th>
                     <th className="px-4 py-3 font-medium text-right">Patients Seen</th>
@@ -426,7 +426,7 @@ export function ReportsDashboard() {
                     <th className="px-4 py-3 font-medium text-right">Revenue Generated</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-text-muted/10">
+                <tbody className="divide-y divide-line">
                   {staffPerformance.map(staff => (
                     <tr key={staff.id} className="hover:bg-surface/50 transition-colors">
                       <td className="px-4 py-4">

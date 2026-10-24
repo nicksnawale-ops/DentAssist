@@ -1,22 +1,121 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/*
+ * DentAssist design tokens — "porcelain & deep teal".
+ * Cool porcelain backgrounds, hairline lines instead of heavy shadows, and one
+ * strong surface: the ink-teal sidebar. Status colours are dark enough for
+ * small text on white (WCAG AA).
+ */
 @theme {
   --color-primary: #0F4C5C;
-  --color-accent: #14A89D;
-  --color-base: #F7FAFA;
+  --color-ink: #0B3640;          /* sidebar, strongest surface */
+  --color-ink-soft: #134A55;     /* hover/active on ink */
+  --color-accent: #12A594;       /* enamel mint: highlights, active markers */
+  --color-base: #F3F6F6;         /* porcelain app background */
   --color-surface: #FFFFFF;
-  --color-success: #2E9E6B;
-  --color-warning: #D69E2E;
-  --color-error: #D9534F;
-  --color-text-main: #1A2E2C;
-  --color-text-muted: #5A6B6E;
+  --color-surface-hover: #F6F9F9;
+  --color-line: #DCE5E6;         /* hairline borders */
+  --color-success: #1E7F55;
+  --color-warning: #A3640F;
+  --color-error: #C23B36;
+  --color-info: #2F6FAF;
+  --color-text-main: #13282B;
+  --color-text-muted: #5B6E71;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Re-tint Tailwind's grays toward the teal family so leftover gray-* classes match. */
+  --color-gray-50: #F6F9F9;
+  --color-gray-100: #EDF2F2;
+  --color-gray-200: #DCE5E6;
+  --color-gray-300: #C3D0D2;
+  --color-gray-400: #93A5A8;
+  --color-gray-500: #6A7D80;
+  --color-gray-600: #546669;
+  --color-gray-700: #3D4F52;
+  --color-gray-800: #263739;
+  --color-gray-900: #13282B;
+
+  --font-sans: "Onest", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --radius-control: 10px;
+  --radius-panel: 14px;
+
+  --shadow-panel: 0 1px 2px rgb(11 54 64 / 0.04);
+  --shadow-float: 0 12px 32px -8px rgb(11 54 64 / 0.18), 0 2px 6px rgb(11 54 64 / 0.06);
 }
 
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-base text-text-main font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+  }
+
+  /* Numbers that sit in columns (tables, times, amounts) line up. */
+  td, th, time, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: rgb(18 165 148 / 0.22);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Unlayered rules below intentionally win over utility classes.
+ */
+
+/* Phones: 16px text in fields stops iOS Safari from zooming on focus. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Dialogs keep a small margin from the screen edges and never exceed the viewport. */
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+}
+
+/* Thin, quiet scrollbars on desktop. */
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(91 110 113 / 0.35) transparent;
+  }
+}
+
+.no-scrollbar,
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

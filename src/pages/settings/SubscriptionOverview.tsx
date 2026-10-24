@@ -47,7 +47,7 @@ export function SubscriptionOverview() {
                <div>
                   <h3 className="text-xl font-bold text-text-main flex items-center gap-2">
                     {sub.planName}
-                    <Badge variant={sub.status === 'active' ? 'success' : 'warning'} className="uppercase text-[10px]">
+                    <Badge variant={sub.status === 'active' ? 'success' : 'warning'} className="text-[11px]">
                       {sub.status.replace('_', ' ')}
                     </Badge>
                   </h3>
@@ -60,7 +60,7 @@ export function SubscriptionOverview() {
                  <span className="text-3xl font-bold text-text-main">{formatCurrency(sub.monthlyFee)}</span>
                  <span className="text-sm text-text-muted"> / month</span>
                </div>
-               <div className="bg-surface rounded-lg p-3 border border-text-muted/10 flex items-center gap-3">
+               <div className="bg-surface rounded-lg p-3 border border-line flex items-center gap-3">
                  <Building className="w-5 h-5 text-primary" />
                  <div>
                    <div className="text-sm font-bold text-text-main">Clinic Limit: {sub.clinicLimit}</div>
@@ -118,7 +118,7 @@ export function SubscriptionOverview() {
           <CardContent>
             <div className="space-y-4">
               {sub.invoiceHistory.map(invoice => (
-                <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-base border border-text-muted/10">
+                <div key={invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg bg-base border border-line">
                   <div className="flex items-center gap-3">
                      <div className="p-2 bg-success/10 text-success rounded-full">
                        <CheckCircle2 className="w-4 h-4" />

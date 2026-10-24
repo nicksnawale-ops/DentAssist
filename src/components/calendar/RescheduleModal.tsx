@@ -51,7 +51,7 @@ export function RescheduleModal({ isOpen, onClose, appointment, onSuccess }: Res
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-base/80 backdrop-blur-sm z-50 transition-opacity" />
-        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] bg-surface border border-text-muted/10 p-6 shadow-2xl rounded-2xl">
+        <Dialog.Content className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] bg-surface border border-line p-6 shadow-2xl rounded-panel">
           <div className="flex items-center justify-between mb-5">
             <Dialog.Title className="text-xl font-bold text-text-main">
               Reschedule Appointment
@@ -62,15 +62,15 @@ export function RescheduleModal({ isOpen, onClose, appointment, onSuccess }: Res
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-base rounded-xl border border-text-muted/10">
+            <div className="flex items-center justify-between p-4 bg-base rounded-xl border border-line">
                <div className="space-y-1">
-                 <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Current</p>
+                 <p className="text-xs font-semibold text-text-muted">Current</p>
                  <p className="font-medium text-sm text-text-main">{format(oldStart, 'MMM d, yyyy')}</p>
                  <p className="text-sm text-text-muted">{format(oldStart, 'HH:mm')}</p>
                </div>
                <ArrowRight className="w-5 h-5 text-text-muted/50" />
                <div className="space-y-1 text-right">
-                 <p className="text-xs font-semibold text-primary uppercase tracking-wider">New</p>
+                 <p className="text-xs font-semibold text-primary">New</p>
                  <p className="font-medium text-sm text-text-main">{format(new Date(`${date}T${startTime||'00:00'}`), 'MMM d, yyyy')}</p>
                  <p className="text-sm text-text-muted">{startTime}</p>
                </div>
@@ -94,7 +94,7 @@ export function RescheduleModal({ isOpen, onClose, appointment, onSuccess }: Res
               </label>
             </div>
 
-            <div className="pt-4 border-t border-text-muted/10 flex justify-end gap-3">
+            <div className="pt-4 border-t border-line flex justify-end gap-3">
               <Dialog.Close asChild>
                 <Button type="button" variant="ghost">Cancel</Button>
               </Dialog.Close>

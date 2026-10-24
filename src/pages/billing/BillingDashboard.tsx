@@ -10,12 +10,12 @@ export function BillingDashboard() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-main">Billing & Finance</h1>
+        <h1 className="text-[22px] sm:text-[26px] font-semibold leading-tight text-text-main">Billing & Finance</h1>
         <p className="text-sm text-text-muted mt-2">Manage invoices, collections, claims, and view financial reports.</p>
       </div>
 
       <Tabs.Root defaultValue="invoices" className="flex flex-col gap-6">
-        <Tabs.List className="flex border-b border-text-muted/10 overflow-x-auto scrollbar-hide">
+        <Tabs.List className="flex border-b border-line overflow-x-auto scrollbar-hide">
           <Tabs.Trigger value="invoices" className="flex items-center gap-2 px-6 py-3 border-b-2 border-transparent text-sm font-medium text-text-muted hover:text-text-main data-[state=active]:border-primary data-[state=active]:text-primary whitespace-nowrap outline-none transition-colors">
             <Wallet className="w-4 h-4" /> All Invoices
           </Tabs.Trigger>

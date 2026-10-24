@@ -36,7 +36,7 @@ export function ClinicSwitcher() {
     <div className="relative">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-text-muted/20 hover:bg-surface-hover transition-colors text-sm font-medium text-text-main"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line hover:bg-surface-hover transition-colors text-sm font-medium text-text-main"
       >
         <Building2 className="w-4 h-4 text-primary" />
         {selectedClinic?.name || 'Loading...'}
@@ -49,7 +49,7 @@ export function ClinicSwitcher() {
             className="fixed inset-0 z-40" 
             onClick={() => setIsOpen(false)} 
           />
-          <div className="absolute top-full left-0 mt-1 w-56 bg-surface border border-text-muted/10 rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
+          <div className="absolute top-full left-0 mt-1 w-56 bg-surface border border-line rounded-lg shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
             <button
               onClick={() => handleSelect('all')}
               className={`w-full text-left px-4 py-2 text-sm ${

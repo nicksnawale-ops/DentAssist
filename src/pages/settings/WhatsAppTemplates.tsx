@@ -53,7 +53,7 @@ export function WhatsAppTemplates() {
       <CardContent>
         <div className="flex flex-col md:flex-row gap-6">
            <div className="w-full md:w-64 flex-shrink-0 flex flex-col gap-1 pr-2">
-              <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2">Message Types</h4>
+              <h4 className="text-xs font-bold text-text-muted mb-2">Message Types</h4>
               {(Object.keys(defaultTemplates) as Array<keyof typeof defaultTemplates>).map(key => (
                 <button
                   key={key}
@@ -78,18 +78,18 @@ export function WhatsAppTemplates() {
               <textarea 
                  value={templates[activeTab]}
                  onChange={(e) => handleTemplateChange(e.target.value)}
-                 className="w-full h-32 p-3 bg-base border border-text-muted/20 rounded-lg text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all resize-none"
+                 className="w-full h-32 p-3 bg-base border border-line rounded-lg text-sm text-text-main focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition-all resize-none"
               />
               
               <div className="pt-2">
-                 <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted mb-3">Live Preview</h4>
-                 <div className="bg-[url('https://raw.githubusercontent.com/hassanrazadev/whatsapp-chat-background/master/bg.png')] bg-cover relative rounded-lg border border-text-muted/10 overflow-hidden">
+                 <h4 className="text-xs font-semibold text-text-muted mb-3">Live Preview</h4>
+                 <div className="bg-[url('https://raw.githubusercontent.com/hassanrazadev/whatsapp-chat-background/master/bg.png')] bg-cover relative rounded-lg border border-line overflow-hidden">
                    <div className="absolute inset-0 bg-[#EFEAE2]/90 mix-blend-overlay pointer-events-none"></div>
                    <div className="relative z-10 p-4">
-                     <div className="bg-[#E7FFDB] text-[#111B21] ml-auto rounded-lg rounded-tr-none p-3 shadow-sm text-sm max-w-[85%] whitespace-pre-wrap">
+                     <div className="bg-[#E7FFDB] text-[#111B21] ml-auto rounded-lg rounded-tr-none p-3 shadow-panel text-sm max-w-[85%] whitespace-pre-wrap">
                         {getPreviewText(templates[activeTab])}
                         <div className="flex justify-end items-center gap-1 mt-1">
-                          <span className="text-[10px] text-black/40">10:00 AM</span>
+                          <span className="text-[11px] text-black/40">10:00 AM</span>
                           <svg viewBox="0 0 16 15" width="16" height="15" className="text-[#53bdeb]"><path fill="currentColor" d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z"></path></svg>
                         </div>
                      </div>
