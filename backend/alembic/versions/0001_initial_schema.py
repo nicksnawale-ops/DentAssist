@@ -23,8 +23,11 @@ TABLES = ["clinics", "patients", "users", "staff_profiles", "appointments", "wai
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    Base.metadata.create_all(bind=bind, tables=[Base.metadata.tables[t] for t in TABLES])
+    # Build every table from the current models in one go, in dependency order. Later tables
+    # reference each other (e.g. patients.family_id -> families), so creating only this
+    # migration's tables fails on an empty database. The later migrations skip tables and
+    # columns that already exist, so they are no-ops on a fresh install.
+    Base.metadata.create_all(bind=op.get_bind())
 
 
 def downgrade() -> None:
