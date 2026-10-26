@@ -255,9 +255,6 @@ def main() -> None:
     print(f"Seeded {counts}. Demo logins use password: {password}")
 
 
-if __name__ == "__main__":
-    main()
-
 
 def seed_clinical(db: Session, data: dict, home_clinic) -> None:
     """A believable dental history for Alice (pat_1) and Charlie (pat_3)."""
@@ -581,9 +578,9 @@ def seed_compliance(db: Session) -> None:
     today = now.astimezone(tz).date()
     a = Steriliser(id="ster_1", clinic_id=DEFAULT_CLINIC, name="Autoclave A (Class B)", kind="autoclave_b",
                    serial_number="WH-B22-04417", last_serviced_on=today - timedelta(days=150), service_interval_days=180,
-                   validated_on=today - timedelta(days=150))
+                   validated_on=today - timedelta(days=150), cycle_counter=0)
     b = Steriliser(id="ster_2", clinic_id=DEFAULT_CLINIC, name="Autoclave B (Class N)", kind="autoclave_n",
-                   serial_number="TN-17-88213", last_serviced_on=today - timedelta(days=200), service_interval_days=180)
+                   serial_number="TN-17-88213", last_serviced_on=today - timedelta(days=200), service_interval_days=180, cycle_counter=0)
     db.add_all([a, b])
     db.flush()
     kits = ["Examination kit", "Examination kit", "Scaling kit", "Restorative kit", "Extraction kit", "Endo kit"]
@@ -631,3 +628,7 @@ def seed_compliance(db: Session) -> None:
     db.add(DataRequest(patient_id="pat_2", clinic_id=DEFAULT_CLINIC, kind="correction", source="portal",
                        details="My date of birth is wrong, it should be 12 March 1988.", requester_name="Bob Smith",
                        due_on=date_.today() + timedelta(days=26), created_by_id=None))
+
+
+if __name__ == "__main__":
+    main()
