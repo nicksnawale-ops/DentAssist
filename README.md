@@ -75,3 +75,16 @@ If you are a developer looking to build the backend:
 3. **Replace Mock Data**: add the endpoint in `backend/app/api/`, then switch the matching function in
    `src/api/apiService.ts` to call it (each function already has an `if (!USE_MOCK_API)` branch pattern
    to follow). Pages that still import from `src/data/` directly need to load through `apiService` first.
+
+## Run in the browser with GitHub Codespaces
+
+No local install needed. On GitHub, open the repository, pick the branch, then
+**Code → Codespaces → Create codespace on …**. The first start takes about 5–10 minutes: it builds
+the database and API, loads the demo data and starts the app. Then open the **Ports** tab and click
+the globe next to port **3000**. Sign in with `admin@visionedge.com` / `Demo@1234`.
+
+- Startup log: `cat /tmp/dentassist-start.log` · web app log: `cat /tmp/dentassist-web.log`
+- Restart everything: `bash .devcontainer/start.sh`
+- Port 3000 is private (only you, signed in to GitHub). To try public pages such as the enquiry form or
+  QR check-in from a phone, right-click port 3000 → Port visibility → Public.
+- Stop the codespace when you're done (GitHub → Codespaces → ⋯ → Stop) to save your free hours.

@@ -1,0 +1,23 @@
+{
+  // GitHub Codespaces / Dev Containers: runs PostgreSQL + the API in Docker and the React app with Vite.
+  // Open the repo on GitHub → Code → Codespaces → "Create codespace". Everything starts by itself.
+  "name": "DentAssist",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" }
+  },
+  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  "forwardPorts": [3000, 8000],
+  "portsAttributes": {
+    "3000": { "label": "DentAssist app", "onAutoForward": "openBrowser" },
+    "8000": { "label": "API (docs at /docs)", "onAutoForward": "silent" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "ignore" }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "bash .devcontainer/start.sh",
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] },
+    "vscode": { "extensions": ["ms-python.python", "dbaeumer.vscode-eslint"] }
+  }
+}
