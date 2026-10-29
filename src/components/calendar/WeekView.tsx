@@ -24,7 +24,7 @@ export function WeekView({ date, appointments, patients, dentists, onRefresh, on
   const single = dentists.length === 1 ? dentists[0] : null;
 
   return (
-    <div className="flex h-full min-h-[560px] md:min-h-0 min-w-[760px] md:min-w-0">
+    <div className="flex flex-1 min-h-[560px] md:min-h-0 min-w-[760px] md:min-w-0">
       <TimeColumn headerHeight={HEADER} short />
 
       <div className="flex-1 flex min-w-0">

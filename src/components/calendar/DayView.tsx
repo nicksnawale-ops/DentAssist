@@ -24,11 +24,11 @@ export function DayView({ date, appointments, patients, dentists, onRefresh, onS
   const dayName = format(date, 'EEEE');
 
   if (dentists.length === 0) {
-    return <div className="h-full min-h-[320px] flex items-center justify-center text-sm text-text-muted">Select at least one dentist to view the schedule.</div>;
+    return <div className="flex-1 min-h-[320px] flex items-center justify-center text-sm text-text-muted">No dentists to show. Choose a clinic with dentists, or select a dentist above.</div>;
   }
 
   return (
-    <div className="flex h-full min-h-[560px] md:min-h-0">
+    <div className="flex flex-1 min-w-0 min-h-[560px] md:min-h-0">
       <TimeColumn headerHeight={HEADER} />
 
       <div className="flex-1 flex min-w-0">

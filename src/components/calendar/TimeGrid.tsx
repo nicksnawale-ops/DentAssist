@@ -2,7 +2,7 @@ import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { differenceInMinutes, format, getHours, getMinutes, parseISO } from 'date-fns';
 import { Appointment, Patient } from '../../types';
-import { useNowMinutes } from './useFitHeight';
+import { useNowMinutes } from './useNowMinutes';
 
 /** Shared pieces of the day and week views. The grid stretches to its container's height. */
 export const START_HOUR = 8;

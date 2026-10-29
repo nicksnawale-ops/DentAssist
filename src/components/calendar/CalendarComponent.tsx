@@ -39,7 +39,7 @@ export function CalendarComponent(props: CalendarComponentProps) {
   }, [props.dentists, props.selectedDentists, isMobile, props.view]);
 
   return (
-    <div className="flex flex-col h-full bg-base">
+    <div className="flex flex-col flex-1 min-h-0 bg-base">
       <CalendarToolbar 
         date={props.date}
         setDate={props.setDate}
@@ -54,7 +54,7 @@ export function CalendarComponent(props: CalendarComponentProps) {
         activeMobileDentistId={activeDayViewDentists[0]?.id}
       />
       {/* Day and week fit the available height on desktop (no vertical scroll); month scrolls its list. */}
-      <div className={`flex-1 min-h-0 bg-surface/50 ${props.view === 'month' || isMobile ? 'overflow-auto' : 'overflow-x-auto overflow-y-hidden'}`}>
+      <div className={`flex-1 min-h-0 bg-surface/50 ${props.view === 'month' ? 'overflow-auto' : `flex ${isMobile ? 'overflow-auto' : 'overflow-x-auto overflow-y-hidden'}`}`}>
         {props.view === 'day' && (
           <DayView 
             date={props.date}
