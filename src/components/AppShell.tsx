@@ -31,6 +31,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { ClinicSwitcher } from './ClinicSwitcher';
 import { GlobalSearch } from './GlobalSearch';
 import { CheckInButton } from './team/CheckInButton';
+import { ErrorBoundary } from './ErrorBoundary';
 import { cn } from '../lib/utils';
 import { BrandMark } from './ui/BrandMark';
 
@@ -308,7 +309,7 @@ export function AppShell() {
 
         <main className="flex-1 overflow-auto">
           <div className="mx-auto w-full max-w-[1440px] px-4 pt-5 pb-28 sm:px-6 sm:pt-6 md:pb-10 lg:px-8 lg:pt-8">
-            <Outlet />
+            <ErrorBoundary key={location.pathname}><Outlet /></ErrorBoundary>
           </div>
         </main>
       </div>
