@@ -53,7 +53,8 @@ export function CalendarComponent(props: CalendarComponentProps) {
         isMobileDayView={isMobile && props.view === 'day'}
         activeMobileDentistId={activeDayViewDentists[0]?.id}
       />
-      <div className="flex-1 overflow-auto bg-surface/50">
+      {/* Day and week fit the available height on desktop (no vertical scroll); month scrolls its list. */}
+      <div className={`flex-1 min-h-0 bg-surface/50 ${props.view === 'month' || isMobile ? 'overflow-auto' : 'overflow-x-auto overflow-y-hidden'}`}>
         {props.view === 'day' && (
           <DayView 
             date={props.date}

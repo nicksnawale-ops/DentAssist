@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Appointment, Patient, User } from '../../types';
 import { getAppointments, getPatients, getStaff, SLOT_FREED_EVENT } from '../../api/apiService';
 import { CalendarComponent } from '../../components/calendar/CalendarComponent';
+import { useFitHeight } from '../../components/calendar/useFitHeight';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { WaitlistModal } from '../../components/calendar/WaitlistModal';
@@ -23,6 +24,7 @@ interface NewBooking {
 }
 
 export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) {
+  const fit = useFitHeight<HTMLDivElement>({ bottomGap: 44 });
   const { selectedClinicId, user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -114,7 +116,8 @@ export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) 
         description={mySchedule ? 'Your patients for the day and the week ahead.' : "Book, move and check in patients across your dentists' calendars."}
       />
 
-      <div className="flex-1 min-h-0 bg-surface rounded-panel border border-line shadow-panel flex flex-col overflow-hidden">
+      <div ref={fit.ref} style={fit.height ? { height: fit.height } : undefined}
+        className="flex-1 min-h-0 bg-surface rounded-panel border border-line shadow-panel flex flex-col overflow-hidden">
         <CalendarComponent
           date={date}
           setDate={setDate}
