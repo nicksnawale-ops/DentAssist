@@ -1,8 +1,10 @@
 import React from 'react';
 import { Appointment, Patient, User } from '../../types';
-import { isSameDay, getHours, getMinutes, differenceInMinutes, parseISO, format, setHours, setMinutes } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { AppointmentPopover } from './AppointmentPopover';
-import { AlertCircle } from 'lucide-react';
+import {
+  AppointmentBlock, clickedTime, HourLines, minutesFromStart, NowLine, OffHours, pct, TimeColumn, TOTAL_MINUTES, START_HOUR,
+} from './TimeGrid';
 
 interface DayViewProps {
   date: Date;
@@ -13,181 +15,61 @@ interface DayViewProps {
   onSlotClick?: (date: Date, dentistId?: string) => void;
 }
 
-const START_HOUR = 8;
-const END_HOUR = 20; // 8 PM
-const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60;
+const HEADER = 'h-14';
 
-const statusColorMap: Record<string, string> = {
-  scheduled: 'bg-teal-50 border-teal-200 text-teal-800',
-  confirmed: 'bg-blue-50 border-blue-200 text-blue-800',
-  in_progress: 'bg-amber-50 border-amber-200 text-amber-800',
-  completed: 'bg-green-50 border-green-200 text-green-800',
-  cancelled: 'bg-gray-50 border-gray-200 text-gray-500 line-through',
-  no_show: 'bg-red-50 border-red-200 text-red-800',
-};
-
-const statusBorderMap: Record<string, string> = {
-  scheduled: 'border-l-teal-500',
-  confirmed: 'border-l-blue-500',
-  in_progress: 'border-l-amber-500',
-  completed: 'border-l-green-500',
-  cancelled: 'border-l-gray-400',
-  no_show: 'border-l-red-500',
-};
-
+/** One column per dentist for the chosen day, 8 AM–8 PM, sized to fit the screen height. */
 export function DayView({ date, appointments, patients, dentists, onRefresh, onSlotClick }: DayViewProps) {
-  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
+  const dayAppointments = appointments.filter(a => isSameDay(parseISO(a.startTime), date));
+  const today = isSameDay(date, new Date());
+  const dayName = format(date, 'EEEE');
 
-  // Filter appointments for the selected day
-  const todaysAppointments = appointments.filter(a => isSameDay(parseISO(a.startTime), date));
-
-  const getPosition = (timeStr: string) => {
-    const d = parseISO(timeStr);
-    const hrs = getHours(d);
-    const mins = getMinutes(d);
-    const minutesSinceStart = (hrs - START_HOUR) * 60 + mins;
-    return (minutesSinceStart / TOTAL_MINUTES) * 100;
-  };
-
-  const getDurationPct = (startStr: string, endStr: string) => {
-    const start = parseISO(startStr);
-    const end = parseISO(endStr);
-    const diff = differenceInMinutes(end, start);
-    return (diff / TOTAL_MINUTES) * 100;
-  };
-
-  const handleTimeClick = (e: React.MouseEvent<HTMLDivElement>, dentistId: string) => {
-     if (!onSlotClick) return;
-     const rect = e.currentTarget.getBoundingClientRect();
-     const y = e.clientY - rect.top;
-     const percentage = y / rect.height;
-     const totalMinutesClicked = percentage * TOTAL_MINUTES;
-     const clickedHour = START_HOUR + Math.floor(totalMinutesClicked / 60);
-     const clickedMin = Math.floor((totalMinutesClicked % 60) / 15) * 15; // round to nearest 15
-     
-     const slotDate = setMinutes(setHours(date, clickedHour), clickedMin);
-     onSlotClick(slotDate, dentistId);
-  };
+  if (dentists.length === 0) {
+    return <div className="flex-1 min-h-[320px] flex items-center justify-center text-sm text-text-muted">No dentists to show. Choose a clinic with dentists, or select a dentist above.</div>;
+  }
 
   return (
-    <div className="flex min-w-full md:min-w-[800px]">
-      {/* Time column */}
-      <div className="w-[88px] md:w-20 flex-shrink-0 border-r border-line bg-surface z-10 sticky left-0">
-        <div className="h-12 border-b border-line flex items-end justify-end pr-2 md:pr-3 pb-2 text-xs font-medium text-text-muted">
-          GMT
-        </div>
-        <div className="relative h-[840px] md:h-[960px]">
-          {hours.map(hour => (
-            <div 
-              key={`time-${hour}`} 
-              className="absolute w-full text-right pr-2 md:pr-3 text-xs md:text-sm text-text-muted -translate-y-3"
-              style={{ top: `${((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100}%` }}
-            >
-              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-1 min-w-0 min-h-[560px] md:min-h-0">
+      <TimeColumn headerHeight={HEADER} />
 
-      {/* Dentist columns */}
-      <div className="flex-1 flex relative">
-        <div className="absolute inset-0 pointer-events-none">
-           {hours.map(hour => (
-              <div 
-                key={`grid-${hour}`} 
-                className="absolute w-full border-t border-text-muted/5 border-dashed"
-                style={{ top: `${((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100}%` }}
-              />
-            ))}
-        </div>
-        
-        {dentists.map((dentist, i) => {
-          const dentistAppointments = todaysAppointments.filter(a => a.dentistId === dentist.id);
-          const dayName = format(date, 'EEEE');
-          const workDay = dentist.workingHours?.find(wh => wh.day === dayName);
-          
-          let workingStartMins = 0;
-          let workingEndMins = TOTAL_MINUTES;
-          let isWorkingStr = false;
-          
-          if (workDay && workDay.isWorking) {
-             isWorkingStr = true;
-             const [startH, startM] = workDay.startTime.split(':').map(Number);
-             const [endH, endM] = workDay.endTime.split(':').map(Number);
-             workingStartMins = (startH - START_HOUR) * 60 + startM;
-             workingEndMins = (endH - START_HOUR) * 60 + endM;
+      <div className="flex-1 flex min-w-0">
+        {dentists.map(dentist => {
+          const wd = dentist.workingHours?.find(w => w.day === dayName);
+          let off = { start: 0, end: TOTAL_MINUTES, offDuty: true };
+          if (wd && wd.isWorking) {
+            const [sh, sm] = wd.startTime.split(':').map(Number);
+            const [eh, em] = wd.endTime.split(':').map(Number);
+            off = { start: (sh - START_HOUR) * 60 + sm, end: (eh - START_HOUR) * 60 + em, offDuty: false };
           }
+          const mine = dayAppointments.filter(a => a.dentistId === dentist.id);
+          const initials = `${dentist.firstName?.[0] || ''}${dentist.lastName?.[0] || ''}`;
 
           return (
-            <div key={dentist.id} className="flex-1 min-w-0 md:min-w-[200px] border-r border-line relative">
-              <div className="h-12 border-b border-line flex flex-col items-center justify-center bg-surface sticky top-0 z-10 shadow-panel">
-                <span className="font-semibold text-sm text-text-main truncate px-1 max-w-full">Dr. {dentist.firstName}</span>
-                <span className="text-[10px] md:text-xs text-text-muted truncate px-1 max-w-full">{dentist.specializations?.[0] || 'Dentist'}</span>
+            <div key={dentist.id} className="flex-1 min-w-0 flex flex-col border-r border-line last:border-r-0">
+              <div className={`${HEADER} flex-none border-b border-line bg-surface flex items-center justify-center gap-2.5 px-2`}>
+                <span className="w-8 h-8 flex-none rounded-full bg-primary/10 text-primary text-[12px] font-semibold flex items-center justify-center">{initials}</span>
+                <div className="min-w-0 leading-tight">
+                  <div className="text-[13px] font-semibold text-text-main truncate">Dr. {dentist.firstName} {dentist.lastName}</div>
+                  <div className="text-[11px] text-text-muted truncate">
+                    {dentist.specializations?.[0] || 'Dentist'}{wd && wd.isWorking ? ` · ${wd.startTime}–${wd.endTime}` : ' · Off today'}
+                    {` · ${mine.filter(a => a.status !== 'cancelled').length} booked`}
+                  </div>
+                </div>
               </div>
-              
-              <div 
-                 className="relative h-[840px] md:h-[960px] cursor-pointer hover:bg-black/5"
-                 onClick={(e) => handleTimeClick(e, dentist.id)}
-              >
-                {/* Background slots - off-duty hours */}
-                {!isWorkingStr ? (
-                   <div className="absolute inset-0 bg-text-muted/5 flex items-center justify-center pointer-events-none">
-                     <span className="text-sm font-medium text-text-muted/50 rotate-[-90deg]">OFF DUTY</span>
-                   </div>
-                ) : (
-                   <>
-                     {workingStartMins > 0 && (
-                        <div 
-                          className="absolute w-full bg-text-muted/5 pointer-events-none"
-                          style={{ top: 0, height: `${(workingStartMins / TOTAL_MINUTES) * 100}%` }}
-                        />
-                     )}
-                     {workingEndMins < TOTAL_MINUTES && (
-                        <div 
-                          className="absolute w-full bg-text-muted/5 pointer-events-none"
-                          style={{ 
-                            top: `${(workingEndMins / TOTAL_MINUTES) * 100}%`,
-                            height: `${((TOTAL_MINUTES - workingEndMins) / TOTAL_MINUTES) * 100}%`
-                          }}
-                        />
-                     )}
-                   </>
-                )}
-                
-                {/* Appointments */}
-                {dentistAppointments.map(appt => {
-                  const top = getPosition(appt.startTime);
-                  const height = getDurationPct(appt.startTime, appt.endTime);
+
+              <div className="relative flex-1 cursor-pointer" onClick={e => onSlotClick?.(clickedTime(e, date), dentist.id)}>
+                <HourLines />
+                <OffHours {...off} />
+                {today && <NowLine />}
+                {mine.map(appt => {
+                  const top = minutesFromStart(appt.startTime);
+                  const end = minutesFromStart(appt.endTime);
                   const patient = patients.find(p => p.id === appt.patientId);
-                  const startTimeStr = format(parseISO(appt.startTime), 'h:mm a');
-                  const endTimeStr = format(parseISO(appt.endTime), 'h:mm a');
-                  
                   return (
-                    <div
-                      key={appt.id}
-                      className="absolute left-1 right-1 md:left-2 md:right-2"
-                      style={{ top: `${top}%`, height: `${height}%` }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <AppointmentPopover 
-                         appointment={appt} 
-                         patient={patient} 
-                         dentist={dentist}
-                         onRefresh={onRefresh}
-                      >
-                        <button 
-                          className={`w-full h-full rounded-md border-l-4 border text-left p-1.5 md:p-2 shadow-panel transition-transform hover:scale-[1.02] flex flex-col overflow-hidden leading-tight ${statusColorMap[appt.status]} ${statusBorderMap[appt.status]}`}
-                        >
-                           <div className="font-bold text-[11px] md:text-xs w-full flex items-start md:items-center justify-between md:justify-start gap-1 mb-0.5 md:mb-0 whitespace-normal md:whitespace-nowrap break-words md:truncate">
-                             <span className="md:truncate">{patient?.firstName} {patient?.lastName}</span>
-                             {patient?.medicalHistory && (patient.medicalHistory.allergies.length > 0 || patient.medicalHistory.chronicConditions.length > 0) && (
-                               <AlertCircle className="w-3 h-3 text-error shrink-0 md:mt-0 mt-0.5" />
-                             )}
-                           </div>
-                           <div className="text-[10px] opacity-90 md:opacity-80 w-full mb-0.5 md:mb-0 whitespace-normal md:whitespace-nowrap break-words md:truncate leading-tight">{appt.procedureType}</div>
-                           <div className="text-[9px] opacity-75 font-medium mt-auto block md:hidden">
-                             {startTimeStr} - {endTimeStr}
-                           </div>
+                    <div key={appt.id} className="absolute left-1.5 right-1.5 md:left-2 md:right-2 z-10" style={{ top: pct(top), height: `calc(${pct(end)} - ${pct(top)} - 2px)` }}
+                      onClick={e => e.stopPropagation()}>
+                      <AppointmentPopover appointment={appt} patient={patient} dentist={dentist} onRefresh={onRefresh}>
+                        <button className="w-full h-full block">
+                          <AppointmentBlock appt={appt} patient={patient} />
                         </button>
                       </AppointmentPopover>
                     </div>
@@ -197,11 +79,6 @@ export function DayView({ date, appointments, patients, dentists, onRefresh, onS
             </div>
           );
         })}
-        {dentists.length === 0 && (
-          <div className="flex-1 flex items-center justify-center text-text-muted italic">
-            Select at least one dentist to view schedule.
-          </div>
-        )}
       </div>
     </div>
   );

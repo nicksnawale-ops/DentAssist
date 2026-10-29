@@ -104,7 +104,7 @@ def super_admin_dashboard(db: DbSession, user: User = Depends(require_roles("sup
     patients_by_clinic = dict(db.execute(select(Patient.clinic_id, func.count()).group_by(Patient.clinic_id)).all())
     activity = db.execute(
         select(AuditLog, User).outerjoin(User, User.id == AuditLog.actor_user_id)
-        .order_by(AuditLog.timestamp.desc()).limit(5)
+        .where(AuditLog.action.not_like("view%")).order_by(AuditLog.timestamp.desc()).limit(5)
     ).all()
     this_month = _collections(db, _month_start(tz), None)
     trend = []

@@ -13,7 +13,8 @@ import { SubscriptionOverview } from './settings/SubscriptionOverview';
 import { WhatsAppTemplates } from './settings/WhatsAppTemplates';
 import { ConsentTemplatesSettings } from './settings/ConsentTemplatesSettings';
 import { AuditLogTab } from './settings/AuditLogTab';
-import { MessageSquare, FileText } from 'lucide-react';
+import { MessageSquare, FileText, ShieldCheck } from 'lucide-react';
+import { PortalPrivacyTab, PrivacySettingsTab } from './settings/PrivacyTabs';
 import { currencyConfig, setCurrency, useCurrency, CurrencyCode } from '../utils/currencyConfig';
 
 export function Settings() {
@@ -123,6 +124,16 @@ export function Settings() {
               className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-base transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary whitespace-nowrap"
             >
               <FileSignature className="w-4 h-4" /> Consent forms
+            </Tabs.Trigger>
+          )}
+          {(user.role === 'super_admin' || user.role === 'admin') && (
+            <Tabs.Trigger value="privacy" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-base transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary whitespace-nowrap">
+              <ShieldCheck className="w-4 h-4" /> Data protection
+            </Tabs.Trigger>
+          )}
+          {user.role === 'patient' && (
+            <Tabs.Trigger value="my_data" className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text-muted hover:text-text-main hover:bg-base transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary whitespace-nowrap">
+              <ShieldCheck className="w-4 h-4" /> My data & privacy
             </Tabs.Trigger>
           )}
         </Tabs.List>
@@ -288,6 +299,12 @@ export function Settings() {
           </Tabs.Content>
           <Tabs.Content value="consent_forms" className="outline-none">
              <ConsentTemplatesSettings />
+          </Tabs.Content>
+          <Tabs.Content value="privacy" className="outline-none">
+            {(user.role === 'super_admin' || user.role === 'admin') && <PrivacySettingsTab />}
+          </Tabs.Content>
+          <Tabs.Content value="my_data" className="outline-none">
+            {user.role === 'patient' && <PortalPrivacyTab />}
           </Tabs.Content>
         </div>
       </Tabs.Root>

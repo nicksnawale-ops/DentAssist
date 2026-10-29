@@ -136,6 +136,10 @@ def create_patient(
 @router.get("/{patient_id}", response_model=PatientOut)
 def get_patient(patient_id: str, user: StaffUser, db: DbSession):
     patient = get_patient_for(db, user, patient_id)
+    from app.services.privacy import log_view  # who opened which record, for the patient's access log
+
+    log_view(db, user, patient.id)
+    db.commit()
     return patient_out(patient, next_appointments_by_patient(db, [patient.id]).get(patient.id))
 
 

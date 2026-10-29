@@ -28,6 +28,8 @@ export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) 
   const [patients, setPatients] = useState<Patient[]>([]);
   const [dentists, setDentists] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [newBooking, setNewBooking] = useState<NewBooking | null>(null);
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false);
@@ -55,6 +57,8 @@ export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) 
       ]);
       if (apptsRes.data) setAppointments(apptsRes.data);
       if (patientsRes.data) setPatients(patientsRes.data);
+      const failed = [apptsRes, patientsRes, staffRes].find(r => r.error);
+      setLoadError(failed?.error ? failed.error.message : null);
       if (staffRes.data) {
         const clinicDentists = mySchedule && user
           ? staffRes.data.filter(s => s.id === user.id)
@@ -70,7 +74,7 @@ export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) 
     };
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClinicId, mySchedule, user?.id]);
+  }, [selectedClinicId, mySchedule, user?.id, reloadKey]);
 
   // "/appointments?new=1" (e.g. from the dashboard) opens the booking form straight away.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -114,7 +118,15 @@ export function AppointmentsList({ mySchedule = false }: AppointmentsListProps) 
         description={mySchedule ? 'Your patients for the day and the week ahead.' : "Book, move and check in patients across your dentists' calendars."}
       />
 
-      <div className="flex-1 min-h-0 bg-surface rounded-panel border border-line shadow-panel flex flex-col overflow-hidden">
+      {loadError && (
+        <div role="alert" className="flex-none flex flex-wrap items-center gap-3 rounded-control border border-error/30 bg-error/[0.06] px-4 py-2.5 text-[13px] text-error">
+          <span className="flex-1 min-w-[200px]">Couldn't load the calendar: {loadError}</span>
+          <button onClick={() => setReloadKey(k => k + 1)} className="font-semibold underline underline-offset-2">Retry</button>
+        </div>
+      )}
+
+      {/* Fills the screen below the page header on desktop, so day and week views need no scrolling. */}
+      <div className="h-[calc(100dvh-13rem)] min-h-[560px] md:min-h-[480px] bg-surface rounded-panel border border-line shadow-panel flex flex-col overflow-hidden">
         <CalendarComponent
           date={date}
           setDate={setDate}

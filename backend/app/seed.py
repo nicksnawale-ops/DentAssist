@@ -154,6 +154,7 @@ def seed(db: Session, password: str) -> dict[str, int]:
     seed_team(db)
     seed_family(db)
     seed_leads(db)
+    seed_compliance(db)
     db.commit()
     return {"clinics": len(data["clinics"]), "users": len(users), "patients": len(data["patients"]),
             "appointments": len(data["appointments"]), "invoices": invoice_count}
@@ -253,9 +254,6 @@ def main() -> None:
         counts = seed(db, password)
     print(f"Seeded {counts}. Demo logins use password: {password}")
 
-
-if __name__ == "__main__":
-    main()
 
 
 def seed_clinical(db: Session, data: dict, home_clinic) -> None:
@@ -567,3 +565,70 @@ def seed_leads(db: Session) -> None:
     central = db.get(Clinic, DEFAULT_CLINIC)
     if central:
         central.lead_token = "demo-central-lead-key"
+
+
+def seed_compliance(db: Session) -> None:
+    """A week of sterilisation records at Central, and privacy settings with a sample request."""
+    from datetime import date as date_
+
+    from app.models import AppSetting, DataRequest, InstrumentPack, SterilisationCycle, Steriliser
+
+    tz = ZoneInfo("Asia/Kolkata")
+    now = datetime.now(timezone.utc)
+    today = now.astimezone(tz).date()
+    a = Steriliser(id="ster_1", clinic_id=DEFAULT_CLINIC, name="Autoclave A (Class B)", kind="autoclave_b",
+                   serial_number="WH-B22-04417", last_serviced_on=today - timedelta(days=150), service_interval_days=180,
+                   validated_on=today - timedelta(days=150), cycle_counter=0)
+    b = Steriliser(id="ster_2", clinic_id=DEFAULT_CLINIC, name="Autoclave B (Class N)", kind="autoclave_n",
+                   serial_number="TN-17-88213", last_serviced_on=today - timedelta(days=200), service_interval_days=180, cycle_counter=0)
+    db.add_all([a, b])
+    db.flush()
+    kits = ["Examination kit", "Examination kit", "Scaling kit", "Restorative kit", "Extraction kit", "Endo kit"]
+    alphabet = "ACDEFGHJKMNPQRTUVWXY3479"
+    rng = random.Random(7)
+    patients = ["pat_1", "pat_2", "pat_3", "pat_4", "pat_5", "pat_6", "pat_7"]
+
+    def cycle(st, kind, day, hour, result="passed", **extra):
+        st.cycle_counter += 1
+        start = datetime.combine(day, time(hour, 0), tzinfo=tz).astimezone(timezone.utc)
+        c = SterilisationCycle(id=f"cyc_{st.id[-1]}_{st.cycle_counter}", clinic_id=DEFAULT_CLINIC, steriliser_id=st.id,
+                               cycle_number=st.cycle_counter, kind=kind, started_at=start,
+                               ended_at=start + timedelta(minutes=50 if kind == "load" else 20), result=result,
+                               operator_id="s2", released_by_id="s2" if result == "passed" else None,
+                               program="134°C wrapped" if kind == "load" else None, **extra)
+        db.add(c)
+        db.flush()
+        return c
+
+    bi_done = False
+    for back in range(6, -1, -1):
+        day = today - timedelta(days=back)
+        if day.weekday() == 6:
+            continue
+        cycle(a, "helix", day, 8, test_ok=True)
+        if not bi_done:  # weekly spore test on the first working day
+            bi_done = True
+            cycle(a, "bi_test", day, 8, bi_status="passed", bi_lot="SPS-2611", bi_read_at=now - timedelta(days=5))
+        if back == 0:
+            break  # today: the morning test is done, loads start later
+        for n, hour in enumerate((11, 16)):
+            c = cycle(a if n == 0 else b, "load", day, hour, temperature_c=134, pressure_bar=2.1, hold_minutes=4, chemical_indicator_ok=True)
+            for k in range(3):
+                code = "".join(rng.choice(alphabet) for _ in range(6))
+                used = back > 1 and k < 2
+                db.add(InstrumentPack(clinic_id=DEFAULT_CLINIC, code=f"{code[:3]}-{code[3:]}", contents=kits[(n * 3 + k) % len(kits)],
+                                      cycle_id=c.id, status="used" if used else "sterile",
+                                      expires_on=day + timedelta(days=30 if back != 5 else 6),
+                                      used_at=c.started_at + timedelta(days=1, hours=1) if used else None,
+                                      patient_id=patients[(back + k) % len(patients)] if used else None,
+                                      used_by_id="s1" if used else None))
+    db.add(AppSetting(key="privacy_settings", value={
+        "grievanceOfficerName": "Clinic Data Protection Desk", "grievanceOfficerEmail": "privacy@visionedge.example",
+        "grievanceOfficerPhone": "+91 20 4000 1000"}))
+    db.add(DataRequest(patient_id="pat_2", clinic_id=DEFAULT_CLINIC, kind="correction", source="portal",
+                       details="My date of birth is wrong, it should be 12 March 1988.", requester_name="Bob Smith",
+                       due_on=date_.today() + timedelta(days=26), created_by_id=None))
+
+
+if __name__ == "__main__":
+    main()

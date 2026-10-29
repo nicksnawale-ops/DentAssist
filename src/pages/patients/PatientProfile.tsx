@@ -21,6 +21,8 @@ import { PrescriptionsTab } from '../../components/prescriptions/PrescriptionsTa
 import { ConsentsTab } from '../../components/consents/ConsentsTab';
 import { LabOrdersList } from '../lab/LabOrdersList';
 import { FamilyCard } from '../../components/family/FamilyCard';
+import { PatientPacksCard } from '../../components/sterilisation/PatientPacksCard';
+import { PatientPrivacyCard } from '../../components/privacy/PatientPrivacyCard';
 import { PatientRegistrationForm } from '../../components/patients/PatientRegistrationForm';
 import { AppointmentFormModal } from '../../components/calendar/AppointmentFormModal';
 import { useToast } from '../../components/ui/useToast';
@@ -261,6 +263,13 @@ export function PatientProfile() {
         <div className="min-h-[400px]">
           <Tabs.Content value="overview" className="outline-none space-y-6">
             <FamilyCard patientId={patient.id} patientName={`${patient.firstName} ${patient.lastName}`.trim()} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PatientPacksCard patientId={patient.id} />
+              {user?.role !== 'dentist' && (
+                <PatientPrivacyCard patientId={patient.id} patientName={`${patient.firstName} ${patient.lastName}`.trim()}
+                  onAnonymised={() => getPatientById(patient.id).then(r => r.data && setPatient(r.data))} />
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>

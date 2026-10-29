@@ -114,6 +114,8 @@ class Patient(Base):
     # Family: members share one account holder (the head), who can manage everyone from their login.
     family_id: Mapped[str | None] = mapped_column(ForeignKey("families.id", ondelete="SET NULL"), index=True)
     family_relation: Mapped[str | None] = mapped_column(String(20))  # Self | Spouse | Child | Parent | Sibling | Other
+    # Set when the patient's identity was erased on request (records kept for the law, without who they were).
+    anonymised_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
 
@@ -822,3 +824,97 @@ class LeadActivity(Base):
     data: Mapped[dict | None] = mapped_column(JSONType)
     created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+# ---------------------------------------------------------------------------
+# Sterilisation (infection control) and instrument tracing
+# ---------------------------------------------------------------------------
+
+class Steriliser(TimestampMixin, Base):
+    __tablename__ = "sterilisers"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), default="autoclave_b", nullable=False)  # autoclave_b | autoclave_n | autoclave_s | dry_heat | other
+    serial_number: Mapped[str | None] = mapped_column(String(100))
+    last_serviced_on: Mapped[date | None] = mapped_column(Date)
+    service_interval_days: Mapped[int] = mapped_column(Integer, default=180, nullable=False)
+    validated_on: Mapped[date | None] = mapped_column(Date)  # last performance validation / qualification
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    out_of_service_reason: Mapped[str | None] = mapped_column(String(300))
+    cycle_counter: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class SterilisationCycle(TimestampMixin, Base):
+    """One run of a steriliser: a load of instruments, or a daily/weekly test."""
+
+    __tablename__ = "sterilisation_cycles"
+    __table_args__ = (UniqueConstraint("steriliser_id", "cycle_number", name="uq_cycle_number"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    steriliser_id: Mapped[str] = mapped_column(ForeignKey("sterilisers.id"), nullable=False, index=True)
+    cycle_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(12), default="load", nullable=False)  # load | bowie_dick | helix | vacuum_test | bi_test
+    program: Mapped[str | None] = mapped_column(String(40))  # e.g. "134°C wrapped"
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    temperature_c: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
+    pressure_bar: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    hold_minutes: Mapped[Decimal | None] = mapped_column(Numeric(5, 1))
+    chemical_indicator_ok: Mapped[bool | None] = mapped_column(Boolean)
+    test_ok: Mapped[bool | None] = mapped_column(Boolean)  # Bowie-Dick / helix / vacuum result for test cycles
+    # Biological indicator (spore test): none | pending | passed | failed
+    bi_status: Mapped[str] = mapped_column(String(8), default="none", nullable=False)
+    bi_lot: Mapped[str | None] = mapped_column(String(60))
+    bi_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # running | passed | failed
+    result: Mapped[str] = mapped_column(String(8), default="running", nullable=False, index=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(300))
+    printout_document: Mapped[str | None] = mapped_column(String(300))  # optional photo of the printout (storage key)
+    operator_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    released_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class InstrumentPack(TimestampMixin, Base):
+    """A pouch or cassette with a printed code, traced from the cycle that sterilised it to the patient it was used on."""
+
+    __tablename__ = "instrument_packs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    clinic_id: Mapped[str] = mapped_column(ForeignKey("clinics.id"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False, index=True)
+    contents: Mapped[str] = mapped_column(String(120), nullable=False)  # e.g. "Extraction kit"
+    cycle_id: Mapped[str] = mapped_column(ForeignKey("sterilisation_cycles.id"), nullable=False, index=True)
+    # awaiting_release | sterile | used | expired | recalled | discarded
+    status: Mapped[str] = mapped_column(String(18), default="awaiting_release", nullable=False, index=True)
+    expires_on: Mapped[date] = mapped_column(Date, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id", ondelete="SET NULL"), index=True)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"))
+    used_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    status_note: Mapped[str | None] = mapped_column(String(300))
+
+
+# ---------------------------------------------------------------------------
+# Data protection (DPDP Act): requests from patients about their data
+# ---------------------------------------------------------------------------
+
+class DataRequest(TimestampMixin, Base):
+    __tablename__ = "data_requests"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id", ondelete="SET NULL"), index=True)
+    clinic_id: Mapped[str | None] = mapped_column(ForeignKey("clinics.id", ondelete="SET NULL"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)  # access | correction | erasure | withdraw_consent | grievance
+    status: Mapped[str] = mapped_column(String(12), default="received", nullable=False, index=True)  # received | in_progress | completed | rejected
+    source: Mapped[str] = mapped_column(String(10), default="portal", nullable=False)  # portal | staff
+    details: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    requester_name: Mapped[str] = mapped_column(String(150), default="", nullable=False)  # kept after anonymisation
+    due_on: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    resolution: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    handled_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))

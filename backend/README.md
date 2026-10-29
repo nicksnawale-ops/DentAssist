@@ -323,6 +323,47 @@ or `python -m app.jobs run-leads` from cron. *To call now* lists everything over
 **Reports**: booking rate, typical time to first call, and per source: enquiries, booked, won, and what
 those people have paid since they enquired. Lost reasons show what to fix (price, no response…).
 
+## Sterilisation records
+
+*Compliance → Sterilisation* is the autoclave log book, traced to each patient.
+
+- **Daily and weekly tests**: Bowie-Dick/helix tests for Class B and S autoclaves (a load without today's
+  passed test shows a warning, or is blocked if you switch that on), and spore tests (biological
+  indicators) read after incubation. Service and validation due dates per machine.
+- **Loads**: starting a load creates a coded label for every pouch (printed with a QR code). The packs are
+  held until the cycle's result is recorded: temperature, pressure, hold time and the chemical indicator.
+  Readings below the minimum (121 °C, 3 min by default) fail the cycle. A failed cycle recalls its packs.
+- **Use on a patient**: scan or type the pack code on the patient's profile (*Instruments used*). The app
+  refuses packs that are not released, expired, recalled or already used. Packs past their shelf life
+  (30 days by default; set it to your policy) are marked expired automatically.
+- **Failed spore test**: every load since the last passed spore test on that steriliser is suspect. Unused
+  packs are recalled, the steriliser is taken out of service until an admin records the service or
+  retest, and the list of patients who had packs from those loads is shown and kept with the cycle.
+- **Register**: download the month's cycles as CSV for inspections.
+
+## Patient data rights (DPDP Act, 2023)
+
+- **Requests**: patients use *Settings → My data & privacy* in the portal to download a copy of their
+  data, ask for a correction or deletion, raise a concern, or stop WhatsApp messages (done at once).
+  Staff can log requests made at the desk. Admins answer them under *Compliance → Data requests*; each
+  has a reply-by date (30 days by default) and the reply is shown to the patient.
+- **Copy of data**: a JSON file with every record linked to the patient (appointments, notes, plans,
+  bills and payments, prescriptions, consents, document details, messages, instrument packs) and the
+  access log. Passwords, sign-in links and file storage paths are never included.
+- **Access log**: opening a patient's record, or their documents, is recorded once per person per
+  10 minutes. Admins see *Who viewed* on the patient's profile; these entries are kept out of the
+  general audit feed.
+- **Erasure**: clinical and billing records usually have to be kept for some years, so *Erase identity*
+  removes the person's name, contact details, login, files and message text, and keeps the clinical and
+  billing rows under an anonymous record. It is allowed once the retention periods have passed
+  (3 years after the last visit, 8 years for bills, both settings). Only the platform admin can erase
+  earlier, with a recorded reason. *Stop messages* works at any time.
+- **Settings → Data protection**: retention periods, reply time, and the contact shown to patients for
+  questions and complaints.
+
+These tools help with record-keeping; they are not legal advice. Confirm the retention periods and
+processes with your legal adviser.
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

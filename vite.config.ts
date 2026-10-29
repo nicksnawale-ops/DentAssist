@@ -12,6 +12,8 @@ export default defineConfig(() => {
       },
     },
     server: {
+      // Allow the dev server to be opened through GitHub Codespaces' forwarded address.
+      allowedHosts: ['localhost', '.app.github.dev', '.githubpreview.dev'],
       // Forward API calls to the FastAPI backend so the browser sees one origin (no CORS setup needed in dev).
       proxy: {
         '/api': {

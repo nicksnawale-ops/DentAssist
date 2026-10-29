@@ -20,6 +20,7 @@ import {
   MessageSquare,
   BellRing,
   Inbox,
+  ShieldCheck,
   BadgeIndianRupee,
   PanelLeftClose,
   PanelLeftOpen,
@@ -30,6 +31,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { ClinicSwitcher } from './ClinicSwitcher';
 import { GlobalSearch } from './GlobalSearch';
 import { CheckInButton } from './team/CheckInButton';
+import { ErrorBoundary } from './ErrorBoundary';
 import { cn } from '../lib/utils';
 import { BrandMark } from './ui/BrandMark';
 
@@ -54,6 +56,7 @@ const BILLING = item('/billing', 'Billing', Wallet);
 const INVENTORY = item('/inventory', 'Inventory & lab', Package);
 const MESSAGES = item('/communications', 'Messages', MessageSquare);
 const LEADS = item('/leads', 'Enquiries', Inbox);
+const COMPLIANCE = item('/compliance', 'Compliance', ShieldCheck);
 const RECALLS = item('/recalls', 'Recalls', BellRing);
 const TEAM = item('/team', 'Team & pay', BadgeIndianRupee);
 const REPORTS = item('/reports', 'Analytics', BarChart3);
@@ -65,22 +68,22 @@ const SETTINGS = item('/settings', 'Settings', Settings);
 const NAV: Record<Role, NavGroup[]> = {
   super_admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, INVENTORY, COMPLIANCE, MESSAGES, REPORTS] },
     { title: 'Organisation', items: [CLINICS, STAFF, TEAM, SETTINGS] },
   ],
   admin: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Operations', items: [BILLING, RECALLS, MESSAGES, REPORTS] },
+    { title: 'Operations', items: [BILLING, RECALLS, COMPLIANCE, MESSAGES, REPORTS] },
     { title: 'Clinic', items: [STAFF, TEAM, SETTINGS] },
   ],
   dentist: [
     { items: [DASHBOARD, item('/schedule', 'My schedule', CalendarDays), PATIENTS, item('/treatments', 'Treatment plans', FileText)] },
-    { title: 'Clinic', items: [BILLING, INVENTORY, MESSAGES, item('/reports', 'My performance', BarChart3)] },
+    { title: 'Clinic', items: [BILLING, INVENTORY, COMPLIANCE, MESSAGES, item('/reports', 'My performance', BarChart3)] },
     { title: 'Account', items: [item('/team', 'My attendance & pay', BadgeIndianRupee), SETTINGS] },
   ],
   receptionist: [
     { items: [DASHBOARD, APPOINTMENTS, PATIENTS, LEADS] },
-    { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY] },
+    { title: 'Front desk', items: [BILLING, RECALLS, MESSAGES, INVENTORY, COMPLIANCE] },
     { title: 'Account', items: [item('/team', 'My attendance', BadgeIndianRupee), SETTINGS] },
   ],
   patient: [
@@ -306,7 +309,7 @@ export function AppShell() {
 
         <main className="flex-1 overflow-auto">
           <div className="mx-auto w-full max-w-[1440px] px-4 pt-5 pb-28 sm:px-6 sm:pt-6 md:pb-10 lg:px-8 lg:pt-8">
-            <Outlet />
+            <ErrorBoundary key={location.pathname}><Outlet /></ErrorBoundary>
           </div>
         </main>
       </div>
