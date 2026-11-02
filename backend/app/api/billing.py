@@ -48,6 +48,7 @@ from app.schemas import (
 from app.services import audit
 from app.services import billing as svc
 from app.services import razorpay
+from app.services import messaging as msg
 from app.services.scheduling import as_utc
 
 router = APIRouter(tags=["billing"])
@@ -315,11 +316,9 @@ def update_invoice(invoice_id: str, body: InvoiceUpdate, db: DbSession, user: Us
 
 
 @router.post("/invoices/{invoice_id}/send", response_model=InvoiceDetailOut)
-def send_invoice(invoice_id: str, db: DbSession, user: User = BillingStaff):
-    """Issue the invoice to the patient (it becomes payable and counts toward their balance).
-
-    WhatsApp/email delivery is added with the messaging module; for now this marks it as sent.
-    """
+def send_invoice(invoice_id: str, db: DbSession, user: User = BillingStaff, whatsapp: bool = True):
+    """Issue the invoice to the patient (it becomes payable and counts toward their balance)
+    and, unless ?whatsapp=false, send it to them on WhatsApp."""
     inv = _get_invoice(db, user, invoice_id)
     if inv.status == "Void":
         raise bad_request("This invoice has been voided", "INVOICE_VOID")
@@ -328,6 +327,8 @@ def send_invoice(invoice_id: str, db: DbSession, user: User = BillingStaff):
     inv.sent_at = utcnow()
     svc.refresh_invoice(db, inv)
     audit.record(db, user, "send", "invoice", inv.id)
+    if whatsapp:
+        msg.quietly(msg.invoice_message, db, inv, "invoice_issued", user)
     db.commit()
     return _detail(db, inv)
 
@@ -449,6 +450,8 @@ def _complete_order(db: Session, order: PaymentOrder, payment_id: str, method: s
     svc.record_payment(db, inv, order.amount, method, actor, reference=payment_id,
                        notes="Paid online via Razorpay", source="razorpay", gateway_payment_id=payment_id)
     order.status = "paid"
+    msg.quietly(msg.invoice_message, db, inv, "payment_receipt", actor, amount=order.amount,
+                dedupe_key=f"receipt:{payment_id}")
     return inv
 
 

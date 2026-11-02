@@ -173,6 +173,8 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
           // The overlap warning is shown above the form; submitting anyway is an explicit override.
           allowOverlap: !!conflictWarning && i === 0,
           waitlistEntryId: i === 0 ? waitlistEntryId : undefined,
+          // One confirmation for a recurring series is enough.
+          sendWhatsapp: sendWhatsApp && i === 0,
         });
         if (res.data) booked++;
         else failures.push(`${format(currDate, 'dd MMM yyyy HH:mm')}: ${res.error?.message || 'failed'}`);
@@ -408,12 +410,12 @@ export function AppointmentFormModal({ isOpen, onClose, clinicId, initialDate, i
                 <div className="flex items-start gap-3">
                   <input type="checkbox" id="whatsapp" checked={sendWhatsApp} onChange={e => setWhatsApp(e.target.checked)} className="w-4 h-4 mt-0.5 text-teal-600 rounded border-teal-500/30 focus:ring-teal-500" />
                   <label htmlFor="whatsapp" className="text-sm font-medium text-teal-800 cursor-pointer">
-                    Queue WhatsApp Confirmation
+                    Send WhatsApp confirmation
                   </label>
                 </div>
                 {sendWhatsApp && (
                   <div className="pl-7">
-                    <p className="text-xs text-teal-600/80 italic font-normal">"Hi [Patient], your appointment for {procedureType} is confirmed for {date} at {startTime}..."</p>
+                    <p className="text-xs text-teal-700/80 font-normal">The patient gets the booking details and can reply CONFIRM or CANCEL. Reminders follow automatically the day before and 2 hours before.</p>
                     {(!isNewPatient && patients.find(p => p.id === patientId)?.communicationPrefs?.whatsappOptIn === false) && (
                       <p className="text-xs text-amber-600 mt-1.5 font-medium flex items-center gap-1">
                          <AlertCircle className="w-3.5 h-3.5" /> Patient has opted out of WhatsApp messages.

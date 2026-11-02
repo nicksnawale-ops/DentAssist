@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { format, formatDistanceToNowStrict, parseISO } from 'date-fns';
-import { X, ListTodo, Phone, AlertCircle, Sparkles } from 'lucide-react';
+import { X, ListTodo, Phone, AlertCircle, Sparkles, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Appointment, Patient, User, WaitlistEntry } from '../../types';
 import { getWaitlist, getWaitlistMatches, WaitlistMatch } from '../../api/apiService';
+import { offerSlotToWaitlist } from '../../api/messagingService';
+import { toast } from '../ui/useToast';
 
 export interface FreedSlot {
   dentistId: string;
@@ -28,6 +30,25 @@ export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, f
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [matches, setMatches] = useState<WaitlistMatch[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [offered, setOffered] = useState<Set<string>>(new Set());
+  const [offering, setOffering] = useState(false);
+
+  const offer = async (entryIds: string[]) => {
+    if (!freedAppointment || entryIds.length === 0) return;
+    setOffering(true);
+    const res = await offerSlotToWaitlist(freedAppointment.id, entryIds);
+    setOffering(false);
+    if (res.error || !res.data) {
+      toast({ title: res.error?.message || 'Could not send the offer', variant: 'error' });
+      return;
+    }
+    const ok = entryIds.filter((_, i) => ['sent', 'duplicate'].includes(res.data![i]?.status));
+    setOffered(prev => new Set([...prev, ...ok]));
+    const failed = res.data.find(r => !['sent', 'duplicate'].includes(r.status));
+    toast(ok.length
+      ? { title: `Offered on WhatsApp to ${ok.length} ${ok.length === 1 ? 'patient' : 'patients'}`, description: 'The first to reply YES is booked automatically.', variant: 'success' }
+      : { title: failed?.detail || 'Not sent', variant: 'error' });
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,9 +88,18 @@ export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, f
           </div>
 
           {freedAppointment && (
-            <div className="px-5 py-3 bg-accent/[0.06] border-b border-line text-sm">
-              <div className="font-medium">{format(parseISO(freedAppointment.startTime), "EEEE d MMM, h:mm a")}</div>
-              <div className="text-text-muted">{dentistName(freedAppointment.dentistId) || 'Dentist'} is now free. These patients asked to be called:</div>
+            <div className="px-5 py-3 bg-accent/[0.06] border-b border-line text-sm space-y-2">
+              <div>
+                <div className="font-medium">{format(parseISO(freedAppointment.startTime), "EEEE d MMM, h:mm a")}</div>
+                <div className="text-text-muted">{dentistName(freedAppointment.dentistId) || 'Dentist'} is now free. These patients asked to be called:</div>
+              </div>
+              {matches && matches.length > 1 && (
+                <Button size="sm" variant="outline" className="w-full bg-surface" loading={offering}
+                  disabled={matches.every(m => offered.has(m.entryId))}
+                  onClick={() => offer(matches.filter(m => !offered.has(m.entryId)).map(m => m.entryId))}>
+                  <MessageCircle className="w-4 h-4" /> Offer to everyone on WhatsApp
+                </Button>
+              )}
             </div>
           )}
 
@@ -90,11 +120,20 @@ export function WaitlistModal({ isOpen, onClose, clinicId, patients, dentists, f
                       </a>
                     )}
                   </div>
-                  <Button size="sm" className="w-full" onClick={() => onSchedule(m.patientId, m.preferredDentistId, {
-                    dentistId: freedAppointment.dentistId, startTime: freedAppointment.startTime, endTime: freedAppointment.endTime, entryId: m.entryId,
-                  })}>
-                    Book into this slot
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" onClick={() => onSchedule(m.patientId, m.preferredDentistId, {
+                      dentistId: freedAppointment.dentistId, startTime: freedAppointment.startTime, endTime: freedAppointment.endTime, entryId: m.entryId,
+                    })}>
+                      Book into this slot
+                    </Button>
+                    {offered.has(m.entryId) ? (
+                      <span className="inline-flex items-center gap-1 px-3 text-[13px] text-success font-medium"><CheckCircle2 className="w-4 h-4" /> Offered</span>
+                    ) : (
+                      <Button size="sm" variant="outline" onClick={() => offer([m.entryId])} disabled={offering} aria-label={`Offer to ${m.patientName} on WhatsApp`}>
+                        <MessageCircle className="w-4 h-4" /> Offer
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )) : (
                 <p className="text-center text-sm text-text-muted py-10">No one on the waitlist matches this slot.</p>

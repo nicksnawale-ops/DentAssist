@@ -91,6 +91,48 @@ Payments are confirmed twice (signature check after checkout, and the signed web
 once: each Razorpay payment id can only be stored one time. Without keys, online payment is simply
 hidden and everything else works.
 
+## WhatsApp reminders
+
+Out of the box messages go to the **console provider**: nothing leaves your machine, and every
+message shows up in *Communications* and in the server log, so the whole flow can be tried locally.
+
+What gets sent (patients who have opted in to WhatsApp only):
+
+- **Booking confirmation** when a patient books online or in the portal, or when staff tick
+  "Send WhatsApp confirmation".
+- **Reminders** 24 hours and 2 hours before each scheduled/confirmed appointment, by a background
+  job (`REMINDERS_ENABLED=true`, every 5 minutes) or by cron with `python -m app.jobs run-reminders`.
+  Each reminder has a unique key, so it is never sent twice even with several servers.
+- **Invoice issued** when an invoice is sent, **payment received** after an online payment.
+- **Waitlist offers**: when a slot opens, staff can offer it to waitlist patients; the first to
+  reply YES is booked automatically (the slot is re-checked first).
+
+- **Reminder from staff** ("Send WhatsApp reminder" on an appointment) uses its own wording
+  with the date, so it reads correctly however far ahead the appointment is.
+
+Messages go out in the language on the patient's profile: English, Hindi or Marathi, with dates
+written in that language too. A Hindi or Marathi version can be switched off per message in
+*Settings → WhatsApp*; those patients then get English. If Meta rejects a translation (usually
+because it isn't approved yet), the message is re-sent in English automatically. Patients can
+reply in their language too (for example हाँ / हो to confirm, रद्द to cancel).
+
+Patients' replies are handled automatically: **CONFIRM** confirms, **CANCEL** cancels (and alerts
+the front desk about the waitlist), **RESCHEDULE** asks the front desk to call. Anything else becomes
+a notification for the front desk.
+
+### Going live with Meta's WhatsApp Cloud API
+
+1. In Meta for Developers create an app with the WhatsApp product and note the **phone number ID**,
+   a **permanent access token** (System User) and the **app secret**.
+2. In WhatsApp Manager create and get approval for the templates shown under *Settings → WhatsApp*
+   (names and wording are editable there; keep the `{{1}}`… placeholders in the same order).
+   Add the Hindi (`hi`) and Marathi (`mr`) versions as translations of the same template name.
+3. Set `WHATSAPP_PROVIDER=meta`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`,
+   `WHATSAPP_APP_SECRET` and a `WHATSAPP_VERIFY_TOKEN` of your choice.
+4. Set the webhook URL to `https://<your api>/api/v1/webhooks/whatsapp` with that verify token and
+   subscribe to **messages**. Webhook bodies are checked against `X-Hub-Signature-256`.
+5. Use *Send test message* in settings (sends Meta's `hello_world` template).
+
 ## Security model
 
 - Passwords hashed with bcrypt; JWT access tokens (30 min) + refresh tokens (7 days).

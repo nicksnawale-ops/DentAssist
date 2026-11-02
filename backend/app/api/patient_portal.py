@@ -12,6 +12,7 @@ from app.core.errors import bad_request, forbidden, not_found
 from app.models import Appointment, Clinic, Patient, User
 from app.schemas import AppointmentOut, CancelRequest, PortalBookRequest, PortalRescheduleRequest
 from app.services import audit
+from app.services import messaging as msg
 from app.services.scheduling import as_utc, ensure_no_overlap, validate_dentist_and_clinic
 from app.services.waitlist import notify_slot_freed
 from app.services.availability import is_free
@@ -90,6 +91,7 @@ def book(body: PortalBookRequest, db: DbSession, user: User = PatientUser):
     db.add(appt)
     db.flush()
     audit.record(db, user, "self_book", "appointment", appt.id, after=AppointmentOut.model_validate(appt))
+    msg.quietly(msg.appointment_message, db, appt, "booking_confirmation")
     db.commit()
     return appt
 

@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Appointment, Patient, User } from '../../types';
 import { Badge } from '../ui/Badge';
-import { User as UserIcon, Clock, Stethoscope, Mail, Phone, FileText, AlertCircle } from 'lucide-react';
+import { User as UserIcon, Clock, Stethoscope, Mail, Phone, FileText, AlertCircle, MessageCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { checkinAppointment, cancelAppointment, updateAppointment, SLOT_FREED_EVENT } from '../../api/apiService';
 import { RescheduleModal } from './RescheduleModal';
+import { sendAppointmentReminder } from '../../api/messagingService';
+import { toast } from '../ui/useToast';
 
 interface AppointmentPopoverProps {
   appointment: Appointment;
@@ -27,6 +29,7 @@ const statusColorMap: Record<string, string> = {
 export function AppointmentPopover({ appointment, patient, dentist, children, onRefresh }: AppointmentPopoverProps) {
   const [isRescheduleOpen, setRescheduleOpen] = useState(false);
   const [open, setOpen] = useState(false);
+  const [reminding, setReminding] = useState(false);
 
   const startTimeStr = new Date(appointment.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const endTimeStr = new Date(appointment.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -45,6 +48,14 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
       setOpen(false);
       if (res.data) window.dispatchEvent(new CustomEvent(SLOT_FREED_EVENT, { detail: res.data }));
     }
+  };
+
+  const handleRemind = async () => {
+    setReminding(true);
+    const res = await sendAppointmentReminder(appointment.id);
+    setReminding(false);
+    if (res.error || !res.data) toast({ title: res.error?.message || 'Could not send the reminder', variant: 'error' });
+    else toast({ title: res.data.status === 'sent' ? 'Reminder sent on WhatsApp' : res.data.detail, variant: res.data.status === 'sent' ? 'success' : 'error' });
   };
 
   const handleComplete = async () => {
@@ -130,6 +141,10 @@ export function AppointmentPopover({ appointment, patient, dentist, children, on
                   <>
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => { setOpen(false); setRescheduleOpen(true); }}>Reschedule</Button>
                     <Button size="sm" variant="outline" className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 focus:ring-red-500" onClick={handleCancel}>Cancel</Button>
+                    <Button size="sm" variant="outline" className="w-full" onClick={handleRemind} loading={reminding}
+                      disabled={new Date(appointment.startTime).getTime() <= Date.now()}>
+                      <MessageCircle className="w-4 h-4" /> Send WhatsApp reminder
+                    </Button>
                     <Button size="sm" className="w-full" onClick={handleCheckin}>Check-in Patient</Button>
                   </>
                 )}

@@ -10,6 +10,7 @@ from app.core.errors import bad_request, not_found
 from app.models import Appointment, User, WaitlistEntry
 from app.schemas import AppointmentCreate, AppointmentOut, AppointmentUpdate, CancelRequest, column_values
 from app.services import audit
+from app.services import messaging as msg
 from app.services.scheduling import as_utc, ensure_no_overlap, validate_dentist_and_clinic
 from app.services.waitlist import notify_slot_freed
 
@@ -68,7 +69,7 @@ def create_appointment(body: AppointmentCreate, user: StaffUser, db: DbSession):
     if not body.allow_overlap:
         ensure_no_overlap(db, body.dentist_id, body.start_time, body.end_time)
 
-    appt = Appointment(**column_values(body, exclude={"allow_overlap", "waitlist_entry_id"}))
+    appt = Appointment(**column_values(body, exclude={"allow_overlap", "waitlist_entry_id", "send_whatsapp"}))
     appt.start_time, appt.end_time = as_utc(body.start_time), as_utc(body.end_time)
     appt.status = body.status or "scheduled"
     db.add(appt)
@@ -78,6 +79,8 @@ def create_appointment(body: AppointmentCreate, user: StaffUser, db: DbSession):
             entry.status = "scheduled"
     db.flush()
     audit.record(db, user, "create", "appointment", appt.id, after=AppointmentOut.model_validate(appt))
+    if body.send_whatsapp and appt.status in ("scheduled", "confirmed"):
+        msg.quietly(msg.appointment_message, db, appt, "booking_confirmation", user)
     db.commit()
     return appt
 

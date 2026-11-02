@@ -38,6 +38,28 @@ class Settings(BaseSettings):
     def razorpay_enabled(self) -> bool:
         return bool(self.razorpay_key_id and self.razorpay_key_secret)
 
+    # WhatsApp (Meta WhatsApp Cloud API).
+    # provider: "console" logs messages instead of sending (default, good for development),
+    #           "meta" sends for real, "disabled" turns messaging off.
+    whatsapp_provider: str = "console"
+    whatsapp_access_token: str = ""
+    whatsapp_phone_number_id: str = ""
+    whatsapp_verify_token: str = ""  # any string you also type into Meta's webhook settings
+    whatsapp_app_secret: str = ""  # to check X-Hub-Signature-256 on webhooks
+    whatsapp_api_version: str = "v21.0"
+    whatsapp_default_country_code: str = "91"
+    # Run the reminder sweep inside the API process every few minutes.
+    reminders_enabled: bool = False
+    reminders_interval_seconds: int = 300
+    # Used in messages that link back to the app (bills, booking page)
+    public_app_url: str = "http://localhost:3000"
+
+    @property
+    def whatsapp_ready(self) -> bool:
+        if self.whatsapp_provider == "console":
+            return True
+        return self.whatsapp_provider == "meta" and bool(self.whatsapp_access_token and self.whatsapp_phone_number_id)
+
     # Create tables on startup (handy for local dev; use Alembic migrations in production)
     auto_create_tables: bool = False
 
@@ -60,6 +82,8 @@ class Settings(BaseSettings):
             self.jwt_secret_key == "change-me-in-production" or len(self.jwt_secret_key) < 32
         ):
             raise RuntimeError("JWT_SECRET_KEY must be set to a random string of 32+ characters in production.")
+        if self.environment == "production" and self.whatsapp_provider == "meta" and not self.whatsapp_app_secret:
+            raise RuntimeError("WHATSAPP_APP_SECRET is required with WHATSAPP_PROVIDER=meta, to verify webhooks.")
 
 
 @lru_cache

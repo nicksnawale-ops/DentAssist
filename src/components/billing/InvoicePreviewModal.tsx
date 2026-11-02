@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { addMonths, format, parseISO } from 'date-fns';
-import { X, Printer, Send, IndianRupee, Smartphone, CalendarClock, ShieldCheck, Ban, CheckCircle2 } from 'lucide-react';
+import { X, Printer, Send, IndianRupee, Smartphone, CalendarClock, ShieldCheck, Ban, CheckCircle2, MessageCircle } from 'lucide-react';
 import { Clinic, InvoiceDetail, PaymentMethod } from '../../types';
 import { Button } from '../ui/Button';
+import { sendInvoiceOnWhatsApp } from '../../api/messagingService';
 import { Skeleton } from '../ui/Skeleton';
 import { useToast } from '../ui/useToast';
 import { InvoiceStatusBadge } from './InvoiceStatusBadge';
@@ -90,6 +91,15 @@ export function InvoicePreviewModal({ invoiceId, onClose, onChanged }: InvoicePr
     else setPanelError(res.error?.message || 'Something went wrong. Try again.');
   };
 
+  const whatsapp = async () => {
+    if (!inv) return;
+    setBusy('whatsapp');
+    const res = await sendInvoiceOnWhatsApp(inv.id);
+    setBusy(null);
+    if (res.error || !res.data) toast({ title: res.error?.message || 'Could not send', variant: 'error' });
+    else toast({ title: res.data.detail, variant: res.data.status === 'sent' ? 'success' : 'error' });
+  };
+
   const payOnline = async () => {
     if (!inv) return;
     setBusy('online');
@@ -129,6 +139,11 @@ export function InvoicePreviewModal({ invoiceId, onClose, onChanged }: InvoicePr
                 {canBill && inv.status === 'Draft' && (
                   <Button size="sm" onClick={() => run('send', () => sendInvoice(inv.id), 'Invoice issued')} loading={busy === 'send'}>
                     <Send className="w-4 h-4" /> Issue to patient
+                  </Button>
+                )}
+                {canBill && issued && inv.status !== 'Void' && (
+                  <Button size="sm" variant="outline" onClick={whatsapp} loading={busy === 'whatsapp'}>
+                    <MessageCircle className="w-4 h-4" /> Send on WhatsApp
                   </Button>
                 )}
                 {issued && balance > 0 && onlineEnabled && (

@@ -389,3 +389,35 @@ class ClinicalNote(Base):
     author_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Messaging (WhatsApp)
+# ---------------------------------------------------------------------------
+
+class MessageLog(Base):
+    """Every WhatsApp message in or out, with delivery status from the provider."""
+
+    __tablename__ = "message_logs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
+    patient_id: Mapped[str | None] = mapped_column(ForeignKey("patients.id", ondelete="SET NULL"), index=True)
+    phone: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # E.164 digits, e.g. 919876511111
+    direction: Mapped[str] = mapped_column(String(10), default="outbound", nullable=False)  # outbound | inbound
+    channel: Mapped[str] = mapped_column(String(12), default="whatsapp", nullable=False)
+    # Template key (reminder_24h, booking_confirmation...), "text" for free-form replies, "inbound" for patient messages
+    kind: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    template_name: Mapped[str | None] = mapped_column(String(100))
+    body: Mapped[str] = mapped_column(Text, default="", nullable=False)  # human-readable copy of what was sent/received
+    # queued | sent | delivered | read | failed | skipped | received
+    status: Mapped[str] = mapped_column(String(12), default="queued", nullable=False, index=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(120), unique=True)
+    error: Mapped[str | None] = mapped_column(Text)
+    appointment_id: Mapped[str | None] = mapped_column(ForeignKey("appointments.id", ondelete="SET NULL"), index=True)
+    invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id", ondelete="SET NULL"))
+    payload: Mapped[dict | None] = mapped_column(JSONType)
+    # Stops the same automatic message going out twice, e.g. "<appointment id>:reminder_24h".
+    dedupe_key: Mapped[str | None] = mapped_column(String(150), unique=True)
+    created_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
