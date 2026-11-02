@@ -1,0 +1,38 @@
+# Local stack: PostgreSQL + the DentAssist API.
+#   docker compose up -d --build
+#   docker compose exec api python -m app.seed      # load demo data (first run only)
+# API docs: http://localhost:8000/docs
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dentassist
+      POSTGRES_PASSWORD: dentassist
+      POSTGRES_DB: dentassist
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dentassist -d dentassist"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://dentassist:dentassist@db:5432/dentassist
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-only-secret-change-me-0123456789abcdef}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo@1234}
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

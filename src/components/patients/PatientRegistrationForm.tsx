@@ -1,21 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, AlertCircle, Search, UserCheck } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { mockPatients } from '../../data/mockPatients';
 import { Patient } from '../../types';
+import { checkDuplicatePatient, createPatient, updatePatient } from '../../api/apiService';
+import { useAuth } from '../../context/AuthContext';
 
 interface PatientRegistrationFormProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: Patient;
   mode?: 'register' | 'edit';
-  onSave?: (data: any) => void;
+  /** Called with the saved patient after it has been stored. */
+  onSaved?: (patient: Patient) => void;
 }
 
-export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = 'register', onSave }: PatientRegistrationFormProps) {
+const splitList = (value: string) => value.split(',').map(v => v.trim()).filter(Boolean);
+
+export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = 'register', onSaved }: PatientRegistrationFormProps) {
+  const { user, selectedClinicId } = useAuth();
   const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '', lastName: '', dob: '', gender: '', phone: '', email: '', address: '',
     emergencyName: '', emergencyRel: '', emergencyPhone: '',
@@ -42,14 +51,14 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
         medications: initialData.medicalHistory?.medications?.join(', ') || '',
         chronicConditions: initialData.medicalHistory?.chronicConditions || [],
         pastSurgeries: initialData.medicalHistory?.pastSurgeries || '',
-        reasonForVisit: '',
-        lastDentalVisit: '',
-        ongoingIssues: '',
-        smoking: false,
+        reasonForVisit: initialData.dentalHistory?.reasonForVisit || '',
+        lastDentalVisit: initialData.dentalHistory?.lastDentalVisit || '',
+        ongoingIssues: initialData.dentalHistory?.ongoingIssues || '',
+        smoking: initialData.dentalHistory?.smokingTobaccoUse ?? false,
         insuranceProvider: initialData.insurance?.provider || '',
         policyNumber: initialData.insurance?.policyNumber || '',
-        insuranceNotes: '',
-        referralSource: '',
+        insuranceNotes: initialData.insurance?.notes || '',
+        referralSource: initialData.referralSource || '',
         whatsappOptIn: initialData.communicationPrefs?.whatsappOptIn ?? true,
         language: initialData.communicationPrefs?.language || 'English'
       });
@@ -59,8 +68,9 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
   
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
-  const checkDuplicates = (phone: string) => {
-    const existing = mockPatients.find(p => p.phone.replace(/\s+/g, '') === phone.replace(/\s+/g, ''));
+  const checkDuplicates = async (phone: string) => {
+    const res = await checkDuplicatePatient(phone, mode === 'edit' ? initialData?.id : undefined);
+    const existing = res.data?.matches[0];
     if (existing) {
       setDuplicateWarning(`A patient named ${existing.firstName} ${existing.lastName} with this phone number already exists.`);
     } else {
@@ -68,9 +78,78 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
     }
   };
 
+  const buildPayload = (): Partial<Patient> & { clinicId?: string } => ({
+    firstName: formData.firstName.trim(),
+    lastName: formData.lastName.trim(),
+    dob: formData.dob || undefined,
+    gender: formData.gender || undefined,
+    phone: formData.phone.trim(),
+    email: formData.email.trim() || undefined,
+    address: formData.address.trim() || (mode === 'edit' ? initialData?.address : undefined),
+    emergencyContact: { name: formData.emergencyName, relationship: formData.emergencyRel, phone: formData.emergencyPhone },
+    medicalHistory: {
+      allergies: splitList(formData.allergies),
+      medications: splitList(formData.medications),
+      chronicConditions: formData.chronicConditions,
+      pastSurgeries: formData.pastSurgeries,
+    },
+    dentalHistory: {
+      reasonForVisit: formData.reasonForVisit,
+      lastDentalVisit: formData.lastDentalVisit,
+      ongoingIssues: formData.ongoingIssues,
+      smokingTobaccoUse: formData.smoking,
+    },
+    insurance: { provider: formData.insuranceProvider, policyNumber: formData.policyNumber, notes: formData.insuranceNotes },
+    referralSource: formData.referralSource || undefined,
+    communicationPrefs: { whatsappOptIn: formData.whatsappOptIn, language: formData.language },
+    ...(mode === 'register'
+      ? { clinicId: selectedClinicId !== 'all' ? selectedClinicId : user?.clinicId || undefined }
+      : {}),
+  });
+
+  const handleSubmit = async () => {
+    setSaveError(null);
+    setFieldErrors({});
+    if (!formData.firstName.trim() || !formData.phone.trim()) {
+      setStep(1);
+      setSaveError('First name and phone number are required.');
+      return;
+    }
+    setSaving(true);
+    const payload = buildPayload();
+    const res = mode === 'edit' && initialData
+      ? await updatePatient(initialData.id, payload)
+      : await createPatient(payload, confirmDuplicate);
+    setSaving(false);
+
+    if (res.error || !res.data) {
+      if (res.error?.code === 'DUPLICATE_PATIENT') {
+        setConfirmDuplicate(true);
+        setSaveError(`${res.error.message}. Click "Register anyway" if this is a different person (e.g. a family member sharing a phone).`);
+      } else {
+        setFieldErrors(res.error?.fieldErrors || {});
+        setSaveError(res.error?.message || 'Could not save the patient. Please try again.');
+        if (res.error?.fieldErrors && Object.keys(res.error.fieldErrors).some(f => ['firstName', 'lastName', 'phone', 'dob', 'email'].includes(f))) {
+          setStep(1);
+        }
+      }
+      return;
+    }
+    setConfirmDuplicate(false);
+    onSaved?.(res.data);
+    onClose();
+  };
+
+  const phoneCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handlePhoneChange = (val: string) => {
     setFormData({ ...formData, phone: val });
-    if (val.length > 8) checkDuplicates(val);
+    setConfirmDuplicate(false);
+    if (phoneCheckTimer.current) clearTimeout(phoneCheckTimer.current);
+    if (val.replace(/\D/g, '').length >= 10) {
+      phoneCheckTimer.current = setTimeout(() => checkDuplicates(val), 400);
+    } else {
+      setDuplicateWarning(null);
+    }
   };
 
   const handleToggleCondition = (condition: string) => {
@@ -323,6 +402,17 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
                 <div className={`h-1.5 rounded-full flex-1 ${step >= 3 ? 'bg-primary' : 'bg-primary/20'}`}></div>
              </div>
              
+             {saveError && (
+               <div role="alert" className="mb-4 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
+                 <p>{saveError}</p>
+                 {Object.entries(fieldErrors).length > 0 && (
+                   <ul className="mt-1 list-disc pl-5 text-xs">
+                     {Object.entries(fieldErrors).map(([field, msg]) => <li key={field}>{field}: {msg}</li>)}
+                   </ul>
+                 )}
+               </div>
+             )}
+
              {renderStepContent()}
           </div>
 
@@ -336,14 +426,9 @@ export function PatientRegistrationForm({ isOpen, onClose, initialData, mode = '
             {step < 3 ? (
               <Button onClick={() => setStep(step + 1)}>Continue</Button>
             ) : (
-              <Button onClick={() => {
-                if (onSave) {
-                  onSave(formData);
-                } else {
-                  alert(`Patient ${mode === 'edit' ? 'updated' : 'registered'} successfully (mock)`);
-                }
-                onClose();
-              }}>{mode === 'edit' ? 'Save Changes' : 'Register Patient'}</Button>
+              <Button onClick={handleSubmit} loading={saving}>
+                {mode === 'edit' ? 'Save Changes' : confirmDuplicate ? 'Register anyway' : 'Register Patient'}
+              </Button>
             )}
           </div>
         </Dialog.Content>

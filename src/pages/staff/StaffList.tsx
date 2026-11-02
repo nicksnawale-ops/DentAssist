@@ -44,10 +44,14 @@ export function StaffList() {
 
   const handleSave = async (newStaff: Partial<User>) => {
     try {
-      await createStaff(newStaff);
+      const res = await createStaff(newStaff);
+      if (res.error) throw new Error(res.error.message);
+      const tempPassword = res.data?.temporaryPassword;
       toast({
         title: "Staff Member Created",
-        description: `${newStaff.firstName} ${newStaff.lastName} added successfully.`,
+        description: tempPassword
+          ? `${newStaff.firstName} ${newStaff.lastName} added. Temporary password: ${tempPassword} (share it securely; shown only once).`
+          : `${newStaff.firstName} ${newStaff.lastName} added successfully.`,
         variant: "success"
       });
       setModalOpen(false);
@@ -55,7 +59,7 @@ export function StaffList() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to create staff member",
+        description: err instanceof Error && err.message ? err.message : "Failed to create staff member",
         variant: "error"
       });
     }

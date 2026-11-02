@@ -1,8 +1,9 @@
 import { useCurrency } from '../../utils/currencyConfig';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { mockPatients } from '../../data/mockPatients';
+import { getPatients } from '../../api/apiService';
+import { useAuth } from '../../context/AuthContext';
 import { Search, Filter, Plus, AlertCircle, Phone, Calendar as CalendarIcon, User } from 'lucide-react';
 import { format, parseISO, differenceInYears } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,7 +17,24 @@ export function PatientsList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [tagFilter, setTagFilter] = useState('All');
   const [showRegistration, setShowRegistration] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const { selectedClinicId } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getPatients({ clinicId: selectedClinicId }).then(res => {
+      if (cancelled) return;
+      setPatients(res.data || []);
+      setLoadError(res.error?.message || null);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [selectedClinicId, reloadKey]);
 
   const handlePatientClick = (patientId: string) => {
     navigate(`/patients/${patientId}`);
@@ -35,7 +53,7 @@ export function PatientsList() {
   const [hasUpcoming, setHasUpcoming] = useState(false);
   const [dentistFilter, setDentistFilter] = useState('All');
 
-  const filteredPatients = mockPatients.filter(p => {
+  const filteredPatients = patients.filter(p => {
     const matchesSearch = p.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           p.phone.includes(searchTerm);
@@ -47,7 +65,7 @@ export function PatientsList() {
     return matchesSearch && matchesTag && matchesUpcoming && matchesDentist;
   });
 
-  const allTags = Array.from(new Set(mockPatients.flatMap(p => p.tags || [])));
+  const allTags = Array.from(new Set(patients.flatMap(p => p.tags || [])));
 
   return (
     <div className="space-y-6">
@@ -183,15 +201,21 @@ export function PatientsList() {
                   </td>
                 </tr>
               ))}
-              {filteredPatients.length === 0 && (
+              {loading && (
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-text-muted">Loading patients…</td></tr>
+              )}
+              {!loading && loadError && (
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-error">{loadError}</td></tr>
+              )}
+              {!loading && !loadError && filteredPatients.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-12">
                      <EmptyState
                        icon={User}
                        title="No patients found"
-                       description={mockPatients.length === 0 ? "Add your first patient to get started." : "No patients found matching your search criteria."}
-                       actionLabel={mockPatients.length === 0 ? "Add Patient" : undefined}
-                       onAction={mockPatients.length === 0 ? () => setShowRegistration(true) : undefined}
+                       description={patients.length === 0 ? "Add your first patient to get started." : "No patients found matching your search criteria."}
+                       actionLabel={patients.length === 0 ? "Add Patient" : undefined}
+                       onAction={patients.length === 0 ? () => setShowRegistration(true) : undefined}
                      />
                   </td>
                 </tr>
@@ -205,6 +229,10 @@ export function PatientsList() {
          <PatientRegistrationForm 
            isOpen={showRegistration} 
            onClose={() => setShowRegistration(false)} 
+           onSaved={(saved) => {
+             setReloadKey(k => k + 1);
+             navigate(`/patients/${saved.id}`);
+           }}
          />
       )}
     </div>

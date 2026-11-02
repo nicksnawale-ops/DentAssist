@@ -43,8 +43,9 @@ export function StaffProfile() {
   const handleSave = async (updatedStaff: Partial<User>) => {
     if (!id) return;
     try {
-      await updateStaff(id, updatedStaff);
-      setStaff(prev => prev ? { ...prev, ...updatedStaff } as User : null);
+      const res = await updateStaff(id, updatedStaff);
+      if (res.error || !res.data) throw new Error(res.error?.message);
+      setStaff(res.data);
       toast({
         title: "Staff Updated",
         description: "Changes have been saved successfully.",
@@ -54,7 +55,7 @@ export function StaffProfile() {
     } catch (err) {
       toast({
         title: "Error",
-        description: "Failed to update staff member",
+        description: err instanceof Error && err.message ? err.message : "Failed to update staff member",
         variant: "error"
       });
     }

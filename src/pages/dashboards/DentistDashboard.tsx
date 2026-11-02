@@ -125,6 +125,9 @@ export function DentistDashboard() {
               <CardTitle className="text-white">Next Patient</CardTitle>
             </CardHeader>
             <CardContent>
+              {!data.nextPatient ? (
+                <p className="text-primary-100">No more patients scheduled for today.</p>
+              ) : (<>
               <h3 className="text-2xl font-bold mb-1">{data.nextPatient.name}</h3>
               <p className="text-primary-100 mb-4">{data.nextPatient.time} • {data.nextPatient.procedure}</p>
               
@@ -136,6 +139,7 @@ export function DentistDashboard() {
               <button className="w-full mt-6 bg-white text-primary font-semibold py-2.5 rounded-lg hover:bg-white/90 transition-colors">
                 Start Session
               </button>
+              </>)}
             </CardContent>
           </Card>
         </div>
